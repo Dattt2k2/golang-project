@@ -17,6 +17,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      MONGODB_URL: mongodb://mongo:27017
+      MONGODB_URL: mongodb://root:example@mongo:27017
+      MONGODB_DATABASE: user_data
+      SECRECT_KEY: 12dat34nguyen
     depends_on:
       - mongo
