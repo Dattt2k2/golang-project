@@ -18,6 +18,7 @@ func main(){
 
 	routes.AuthRoutes(router)
 	routes.UserRoutes(router)
+	routes.ProductManagerRoutes(router)
 
 	router.GET("/api-1", func(c *gin.Context){
 		c.JSON(200, gin.H{"success": "Access granted for api-1"})
