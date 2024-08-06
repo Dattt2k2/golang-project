@@ -14,4 +14,5 @@ type Product struct{
 	Price			float64					`json:"price"`
 	Created_at		time.Time				`json:"created_at"`
 	Updated_at		time.Time				`json:"updated_at"`
+	UserID			primitive.ObjectID		`json:"user_id"`
 }
