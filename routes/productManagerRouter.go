@@ -12,7 +12,7 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine){
 	authorized.Use(middleware.Authenticate())
 
 	authorized.POST("/products", controller.AddProduct())
-	authorized.PUT("/products/:id", controller.EditProduct())
+	// authorized.PUT("/products/:id", controller.EditProduct())
 	authorized.DELETE("/products/:id", controller.DeleteProduct())
-	authorized.GET("/products", controller.GetProdctByNameHander())
+	authorized.GET("/products", controller.GetAllProducts())
 }
