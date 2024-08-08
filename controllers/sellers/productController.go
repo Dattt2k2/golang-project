@@ -57,7 +57,7 @@ func AddProduct() gin.HandlerFunc{
 		var product models.Product
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		
-		if err:= c.ShouldBind(&product); err!= nil{
+		if err:= c.ShouldBindJSON(&product); err!= nil{
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -127,6 +127,7 @@ func AddProduct() gin.HandlerFunc{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 
 		c.JSON(http.StatusOK, gin.H{"id": result.InsertedID})
 		defer cancel()
@@ -361,5 +362,29 @@ func GetProdctByNameHander() gin.HandlerFunc{
 		}
 
 		c.JSON(http.StatusOK, products)
+	}
+}
+
+func GetAllProducts() gin.HandlerFunc{
+	return func (c *gin.Context)  {
+		var products []models.Product
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+
+		cursor, err := productCollection.Find(ctx, bson.M{})
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load products"})
+			return
+		}
+
+		defer cursor.Close(ctx)
+
+		if err := cursor.All(ctx, &products); err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
+			return
+		}
+		defer cancel()
+
+		c.JSON(http.StatusOK, products)
+
 	}
 }
