@@ -11,6 +11,7 @@ type Product struct{
 	Name			*string					`json:"name" validate:"required,min=2,max=100"`
 	Image			primitive.Binary		`json:"image"`
 	Description		*string					`json:"description" validate:"required,min=2,max=100"`
+	Quantity		*int					`json:"quantity" validate:"required,min=1"`
 	Price			float64					`json:"price" validate:"required"`
 	Created_at		time.Time				`json:"created_at"`
 	Updated_at		time.Time				`json:"updated_at"`
