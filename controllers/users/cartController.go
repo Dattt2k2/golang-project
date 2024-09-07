@@ -56,6 +56,32 @@ func AddToCart() gin.HandlerFunc{
 
 func GetCart() gin.HandlerFunc{
 	return func(c *gin.Context) {
-		
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+
+		var cartItem[] models.CartItem
+
+		cursor, err := cartCollection.Find(ctx, bson.M{})
+		if err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to load cart"})
+			return
+		}
+
+		defer cursor.Close(ctx)
+
+		if err := cursor.All(ctx, &cartItem); err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load cart"})
+			return
+		}
+		defer cancel()
+
+		c.JSON(http.StatusOK, cartItem)
 	}
 }
+
+// func DeleteProductFromCart() gin.HandlerFunc{
+// 	return func (c *gin.Context)  {
+// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+
+		
+// 	}
+// }
