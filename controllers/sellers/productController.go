@@ -264,3 +264,4 @@ func GetAllProducts() gin.HandlerFunc{
 
 	}
 }
+
