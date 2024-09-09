@@ -8,7 +8,7 @@ import (
 	"time"
 
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -21,7 +21,7 @@ type SignedDetails struct{
 	Last_name		string
 	Uid				string
 	User_type 		string
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
@@ -35,14 +35,14 @@ func GenerateAllToken(email string, firstname string, lastname string, userType 
 		Last_name: lastname,
 		Uid: uid,
 		User_type: userType,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
-		},
+		RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * time.Duration(24))),
+        },
 	}
 	refreshClaims := &SignedDetails{
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
-		},
+		RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * time.Duration(168))),
+        },
 	}
 
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRECT_KEY))
@@ -73,7 +73,7 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string){
 		msg = err.Error()
 		return
 	}
-	if claims.ExpiresAt < time.Now().Local().Unix(){
+	if claims.ExpiresAt.Before(time.Now()){
 		msg = fmt.Sprintf("tiken is expired")
 		msg = err.Error()
 		return
