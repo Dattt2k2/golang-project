@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"encoding/base64"
 
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
 	"github.com/Dattt2k2/golang-project/models"
@@ -214,6 +215,11 @@ func GetProductByName(name string) ([]models.Product, error){
 	}
 	
 	defer cancel()
+
+	for i := range products{
+		products[i].ImageBase64 = base64.StdEncoding.EncodeToString(products[i].Image.Data)
+	}
+
 	return products, nil
 
 }
@@ -259,6 +265,10 @@ func GetAllProducts() gin.HandlerFunc{
 			return
 		}
 		defer cancel()
+
+		for i := range products{
+			products[i].ImageBase64 = base64.StdEncoding.EncodeToString(products[i].Image.Data)
+		}
 
 		c.JSON(http.StatusOK, products)
 
