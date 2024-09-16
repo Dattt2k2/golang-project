@@ -16,4 +16,5 @@ type Product struct{
 	Created_at		time.Time				`json:"created_at"`
 	Updated_at		time.Time				`json:"updated_at"`
 	UserID			primitive.ObjectID		`json:"user_id"`
+	ImageBase64		string					`json:"image,omitempty"`
 }
