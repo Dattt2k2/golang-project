@@ -59,6 +59,8 @@ import (
     "go.mongodb.org/mongo-driver/mongo/options"
 )
 
+var DB *mongo.Database
+
 func DBinstance() *mongo.Client {
     // Load .env file
     err := godotenv.Load("github.com/Dattt2k2/golang-project/.env")

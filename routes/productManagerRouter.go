@@ -4,15 +4,16 @@ import (
 	controller "github.com/Dattt2k2/golang-project/controllers/sellers"
 	"github.com/Dattt2k2/golang-project/middleware"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func ProductManagerRoutes(incomingRoutes *gin.Engine){
+func ProductManagerRoutes(incomingRoutes *gin.Engine, db *mongo.Database){
 
 	authorized := incomingRoutes.Group("/")
 	authorized.Use(middleware.Authenticate())
 
 	// add product to database
-	authorized.POST("/products", controller.AddProduct())
+	authorized.POST("/products", controller.AddProduct(db))
 	// Edit product from database
 	authorized.PUT("/products/:id", controller.EditProduct())
 	// Delete product from databse
