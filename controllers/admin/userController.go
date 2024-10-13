@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"errors"
 
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
 	"github.com/Dattt2k2/golang-project/helpers"
@@ -17,6 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -207,4 +209,50 @@ func GetUser() gin.HandlerFunc{
 		}
 		c.JSON(http.StatusOK, user)
 	}
+}
+
+// func GetUserType() gin.HandlerFunc{
+// 	return func (c *gin.Context){
+// 		userID := c.GetString("uid")
+// 		if userID == ""{
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "User Id not found"})
+// 		}
+
+// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// 		defer cancel()
+
+// 		var user models.User
+
+// 		err := userCollection.FindOne(ctx, bson.M{"user_id": userID}).Decode(&user)
+// 		if err != nil{
+// 			if err == mongo.ErrNoDocuments{
+// 				c.JSON(http.StatusBadRequest, gin.H{"error": "User not found"})
+// 			}
+// 		}
+// 		c.JSON(http.StatusOK, user.User_type)
+// 	}
+// }
+
+func GetUserType(c *gin.Context) (string, error) {
+    userID := c.GetString("uid")
+    if userID == "" {
+        return "", errors.New("Failed to get uid")
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+    defer cancel()
+
+    var result struct {
+        UserType string `bson:"user_type"`
+    }
+
+    err := userCollection.FindOne(ctx, bson.M{"user_id": userID}, options.FindOne().SetProjection(bson.M{"user_type": 1, "_id": 0})).Decode(&result)
+    if err != nil {
+        if err == mongo.ErrNoDocuments {
+            return "", errors.New("User not found")
+        }
+        return "", err
+    }
+
+    return result.UserType, nil
 }
