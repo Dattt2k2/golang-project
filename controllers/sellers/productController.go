@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"encoding/base64"
 
 	// "encoding/base64"
 
@@ -386,10 +387,10 @@ func GetProductByName(name string) ([]models.Product, error){
 	
 	defer cancel()
 
+
 	// for i := range products{
 	// 	products[i].ImageBase64 = base64.StdEncoding.EncodeToString(products[i].Image.Data)
 	// }
-
 	return products, nil
 
 }
