@@ -6,11 +6,10 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	// "encoding/base64"
 
 	// "encoding/base64"
 
-	// user "github.com/Dattt2k2/golang-project/controllers/admin/userController.go"
-	// controllers "github.com/Dattt2k2/golang-project/controllers/admin"
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
 	"github.com/Dattt2k2/golang-project/helpers"
 
@@ -385,11 +384,6 @@ func GetProductByName(name string) ([]models.Product, error){
 	}
 	
 	defer cancel()
-
-	// for i := range products{
-	// 	products[i].ImageBase64 = base64.StdEncoding.EncodeToString(products[i].Image.Data)
-	// }
-
 	return products, nil
 
 }
