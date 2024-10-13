@@ -1,8 +1,10 @@
 package main
 
-import(
-	routes "github.com/Dattt2k2/golang-project/routes"
+import (
 	"os"
+
+	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
+	routes "github.com/Dattt2k2/golang-project/routes"
 	"github.com/gin-gonic/gin"
 )	
 
@@ -15,10 +17,11 @@ func main(){
 
 	router := gin.New()
 	router.Use(gin.Logger())
+	
 
 	routes.AuthRoutes(router)
 	routes.UserRoutes(router)
-	routes.ProductManagerRoutes(router)
+	routes.ProductManagerRoutes(router, database.DB)
 
 	router.GET("/api-1", func(c *gin.Context){
 		c.JSON(200, gin.H{"success": "Access granted for api-1"})
