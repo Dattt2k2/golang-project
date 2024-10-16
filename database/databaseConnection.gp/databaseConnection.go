@@ -22,7 +22,6 @@
 //         log.Fatal("MONGODB_URL environment variable not set")
 //     }
 
-
 // 	client, err :=mongo.Connect(context.TODO() ,options.Client().ApplyURI(MongoDB))
 // 	if err != nil{
 // 		log.Fatal(err)
@@ -48,18 +47,39 @@
 package database
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "os"
-    "time"
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"time"
 
-    "github.com/joho/godotenv"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/gridfs"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var DB *mongo.Database
+var gfsBucket *gridfs.Bucket
+
+func  InitBucket() error{
+    if Client == nil{
+        Client = DBinstance()
+    }
+
+    database := os.Getenv("MONGODB_DATABASE")
+	if database == "" {
+		return fmt.Errorf("MONGODB_DATABASE environment variable not set")
+	}
+    db := Client.Database(database)
+	var err error
+	gfsBucket, err = gridfs.NewBucket(db)
+	return err 
+}
+
+func GetBucket() *gridfs.Bucket {
+	return gfsBucket
+}
 
 func DBinstance() *mongo.Client {
     // Load .env file
