@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
@@ -13,6 +14,11 @@ func main(){
 
 	if port == ""{
 		port = "8080"
+	}
+
+	err := database.InitBucket()
+	if err != nil{
+		log.Fatal("Failed to initialize GridFS bucket:", err)
 	}
 
 	router := gin.New()
