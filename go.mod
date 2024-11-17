@@ -4,7 +4,10 @@ go 1.22
 
 require go.mongodb.org/mongo-driver v1.16.0
 
-
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect
