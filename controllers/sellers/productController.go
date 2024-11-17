@@ -2,10 +2,16 @@ package controllers
 
 import (
 	"context"
-	"io"
+	"fmt"
+	"mime/multipart"
+	"os"
+
+	// "io"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
+
 	// "encoding/base64"
 
 	// "encoding/base64"
@@ -20,7 +26,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/gridfs"
+
+	// "go.mongodb.org/mongo-driver/mongo/description"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	// "go.mongodb.org/mongo-driver/mongo/gridfs"
 	// "go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -29,20 +38,40 @@ var productCollection *mongo.Collection = database.OpenCollection(database.Clien
 var validate = validator.New()
 
 
-func AddProduct(db *mongo.Database) gin.HandlerFunc{
+func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
+	saveDir := "./uploads/images/"
+	err := os.MkdirAll(saveDir, os.ModePerm) // Đảm bảo thư mục tồn tại
+	if err != nil {
+		return "", fmt.Errorf("Failed to create directory: %v", err)
+	}
+
+	// Tạo tên file duy nhất
+	imageFileName := fmt.Sprintf("%d-%s", time.Now().Unix(), file.Filename)
+	imagePath := saveDir + imageFileName
+
+	// Lưu file vào thư mục
+	if err := c.SaveUploadedFile(file, imagePath); err != nil {
+		return "", fmt.Errorf("Failed to save image: %v", err)
+	}
+
+	return imagePath, nil
+}
+
+func AddProduct(db *mongo.Database) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		var product models.Product
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
 		userID := c.GetString("uid")
-		if userID == " "{
-			c.JSON(http.StatusBadRequest, gin.H{"error":"Unauthorized access"})
+		if userID == " " {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized access"})
 			return
 		}
 
 		err := helpers.CheckUserType(c, userID)
-		if err != nil{
+		if err != nil {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to add product"})
 			return
 		}
@@ -60,137 +89,53 @@ func AddProduct(db *mongo.Database) gin.HandlerFunc{
 
 		quantity, err := strconv.Atoi(quantityStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity format"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
 			return
 		}
 
-		// Chuyển đổi price từ string sang float64
 		price, err := strconv.ParseFloat(priceStr, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
-			return
-		}
-		
-		if err := c.ShouldBind(&product); err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
 			return
 		}
 
+		// Xử lý file ảnh
 		file, err := c.FormFile("image")
-		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error":"Image is required"})
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
 			return
 		}
 
-		bucket, err := gridfs.NewBucket(db)
-		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to create new bucket"})
+		imagePath, err := saveImageToFileSystem(c,file)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		imageID := primitive.NewObjectID()
-		filename := primitive.NewObjectID().Hex() + "-" + file.Filename
-
-		uploadStream, err := bucket.OpenUploadStream(filename)
-		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to open upload stream"})
-			return
-		}
-
-		defer uploadStream.Close()
-
-		fileContent, err := file.Open()
-		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read image"})
-			return
-		}
-		defer fileContent.Close()
-
-		_, err = io.Copy(uploadStream, fileContent)
-		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to upload image"})
-			return
-		}
-
-		product.ID =	primitive.NewObjectID()
+		product.ID = primitive.NewObjectID()
 		product.Name = &name
-		product.Image_id = imageID
+		product.ImagePath = imagePath
 		product.Description = &description
-		product.Quantity = &quantity
 		product.Price = price
+		product.Quantity = &quantity
 		product.Created_at = time.Now()
 		product.Updated_at = time.Now()
 		product.UserID = userObjectID
 
+		// Validate dữ liệu
 		if err := validate.Struct(product); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Lưu sản phẩm vào database
-		_, err = db.Collection("products").InsertOne(ctx, product)
+		// Chèn dữ liệu vào MongoDB
+		_, err = db.Collection("product").InsertOne(ctx, product)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload product"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully", "product": product.Name})
-
-		// name := c.PostForm("name")
-		// description := c.PostForm("description")
-		// price := c.PostForm("price")
-
-		// file, err := c.FormFile("image")
-		// if err != nil{
-		// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
-		// 	return
-		// }
-
-		// fileContent, err := file.Open()
-		// if err != nil{
-		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read image"})
-		// 	return
-		// }
-
-		// defer fileContent.Close()
-
-		// imageBytes, err := io.ReadAll(fileContent)
-		// if err != nil{
-		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read image content"})
-		// 	return
-		// }
-
-		// userID:= c.GetString("uid")
-		// if userID == ""{
-		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get userID"})
-		// 	return
-		// }
-
-		// product.Name = &name
-		// product.Description = &description
-		// product.Image = primitive.Binary{Data: imageBytes}
-		// product.Price = parseFloat(price)
-		// product.UserID, _ = primitive.ObjectIDFromHex(userID)
-
-		// if err := validate.Struct(product); err != nil{
-		// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		// 	return
-		// }
-
-		// now := time.Now()
-		// product.Created_at = now
-		// product.Updated_at = now
-
-		// product.ID = primitive.NewObjectID()
-
-		// _, err = productCollection.InsertOne(ctx, product)
-		// if err != nil{
-		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product"})
-		// 	return
-		// }
-
-		// c.JSON(http.StatusOK, gin.H{"message": "Product added successfully", "product": product.Name})
-		// defer cancel()
+		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
 	}
 }
 
@@ -203,12 +148,12 @@ func AddProduct(db *mongo.Database) gin.HandlerFunc{
 
 func EditProduct() gin.HandlerFunc{
 	return func (c *gin.Context)  {
-		var product models.Product
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
 		productID, err := primitive.ObjectIDFromHex(c.Param("id"))
 		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product"})
 			return
 		}
 
@@ -217,95 +162,47 @@ func EditProduct() gin.HandlerFunc{
 		priceStr := c.PostForm("price")
 		quantityStr := c.PostForm("quantity")
 
-		price, err := strconv.ParseFloat(priceStr, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
-			return
-		}
-
-		quantity, err := strconv.Atoi(quantityStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity format"})
-			return
-		}
-
 		update := bson.M{"updated_at": time.Now()}
-		
 		if name != ""{
 			update["name"] = name
 		}
 
-		if description != ""{
+		if description != "" {
 			update["description"] = description
 		}
-
-		if quantityStr != ""{
+		if priceStr != "" {
+			price, err := strconv.ParseFloat(priceStr, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
+				return
+			}
+			update["price"] = price
+		}
+		if quantityStr != "" {
+			quantity, err := strconv.Atoi(quantityStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity format"})
+				return
+			}
 			update["quantity"] = quantity
 		}
 
-		if priceStr != ""{
-			update["price"] = price
-		}
-
-		// if price != ""{
-		// 	update["price"] = parseFloat(price)
-		// }
-
 		file, err := c.FormFile("image")
 		if err == nil{
-			err = productCollection.FindOne(ctx, bson.M{"_id": productID}).Decode(&product)
-			if err == nil && product.Image_id != primitive.NilObjectID{
-				database.GetBucket().Delete(product.Image_id)
-			}
-
-			fileContent, err := file.Open()
+			imagePath, err := saveImageToFileSystem(c,file)
 			if err != nil{
-				c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to read image"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-			defer fileContent.Close()
-
-			uploadStream, err := database.GetBucket().OpenUploadStream(file.Filename)
-
-			if err != nil{
-				c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to create upload stream"})
-				return
-			}
-			defer uploadStream.Close()
-
-			_, err = io.Copy(uploadStream, fileContent)
-			if err != nil{
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload image"})
-				return
-			}
-
-			update["image_id"] = uploadStream.FileID
+			update["image_path"] = imagePath
 		}
-
-
-		// file, err := c.FormFile("image")
-		// if err == nil{
-		// 	fileContent, err := file.Open()
-		// 	if err != nil{
-		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read image"})
-		// 		return
-		// 	}
-		// 	defer fileContent.Close()
-		// 	imageBytes, err := io.ReadAll(fileContent)
-		// 	if err != nil{
-		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read image content"})
-		// 		return
-		// 	}
-
-		// 	update["image"] = primitive.Binary{Data: imageBytes}
-		// }
 
 		result, err := productCollection.UpdateOne(
 			ctx,
-			bson.M{"_id": productID},
+			bson.M{"_id":productID},
 			bson.M{"$set": update},
 		)
-
+		
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
 			return
@@ -317,9 +214,22 @@ func EditProduct() gin.HandlerFunc{
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Product updated successfully"})
-		defer cancel()
 	}
 }
+
+
+// func handleImageUpload(ctx, context.Context, productID primitive.ObjecID, file *multipart.FileHeader) (primitive.ObjectID, error){
+// 	var product models.Product
+
+// 	err := productCollection.FindOne(ctx, bson.M{"_id": productID}).Decode(&product)
+// 	if err != nil{
+// 		return primitive.NilObjectID, fmt.Errorf("Failed to fetch product")
+// 	}
+
+// 	if product.Image_id != primitive.NilObjectID{
+// 		err := database.GetBucket().Delete(product.)
+// 	}
+// }
 
 
 
@@ -399,31 +309,56 @@ func GetProdctByNameHander() gin.HandlerFunc{
 	}
 }
 
-func GetAllProducts() gin.HandlerFunc{
-	return func (c *gin.Context)  {
+func GetAllProducts(db *mongo.Database) gin.HandlerFunc{
+	return func(c *gin.Context) {
 		var products []models.Product
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-
-		cursor, err := productCollection.Find(ctx, bson.M{})
-		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load products"})
-			return
-		}
-
-		defer cursor.Close(ctx)
-
-		if err := cursor.All(ctx, &products); err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
-			return
-		}
 		defer cancel()
 
-		// for i := range products{
-		// 	products[i].ImageBase64 = base64.StdEncoding.EncodeToString(products[i].Image.Data)
-		// }
+		// Lấy tham số page và limit từ query
+		page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+		limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+		if err != nil || limit < 1 {
+			limit = 10
+		}
 
-		c.JSON(http.StatusOK, products)
+		// Tính toán skip và limit
+		skip := (page - 1) * limit
 
+		// Tổng số sản phẩm
+		total, err := db.Collection("products").CountDocuments(ctx, bson.M{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
+			return
+		}
+
+		// Lấy sản phẩm từ MongoDB
+		cursor, err := db.Collection("products").Find(ctx, bson.M{}, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+			return
+		}
+		defer cursor.Close(ctx)
+
+		// Decode dữ liệu
+		if err := cursor.All(ctx, &products); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse products"})
+			return
+		}
+
+		// Tổng số trang
+		pages := int(math.Ceil(float64(total) / float64(limit)))
+
+		// Trả dữ liệu và metadata
+		c.JSON(http.StatusOK, gin.H{
+			"data":  products,
+			"total": total,
+			"page":  page,
+			"pages": pages,
+		})
 	}
 }
 

@@ -19,7 +19,7 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine, db *mongo.Database){
 	// Delete product from databse
 	authorized.DELETE("/products/:id", controller.DeleteProduct())
 	// Get all product from database
-	authorized.GET("/products", controller.GetAllProducts())
+	authorized.GET("/products", controller.GetAllProducts(db))
 	// search product
 	authorized.GET("/products/search", controller.GetProdctByNameHander())
 }
