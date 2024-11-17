@@ -27,4 +27,6 @@ jobs:
 
       - name: Test
         run: go test -v ./test/...
-        
+      
+      - name: Set environment variable for MongoDB
+        run: echo "MONGODB_URL=${{ secrets.MONGODB_URL }}" >> $GITHUB_ENV
