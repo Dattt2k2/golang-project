@@ -4,9 +4,10 @@ go 1.22
 
 require go.mongodb.org/mongo-driver v1.16.0
 
-require github.com/dgrijalva/jwt-go v3.2.0+incompatible
-
-require github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect
@@ -32,6 +33,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
+	github.com/stretchr/testify v1.9.0
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
