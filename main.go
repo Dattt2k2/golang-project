@@ -16,6 +16,11 @@ func main(){
 		port = "8080"
 	}
 
+	mongodbURL := os.Getenv("MONGODB_URL")
+	if mongodbURL == "" {
+		log.Fatal("MONGODB_URL environment variable not set")
+	}
+
 	err := database.InitBucket()
 	if err != nil{
 		log.Fatal("Failed to initialize GridFS bucket:", err)
