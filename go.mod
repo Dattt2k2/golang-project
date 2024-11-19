@@ -5,8 +5,10 @@ go 1.22
 require go.mongodb.org/mongo-driver v1.16.0
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/oauth2 v0.24.0 // indirect
 )
 
 require (

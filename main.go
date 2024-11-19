@@ -7,9 +7,16 @@ import (
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
 	routes "github.com/Dattt2k2/golang-project/routes"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )	
 
 func main(){
+
+	err := godotenv.Load(".env")
+		if err != nil{
+		log.Fatalf("Error loading .env file: %s", err)
+		}
+
 	port := os.Getenv("PORT")
 
 	if port == ""{
@@ -21,7 +28,7 @@ func main(){
 		log.Fatal("MONGODB_URL environment variable not set")
 	}
 
-	err := database.InitBucket()
+	err = database.InitBucket()
 	if err != nil{
 		log.Fatal("Failed to initialize GridFS bucket:", err)
 	}
