@@ -7,8 +7,9 @@ import (
 )
 
 type CartItem struct{
-	ProductID			primitive.ObjectID		`bson:"_id" validate:"requried"`
-	Quantity			*int					`bson:"quantity" validate:"required,min=1"`
+	ProductID			primitive.ObjectID		`bson:"product_id" validate:"required"`
+	Quantity			int						`bson:"quantity" validate:"required,min=1"`
+	Price       		float64            		`json:"price" validate:"required"`
 }
 
 type Cart struct{

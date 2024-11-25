@@ -1,7 +1,7 @@
 package routes
 
 import(
-	controller "github.com/Dattt2k2/golang-project/controllers/admin"
+	controller "github.com/Dattt2k2/golang-project/user-service/controller"
 	"github.com/Dattt2k2/golang-project/middleware"
 	"github.com/gin-gonic/gin"
 )

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
-	"github.com/Dattt2k2/golang-project/models"
+	"github.com/Dattt2k2/golang-project/cart-service/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -15,7 +15,7 @@ import (
 )
 
 var cartCollection *mongo.Collection = database.OpenCollection(database.Client, "cart")
-var productCollection *mongo.Collection = database.OpenCollection(database.Client, "product")
+
 
 func AddToCart() gin.HandlerFunc{
 	return func(c *gin.Context) {

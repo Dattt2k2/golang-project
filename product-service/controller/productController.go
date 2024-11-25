@@ -20,7 +20,7 @@ import (
 	"github.com/Dattt2k2/golang-project/helpers"
 
 	// "github.com/Dattt2k2/golang-project/helpers"
-	"github.com/Dattt2k2/golang-project/models"
+	"github.com/Dattt2k2/golang-project/product-service/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"go.mongodb.org/mongo-driver/bson"

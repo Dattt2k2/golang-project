@@ -12,7 +12,7 @@ import (
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
 	"github.com/Dattt2k2/golang-project/helpers"
 	helper "github.com/Dattt2k2/golang-project/helpers"
-	"github.com/Dattt2k2/golang-project/models"
+	"github.com/Dattt2k2/golang-project/user-service/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"go.mongodb.org/mongo-driver/bson"
@@ -52,13 +52,13 @@ func SignUp() gin.HandlerFunc{
 
 		if err := c.BindJSON(&user); err != nil{
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
+			// return
 		}
 
 		validationErr := validate.Struct(user)
 		if validationErr != nil{
 			c.JSON(http.StatusBadRequest, gin.H{"err": validationErr.Error()})
-			return
+			// return
 		}
 
 		count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
@@ -106,7 +106,7 @@ func Login() gin.HandlerFunc{
 
 		if err := c.BindJSON(&user); err != nil{
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
+			// return
 		}
 		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
 		defer cancel()
@@ -116,7 +116,7 @@ func Login() gin.HandlerFunc{
 		}
 		passwordValid, msg := VerifyPass(*user.Password, *foundUser.Password)
 		defer cancel()
-		if passwordValid != true{
+		if !passwordValid{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
@@ -162,7 +162,7 @@ func GetUsers() gin.HandlerFunc {
 		matchStage := bson.D{{Key: "$match", Value: bson.D{}}}
 		groupStage := bson.D{{Key: "$group", Value: bson.D{
 			{"_id", "null"},
-			{"total_count", bson.D{{"$sum", 1}}},
+			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
 			{"data", bson.D{{"$push", "$$ROOT"}}},
 		}}}
 		projectStage := bson.D{{Key: "$project", Value: bson.D{
