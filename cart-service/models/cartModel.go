@@ -10,6 +10,7 @@ type CartItem struct{
 	ProductID			primitive.ObjectID		`bson:"product_id" validate:"required"`
 	Quantity			int						`bson:"quantity" validate:"required,min=1"`
 	Price       		float64            		`json:"price" validate:"required"`
+	Name           		string					`json"name" validate:"required"`
 }
 
 type Cart struct{

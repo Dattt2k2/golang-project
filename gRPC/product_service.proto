@@ -1,12 +1,14 @@
 syntax = "proto3";
 
-package  product;
+package product;
+
+option go_package = "github.com/Dattt2k2/golang-project/product-service";
 
 service ProductService{
     rpc GetProductInfor (ProductRequest) returns (ProductResponse);
 }
 
-message  ProductRequest{
+message ProductRequest{
     string id = 1;
 }
 

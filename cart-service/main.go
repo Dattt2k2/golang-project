@@ -5,6 +5,7 @@ import (
 	"os"
 
 	// "github.com/Dattt2k2/golang-project/cart-service/database"
+	controller "github.com/Dattt2k2/golang-project/cart-service/controller"
 	"github.com/Dattt2k2/golang-project/cart-service/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -26,6 +27,8 @@ func main(){
 	if port == ""{
 		port = "8082"
 	}
+
+	controller.InitProductServiceConnection()
 
 	router := gin.New()
 	router.Use(gin.Logger())
