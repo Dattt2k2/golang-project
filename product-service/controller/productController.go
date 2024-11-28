@@ -39,7 +39,7 @@ var validate = validator.New()
 
 
 func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
-	saveDir := "./uploads/images/"
+	saveDir := "./product-service/uploads/images/"
 	err := os.MkdirAll(saveDir, os.ModePerm) // Đảm bảo thư mục tồn tại
 	if err != nil {
 		return "", fmt.Errorf("Failed to create directory: %v", err)

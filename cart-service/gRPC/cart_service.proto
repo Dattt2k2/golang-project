@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package cart;
+
+option go_package = "./cart-service/gRPC/service";
+
+service CartService {
+    rpc GetCartItems (CartRequest) returns (CartResponse);
+}
+
+message CartRequest {
+    string user_id = 1;
+}
+
+message CartResponse {
+    repeated CartItem items = 1;
+}
+
+message CartItem {
+    string product_id = 1;
+    int32 quantity = 2;
+    float price = 3;
+}
+
