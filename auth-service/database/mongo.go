@@ -17,9 +17,9 @@ var DB *mongo.Database
 
 func DBinstance() *mongo.Client {
     // Load .env file
-    err := godotenv.Load("github.com/Dattt2k2/golang-project/user-service/.env")
+    err := godotenv.Load("./auth-service/.env")
     if err != nil {
-        log.Println("Warning: Error loading .env file:", err)
+        log.Println("Warning 1: Error loading .env file:", err)
     }
 
     // Get MongoDB URL from environment variable

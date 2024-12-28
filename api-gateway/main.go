@@ -6,12 +6,12 @@ import (
 
 	"github.com/Dattt2k2/golang-project/api-gateway/middleware"
 	"github.com/Dattt2k2/golang-project/api-gateway/router"
-	"github.com/Dattt2k2/golang-project/api-gateway/redisdb"
+	// "github.com/Dattt2k2/golang-project/api-gateway/redisdb"
 	"github.com/gin-gonic/gin"
 )
 
 func main(){
-	redisdb.InitRedis()
+	// redisdb.InitRedis()
 
 	ginrouter := gin.Default()
 

@@ -34,6 +34,6 @@ func main(){
 
 	routes.ProductManagerRoutes(router, database.DB)
 
-	router.Run(":", port)
+	router.Run(":" + port)
 	
 }

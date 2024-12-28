@@ -11,9 +11,9 @@ import (
 
 
 func main(){
-	err := godotenv.Load("github.com/Dattt2k2/golang-project/user-service/.env")
+	err := godotenv.Load("./auth-service/.env")
     if err != nil {
-        log.Println("Warning: Error loading .env file:", err)
+        log.Println("Warning2 : Error loading .env file:", err)
     }
 	mongodbURL := os.Getenv("MONGODB_URL")
 	if mongodbURL == ""{
@@ -31,6 +31,6 @@ func main(){
 	routes.AuthRoutes(router)
 	routes.UserRoutes(router)
 
-	router.Run(":", port)
+	router.Run(":"+ port)
 	
 }

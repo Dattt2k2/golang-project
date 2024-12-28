@@ -36,6 +36,6 @@ func main(){
 
 	routes.CartRoutes(router)
 
-	router.Run(":", port)
+	router.Run(":"+ port)
 	
 }

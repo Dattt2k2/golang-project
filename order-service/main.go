@@ -32,5 +32,7 @@ func main(){
 	service.CartServiceConnection()
 	service.ProductServiceConnection()
 
+	router.Run(":" + port)
+
 	
 }

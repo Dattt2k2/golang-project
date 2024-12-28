@@ -35,8 +35,8 @@ func ForwardRequestToService(c *gin.Context, serviceURL string){
 func SetupRouter(router *gin.Engine){
 
 	// Auth Route
-	router.GET("/auth", func(c *gin.Context){
-		resp, err := http.Get("http://localhost:8081/auth")
+	router.POST("/auth/users/register", func(c *gin.Context){
+		resp, err := http.Post("http://localhost:8081/auth/users/register", "application/json", c.Request.Body)
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error":"Unable to connect to auth service"})
 			return
@@ -44,6 +44,19 @@ func SetupRouter(router *gin.Engine){
 		defer resp.Body.Close()
 
 		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+	})
+
+	// Login Route
+	router.POST("/auth/users/login", func(c *gin.Context){
+		resp, err := http.Post("http://localhost:8081/auth/users/login", "application/json", c.Request.Body)
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error":"Unable to connect to auth service"})
+			return
+		}
+		defer resp.Body.Close()
+
+		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+
 	})
 
 	// Product Route
