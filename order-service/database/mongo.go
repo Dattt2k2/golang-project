@@ -50,7 +50,7 @@ func DBinstance() *mongo.Client {
 
 var Client *mongo.Client = DBinstance()
 
-func OpentCollection(client *mongo.Client, collectionName string) * mongo.Collection{
+func OpenCollection(client *mongo.Client, collectionName string) * mongo.Collection{
 	database := os.Getenv("MONGODB_DATABASE")
 	if database == ""{
 		log.Fatalf("MONGODB_DATABASE enviroment varialbe not set yet")

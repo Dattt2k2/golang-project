@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	helper "github.com/Dattt2k2/golang-project/helpers"
+	helper "github.com/Dattt2k2/golang-project/auth-service/helpers"
 )
 
 func Authenticate() gin.HandlerFunc{

@@ -3,39 +3,35 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"mime/multipart"
-	"os"
-
-	// "io"
 	"math"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
-	// "encoding/base64"
-
-	// "encoding/base64"
-
-	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
-	"github.com/Dattt2k2/golang-project/helpers"
-
-	// "github.com/Dattt2k2/golang-project/helpers"
+	"github.com/Dattt2k2/golang-project/product-service/database"
 	"github.com/Dattt2k2/golang-project/product-service/models"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
+	"github.com/go-playground/validator"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-
-	// "go.mongodb.org/mongo-driver/mongo/description"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	// "go.mongodb.org/mongo-driver/mongo/gridfs"
-	// "go.mongodb.org/mongo-driver/mongo/options"
 )
 
 
 var productCollection *mongo.Collection = database.OpenCollection(database.Client, "product")
 var validate = validator.New()
+
+
+func CheckUserRole(c *gin.Context) {
+	userRole := c.GetHeader("role")
+	if userRole != "SELLER" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
+		c.Abort()
+	}
+}
 
 
 func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
@@ -64,17 +60,8 @@ func AddProduct(db *mongo.Database) gin.HandlerFunc {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		userID := c.GetString("uid")
-		if userID == " " {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized access"})
-			return
-		}
-
-		err := helpers.CheckUserType(c, userID)
-		if err != nil {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to add product"})
-			return
-		}
+		userID := c.GetHeader("uid")
+		CheckUserRole(c)
 
 		userObjectID, err := primitive.ObjectIDFromHex(userID)
 		if err != nil {
@@ -157,6 +144,8 @@ func EditProduct() gin.HandlerFunc{
 			return
 		}
 
+		CheckUserRole(c)
+
 		name := c.PostForm("name")
 		description := c.PostForm("description")
 		priceStr := c.PostForm("price")
@@ -238,6 +227,8 @@ func DeleteProduct() gin.HandlerFunc{
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		productID := c.Param("id")
 
+		CheckUserRole(c)
+
 		objID, _ := primitive.ObjectIDFromHex(productID)
 
 		result, err := productCollection.DeleteOne(ctx, bson.M{"_id": objID})
@@ -259,7 +250,6 @@ func DeleteProduct() gin.HandlerFunc{
 func GetProductByName(name string) ([]models.Product, error){
 	var products []models.Product
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-
 
 	// filter := bson.D{{"name", bson.D{{"$regex", name}, {"$options", "i"}}}}
 	filter := bson.M{"name": bson.M{"$regex": name, "$options": "i"}}
@@ -289,6 +279,7 @@ func GetProductByName(name string) ([]models.Product, error){
 func GetProdctByNameHander() gin.HandlerFunc{
 	return func (c *gin.Context)  {
 		name := c.Query("name")
+		CheckUserRole(c)
 		if name == ""{
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Name query parameter is required"})
 			return
@@ -315,6 +306,7 @@ func GetAllProducts(db *mongo.Database) gin.HandlerFunc{
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
+		CheckUserRole(c)
 		// Lấy tham số page và limit từ query
 		page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 		if err != nil || page < 1 {

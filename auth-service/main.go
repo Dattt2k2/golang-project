@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Dattt2k2/golang-project/user-service/routes"
+	"github.com/Dattt2k2/golang-project/auth-service/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )

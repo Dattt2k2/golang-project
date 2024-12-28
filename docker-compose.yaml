@@ -25,94 +25,141 @@
 
 
 
-version: "3.8"
+# version: "3.8"
+
+# services:
+#   # MongoDB cho User Service
+#   mongo-user:
+#     image: mongo:latest
+#     container_name: mongo-user
+#     ports:
+#       - "27018:27017"  # MongoDB cho user-service sẽ chạy trên cổng 27018
+#     environment:
+#       MONGO_INITDB_ROOT_USERNAME: user_service
+#       MONGO_INITDB_ROOT_PASSWORD: user_service_pass
+#       MONGO_INITDB_DATABASE: user_data  # Database riêng cho user-service
+#     volumes:
+#       - mongo-user-data:/data/db  # Volume cho MongoDB của user-service
+
+#   # MongoDB cho Product Service
+#   mongo-product:
+#     image: mongo:latest
+#     container_name: mongo-product
+#     ports:
+#       - "27019:27017"  # MongoDB cho product-service sẽ chạy trên cổng 27019
+#     environment:
+#       MONGO_INITDB_ROOT_USERNAME: product_service
+#       MONGO_INITDB_ROOT_PASSWORD: product_service_pass
+#       MONGO_INITDB_DATABASE: product_data  # Database riêng cho product-service
+#     volumes:
+#       - mongo-product-data:/data/db  # Volume cho MongoDB của product-service
+
+#   # MongoDB cho Cart Service
+#   mongo-cart:
+#     image: mongo:latest
+#     container_name: mongo-cart
+#     ports:
+#       - "27020:27017"  # MongoDB cho cart-service sẽ chạy trên cổng 27020
+#     environment:
+#       MONGO_INITDB_ROOT_USERNAME: cart_service
+#       MONGO_INITDB_ROOT_PASSWORD: cart_service_pass
+#       MONGO_INITDB_DATABASE: cart_data  # Database riêng cho cart-service
+#     volumes:
+#       - mongo-cart-data:/data/db  # Volume cho MongoDB của cart-service
+
+#   # User Service
+#   user-service:
+#     build:
+#       context: ./user-service
+#       dockerfile: Dockerfile
+#     container_name: user-service
+#     ports:
+#       - "8081:8081"
+#     environment:
+#       MONGODB_URL: mongodb://user_service:user_service_pass@mongo-user:27017  # Kết nối đến MongoDB cho user-service
+#       MONGODB_DATABASE: user_data
+#       SECRET_KEY: 12dat34nguyen
+#     depends_on:
+#       - mongo-user
+
+#   # Product Service
+#   product-service:
+#     build:
+#       context: ./product-service
+#       dockerfile: Dockerfile
+#     container_name: product-service
+#     ports:
+#       - "8082:8082"
+#     environment:
+#       MONGODB_URL: mongodb://product_service:product_service_pass@mongo-product:27017  # Kết nối đến MongoDB cho product-service
+#       MONGODB_DATABASE: product_data
+#       SECRET_KEY: 12dat34nguyen
+#     depends_on:
+#       - mongo-product
+
+#   # Cart Service
+#   cart-service:
+#     build:
+#       context: ./cart-service
+#       dockerfile: Dockerfile
+#     container_name: cart-service
+#     ports:
+#       - "8083:8083"
+#     environment:
+#       MONGODB_URL: mongodb://cart_service:cart_service_pass@mongo-cart:27017  # Kết nối đến MongoDB cho cart-service
+#       MONGODB_DATABASE: cart_data
+#       SECRET_KEY: 12dat34nguyen
+#     depends_on:
+#       - mongo-cart
+
+# volumes:
+#   mongo-user-data:  # Lưu trữ dữ liệu của MongoDB cho user-service
+#   mongo-product-data:  # Lưu trữ dữ liệu của MongoDB cho product-service
+#   mongo-cart-data:  # Lưu trữ dữ liệu của MongoDB cho cart-service
+
+
+
+
 
 services:
-  # MongoDB cho User Service
-  mongo-user:
+  # MongoDB service
+  mongodb:
     image: mongo:latest
-    container_name: mongo-user
+    container_name: mongodb-container
     ports:
-      - "27018:27017"  # MongoDB cho user-service sẽ chạy trên cổng 27018
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: user_service
-      MONGO_INITDB_ROOT_PASSWORD: user_service_pass
-      MONGO_INITDB_DATABASE: user_data  # Database riêng cho user-service
+      - "27017:27017"  # Mở cổng 27017 cho MongoDB
     volumes:
-      - mongo-user-data:/data/db  # Volume cho MongoDB của user-service
+      - mongodb-data:/data/db  # Dữ liệu MongoDB được lưu vào volume để không mất khi dừng container
+    networks:
+      - app-network
+    restart: always  # Tự động khởi động lại MongoDB nếu container dừng
 
-  # MongoDB cho Product Service
-  mongo-product:
-    image: mongo:latest
-    container_name: mongo-product
-    ports:
-      - "27019:27017"  # MongoDB cho product-service sẽ chạy trên cổng 27019
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: product_service
-      MONGO_INITDB_ROOT_PASSWORD: product_service_pass
-      MONGO_INITDB_DATABASE: product_data  # Database riêng cho product-service
-    volumes:
-      - mongo-product-data:/data/db  # Volume cho MongoDB của product-service
-
-  # MongoDB cho Cart Service
-  mongo-cart:
-    image: mongo:latest
-    container_name: mongo-cart
-    ports:
-      - "27020:27017"  # MongoDB cho cart-service sẽ chạy trên cổng 27020
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: cart_service
-      MONGO_INITDB_ROOT_PASSWORD: cart_service_pass
-      MONGO_INITDB_DATABASE: cart_data  # Database riêng cho cart-service
-    volumes:
-      - mongo-cart-data:/data/db  # Volume cho MongoDB của cart-service
-
-  # User Service
-  user-service:
-    build:
-      context: ./user-service
-      dockerfile: Dockerfile
-    container_name: user-service
+  # API Gateway service
+  api-gateway:
+    build: ./api-gateway
+    depends_on:
+      - mongodb  # Đảm bảo MongoDB khởi động trước khi API Gateway khởi động
     ports:
       - "8080:8080"
-    environment:
-      MONGODB_URL: mongodb://user_service:user_service_pass@mongo-user:27017  # Kết nối đến MongoDB cho user-service
-      MONGODB_DATABASE: user_data
-      SECRET_KEY: 12dat34nguyen
-    depends_on:
-      - mongo-user
+    networks:
+      - app-network
 
   # Product Service
   product-service:
-    build:
-      context: ./product-service
-      dockerfile: Dockerfile
-    container_name: product-service
+    build: ./product-service
+    depends_on:
+      - mongodb  # Đảm bảo MongoDB khởi động trước khi Product Service khởi động
     ports:
       - "8081:8081"
-    environment:
-      MONGODB_URL: mongodb://product_service:product_service_pass@mongo-product:27017  # Kết nối đến MongoDB cho product-service
-      MONGODB_DATABASE: product_data
-      SECRET_KEY: 12dat34nguyen
-    depends_on:
-      - mongo-product
+    networks:
+      - app-network
 
-  # Cart Service
-  cart-service:
-    build:
-      context: ./cart-service
-      dockerfile: Dockerfile
-    container_name: cart-service
-    ports:
-      - "8082:8082"
-    environment:
-      MONGODB_URL: mongodb://cart_service:cart_service_pass@mongo-cart:27017  # Kết nối đến MongoDB cho cart-service
-      MONGODB_DATABASE: cart_data
-      SECRET_KEY: 12dat34nguyen
-    depends_on:
-      - mongo-cart
+  # Các services khác như cart-service, order-service, auth-service cũng có thể được thêm vào tương tự
+  
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
-  mongo-user-data:  # Lưu trữ dữ liệu của MongoDB cho user-service
-  mongo-product-data:  # Lưu trữ dữ liệu của MongoDB cho product-service
-  mongo-cart-data:  # Lưu trữ dữ liệu của MongoDB cho cart-service
+  mongodb-data:
+    driver: local

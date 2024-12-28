@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/Dattt2k2/golang-project/order-service/service"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -27,6 +28,9 @@ func main(){
 
 	router := gin.New()
 	router.Use(gin.Logger())
+
+	service.CartServiceConnection()
+	service.ProductServiceConnection()
 
 	
 }

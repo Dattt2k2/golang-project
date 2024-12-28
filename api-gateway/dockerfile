@@ -1,0 +1,16 @@
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app/golang-project  # Đổi WORKDIR để match với module name
+
+# Copy toàn bộ source code
+COPY . .
+
+# Cài đặt dependencies
+RUN go mod download
+RUN go mod tidy
+
+# Build service
+RUN cd api-gateway && go build -o api-gateway .
+
+# Đặt entrypoint 
+CMD ["./api-gateway/api-gateway"]

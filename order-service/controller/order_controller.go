@@ -7,3 +7,7 @@ func OrderFromCart() gin.HandlerFunc{
 		
 	}
 }
+
+func OrderFromProduct(){
+	
+}

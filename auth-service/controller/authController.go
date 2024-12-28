@@ -10,9 +10,9 @@ import (
 	"errors"
 
 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
-	"github.com/Dattt2k2/golang-project/helpers"
-	helper "github.com/Dattt2k2/golang-project/helpers"
-	"github.com/Dattt2k2/golang-project/user-service/models"
+	// "github.com/Dattt2k2/golang-project/helpers"
+	helper "github.com/Dattt2k2/golang-project/auth-service/helpers"
+	"github.com/Dattt2k2/golang-project/auth-service/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"go.mongodb.org/mongo-driver/bson"
@@ -138,7 +138,7 @@ func Login() gin.HandlerFunc{
 
 func GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if err := helpers.CheckUserType(c, "ADMIN"); err != nil {
+		if err := helper.CheckUserType(c, "ADMIN"); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}

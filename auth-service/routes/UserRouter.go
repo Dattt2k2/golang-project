@@ -1,8 +1,8 @@
 package routes
 
 import(
-	controller "github.com/Dattt2k2/golang-project/user-service/controller"
-	"github.com/Dattt2k2/golang-project/middleware"
+	controller "github.com/Dattt2k2/golang-project/auth-service/controller"
+	"github.com/Dattt2k2/golang-project/auth-service/middleware"
 	"github.com/gin-gonic/gin"
 )
 

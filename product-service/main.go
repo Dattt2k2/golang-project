@@ -27,6 +27,8 @@ func main(){
 		port = "8081"
 	}
 
+	// controller.InitUserServiceConnection()
+
 	router := gin.New()
 	router.Use(gin.Logger())
 

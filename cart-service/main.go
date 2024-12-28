@@ -29,6 +29,7 @@ func main(){
 	}
 
 	controller.InitProductServiceConnection()
+	// controller.InitUserServiceConnection()
 
 	router := gin.New()
 	router.Use(gin.Logger())

@@ -2,7 +2,6 @@ package routes
 
 import (
 	controller "github.com/Dattt2k2/golang-project/product-service/controller"
-	"github.com/Dattt2k2/golang-project/middleware"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -10,7 +9,6 @@ import (
 func ProductManagerRoutes(incomingRoutes *gin.Engine, db *mongo.Database){
 
 	authorized := incomingRoutes.Group("/")
-	authorized.Use(middleware.Authenticate())
 
 	// add product to database
 	authorized.POST("/products", controller.AddProduct(db))

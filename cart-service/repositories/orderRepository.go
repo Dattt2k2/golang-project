@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Dattt2k2/golang-project/order-service/models"
-	"github.com/Dattt2k2/golang-project/product-service/database"
+	"github.com/Dattt2k2/golang-project/cart-service/database"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
