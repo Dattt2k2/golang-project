@@ -18,6 +18,8 @@ func main(){
 	ginrouter.Use(middleware.CORSMiddleware())
 	ginrouter.Use(middleware.Authenticate())
 
+
+
 	router.SetupRouter(ginrouter)
 
 	port:= "8080"

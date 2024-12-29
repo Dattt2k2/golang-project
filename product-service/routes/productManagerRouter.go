@@ -11,13 +11,13 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine, db *mongo.Database){
 	authorized := incomingRoutes.Group("/")
 
 	// add product to database
-	authorized.POST("/products", controller.AddProduct(db))
+	authorized.POST("/products/add", controller.AddProduct(db))
 	// Edit product from database
-	authorized.PUT("/products/:id", controller.EditProduct())
+	authorized.PUT("/products/edit/:id", controller.EditProduct())
 	// Delete product from databse
-	authorized.DELETE("/products/:id", controller.DeleteProduct())
+	authorized.DELETE("/products/delete/:id", controller.DeleteProduct())
 	// Get all product from database
-	authorized.GET("/products", controller.GetAllProducts(db))
+	authorized.GET("/products/get", controller.GetAllProducts(db))
 	// search product
 	authorized.GET("/products/search", controller.GetProdctByNameHander())
 }

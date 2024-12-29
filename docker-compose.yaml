@@ -128,7 +128,7 @@ services:
       args:
         - SERVICE_NAME=api-gateway
     ports:
-      - "8000:8080"
+      - "8080:8080"
     env_file:
       - ./api-gateway/.env
 
@@ -139,7 +139,7 @@ services:
       args:
         - SERVICE_NAME=auth-service
     ports:
-      - "8081:8080"  # Map port 8081
+      - "8081:8081"  # Map port 8081
     env_file:
       - ./auth-service/.env
     depends_on:
@@ -152,7 +152,7 @@ services:
       args:
         - SERVICE_NAME=product-service
     ports:
-      - "8082:8080"  # Map port 8082
+      - "8082:8082"  # Map port 8082
     env_file:
       - ./product-service/.env
     depends_on:
@@ -165,7 +165,7 @@ services:
       args:
         - SERVICE_NAME=cart-service
     ports:
-      - "8083:8080"  # Map port 8083
+      - "8083:8083"  # Map port 8083
     env_file:
       - ./cart-service/.env
     depends_on:
@@ -178,7 +178,7 @@ services:
       args:
         - SERVICE_NAME=order-service
     ports:
-      - "8084:8080"  # Map port 8084
+      - "8084:8084"  # Map port 8084
     env_file:
       - ./order-service/.env
     depends_on:
