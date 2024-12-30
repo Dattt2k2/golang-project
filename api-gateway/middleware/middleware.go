@@ -2,7 +2,7 @@ package middleware
 
 import (
 	// "encoding/json"
-	"fmt"
+	// "fmt"
 	"net/http"
 
 	// "time"
@@ -25,31 +25,13 @@ func CORSMiddleware() gin.HandlerFunc{
 	}
 }
 
-
-
 func Authenticate() gin.HandlerFunc {
     return func(c *gin.Context) {
         // Bỏ qua các route không cần xác thực
-
-        currrentPath := c.Request.URL.Path
-
-        publicPath := []string{
-            "auth/users/register",
-            "auth/users/login",
+        if c.FullPath() == "/register" || c.FullPath() == "/login" {
+            c.Next()
+            return
         }
-        
-        fmt.Println("Current Path:", currrentPath)
-
-        for _, path := range publicPath{
-            if currrentPath == path{
-                c.Next()
-                return
-            }
-        }
-        // if c.FullPath() == "/auth/users/register" || c.FullPath() == "/auth/users/login" {
-        //     c.Next()
-        //     return
-        // }
 
         token := c.GetHeader("Authorization")
         if token == "" {

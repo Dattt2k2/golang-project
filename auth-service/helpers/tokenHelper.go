@@ -74,7 +74,7 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string){
 		return
 	}
 	if claims.ExpiresAt.Before(time.Now()){
-		msg = fmt.Sprintf("tiken is expired")
+		msg = fmt.Sprintf("token is expired")
 		msg = err.Error()
 		return
 	}
