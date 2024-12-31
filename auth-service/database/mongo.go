@@ -25,7 +25,7 @@ func DBinstance() *mongo.Client {
     // Get MongoDB URL from environment variable
     MongoDB := os.Getenv("MONGODB_URL")
     if MongoDB == "" {
-        log.Fatal("MONGODB_URL environment variable not set")
+        log.Fatal("MONGODB_URL environment variable not set 1")
     }
 
     // Set client options
@@ -56,7 +56,7 @@ var Client *mongo.Client = DBinstance()
 func OpenCollection(client *mongo.Client, collectionName string) *mongo.Collection {
     database := os.Getenv("MONGODB_DATABASE")
     if database == "" {
-        log.Fatal("MONGODB_DATABASE environment variable not set")
+        log.Fatal("MONGODB_DATABASE environment variable not set 2")
     }
     return client.Database(database).Collection(collectionName)
 }

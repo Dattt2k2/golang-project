@@ -45,96 +45,142 @@ func VerifyPass(userPassword string, providedPassword string) (bool, string){
 	return check, msg
 }
 
-func SignUp() gin.HandlerFunc{
+func SignUp() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
 		var user models.User
 
-		if err := c.BindJSON(&user); err != nil{
+		// Bind JSON vào user struct
+		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			// return
-		}
-
-		validationErr := validate.Struct(user)
-		if validationErr != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"err": validationErr.Error()})
-			// return
-		}
-
-		count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
-		defer cancel()
-		if err != nil{
-			log.Panic(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "eorror occured "})
-		}
-
-		password := HashPass(*user.Password)
-		user.Password = &password
-		count, err = userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
-		defer cancel()
-		if err != nil{
-			log.Panic(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured"})
-		}
-		if count > 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "this email or phone number is already used"})
-		}
-		user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		user.ID = primitive.NewObjectID()
-		user.User_id = user.ID.Hex()
-		token, refreshToken, _:= helper.GenerateAllToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, *&user.User_id)
-		user.Token = &token
-		user.Refresh_token = &refreshToken
-
-		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
-		if insertErr  != nil{
-			msg := fmt.Sprintf("User item was not created")	
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
-		defer cancel()
-		c.JSON(http.StatusOK, resultInsertionNumber)
+
+		// Validate struct
+		validationErr := validate.Struct(user)
+		if validationErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"err": validationErr.Error()})
+			return
+		}
+
+		// Kiểm tra email có tồn tại không
+		count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while checking email"})
+			return
+		}
+		if count > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email is already taken"})
+			return
+		}
+
+		// Kiểm tra số điện thoại có tồn tại không
+		count, err = userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while checking phone number"})
+			return
+		}
+		if count > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone number is already taken"})
+			return
+		}
+
+		// Hash mật khẩu
+		password := HashPass(*user.Password)
+		user.Password = &password
+
+		// Cập nhật thời gian tạo và cập nhật
+		user.Created_at = time.Now()
+		user.Updated_at = time.Now()
+		user.ID = primitive.NewObjectID()
+		user.User_id = user.ID.Hex()
+
+		// Tạo token và refresh token
+		token, refreshToken, err := helper.GenerateAllToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, user.User_id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while generating token"})
+			return
+		}
+
+
+		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
+		if insertErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "User could not be created"})
+			return
+		}
+
+		// Trả về token cho người dùng sau khi đăng ký thành công
+		c.JSON(http.StatusOK, gin.H{
+			"message":       "User created successfully",
+			"user":          resultInsertionNumber,
+			"access_token":  token,
+			"refresh_token": refreshToken,
+		})
 	}
 }
 
-func Login() gin.HandlerFunc{
+
+
+
+func Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
 		var user models.User
 		var foundUser models.User
 
-		if err := c.BindJSON(&user); err != nil{
+		// Liên kết dữ liệu JSON vào biến user
+		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			// return
+			return
 		}
+
+		// Tìm kiếm người dùng trong cơ sở dữ liệu
 		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-		defer cancel()
-		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "	email or password is incorect"})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Email or password is incorrect"})
 			return
 		}
-		passwordValid, msg := VerifyPass(*user.Password, *foundUser.Password)
-		defer cancel()
-		if !passwordValid{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+
+		// Kiểm tra tính hợp lệ của mật khẩu
+		passwordValid, msg := VerifyPass(*user.Password, *foundUser.Password) // Đảm bảo so sánh đúng mật khẩu
+		if !passwordValid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": msg}) // Trả về lỗi Unauthorized nếu mật khẩu sai
 			return
 		}
-		if foundUser.Email == nil{
+
+		// Nếu không tìm thấy người dùng
+		if foundUser.Email == nil { // Kiểm tra Email, thay vì checking nil
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
-		}
-		token, refreshToken, _ := helper.GenerateAllToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, *&foundUser.User_id)
-		helper.UpdateAllToken(token, refreshToken, foundUser.User_id)
-		err = userCollection.FindOne(ctx, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
-
-		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, foundUser)
+		// Tạo Access token và Refresh token
+		token, refreshToken, err := helper.GenerateAllToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating tokens"})
+			return
+		}
+
+		// Tạo đối tượng LoginResponse với thông tin người dùng và token
+		loginResponse := models.LoginResponse{
+			Email:        *foundUser.Email,
+			First_name:    *foundUser.First_name,
+			Last_name:     *foundUser.Last_name,
+			User_type:     *foundUser.User_type,
+			User_id:       foundUser.User_id,
+			Token:        token,
+			RefreshToken: refreshToken,
+		}
+
+		// Trả về thông tin người dùng cùng token
+		c.JSON(http.StatusOK, loginResponse)
 	}
 }
+
 
 func GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
