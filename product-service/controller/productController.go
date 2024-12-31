@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"log"
 
 	"github.com/Dattt2k2/golang-project/product-service/database"
 	"github.com/Dattt2k2/golang-project/product-service/models"
@@ -26,7 +27,7 @@ var validate = validator.New()
 
 
 func CheckUserRole(c *gin.Context) {
-	userRole := c.GetHeader("role")
+	userRole := c.GetHeader("user_type")
 	if userRole != "SELLER" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
 		c.Abort()
@@ -56,11 +57,18 @@ func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, 
 func AddProduct(db *mongo.Database) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
+		log.Printf("Content-Type: %s", c.GetHeader("Content-Type"))
+        log.Printf("All form values: %v", c.Request.Form)
+
+		if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+            log.Printf("Error parsing multipart form: %v", err)
+        }
+
 		var product models.Product
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("uid")
+		userID := c.GetHeader("user_id")
 		CheckUserRole(c)
 
 		userObjectID, err := primitive.ObjectIDFromHex(userID)
@@ -73,6 +81,8 @@ func AddProduct(db *mongo.Database) gin.HandlerFunc {
 		description := c.PostForm("description")
 		quantityStr := c.PostForm("quantity")
 		priceStr := c.PostForm("price")
+
+		log.Printf("Received quantity: %s", quantityStr)
 
 		quantity, err := strconv.Atoi(quantityStr)
 		if err != nil {

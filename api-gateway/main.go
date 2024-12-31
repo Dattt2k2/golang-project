@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/Dattt2k2/golang-project/api-gateway/grpc"
+	"github.com/Dattt2k2/golang-project/api-gateway/helpers"
 	"github.com/Dattt2k2/golang-project/api-gateway/middleware"
 	"github.com/Dattt2k2/golang-project/api-gateway/router"
 
@@ -14,6 +15,8 @@ import (
 
 func main() {
 	// redisdb.InitRedis()
+
+	helpers.InitDotEnv()
 
 	ginrouter := gin.Default()
 	ginrouter.Use(middleware.CORSMiddleware())
