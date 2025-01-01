@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	database "github.com/Dattt2k2/golang-project/product-service/database"
+	// database "github.com/Dattt2k2/golang-project/product-service/database"
 	"github.com/Dattt2k2/golang-project/product-service/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -13,7 +13,7 @@ import (
 
 
 func main(){
-	err := godotenv.Load("github.com/Dattt2k2/golang-project/product-service/.env")
+	err := godotenv.Load("./product-service/.env")
     if err != nil {
         log.Println("Warning: Error loading .env file:", err)
     }
@@ -32,7 +32,7 @@ func main(){
 	router := gin.New()
 	router.Use(gin.Logger())
 
-	routes.ProductManagerRoutes(router, database.DB)
+	routes.ProductManagerRoutes(router)
 
 	router.Run(":" + port)
 	

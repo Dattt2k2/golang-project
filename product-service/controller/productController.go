@@ -54,87 +54,187 @@ func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, 
 	return imagePath, nil
 }
 
-func AddProduct(db *mongo.Database) gin.HandlerFunc {
-	return func(c *gin.Context) {
+// func AddProduct() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
 
-		log.Printf("Content-Type: %s", c.GetHeader("Content-Type"))
+// 		log.Printf("Content-Type: %s", c.GetHeader("Content-Type"))
+//         log.Printf("All form values: %v", c.Request.Form)
+
+// 		if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+//             log.Printf("Error parsing multipart form: %v", err)
+//         }
+
+// 		formData := c.Request.MultipartForm
+// 		log.Printf("Form data: %v", formData)
+
+// 		var product models.Product
+// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+// 		defer cancel()
+
+// 		userID := c.GetHeader("user_id")
+// 		CheckUserRole(c)
+
+// 		userObjectID, err := primitive.ObjectIDFromHex(userID)
+// 		if err != nil {
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+// 			return
+// 		}
+
+// 		name := c.PostForm("name")
+// 		description := c.PostForm("description")
+// 		quantityStr := c.PostForm("quantity")
+// 		priceStr := c.PostForm("price")
+
+// 		log.Printf("Received quantity: %s", quantityStr)
+
+// 		quantity, err := strconv.Atoi(quantityStr)
+// 		if err != nil {
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
+// 			return
+// 		}
+
+// 		price, err := strconv.ParseFloat(priceStr, 64)
+// 		if err != nil {
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
+// 			return
+// 		}
+
+// 		// Xử lý file ảnh
+// 		file, err := c.FormFile("image")
+// 		if err != nil {
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
+// 			return
+// 		}
+
+// 		imagePath, err := saveImageToFileSystem(c,file)
+// 		if err != nil {
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 			return
+// 		}
+
+// 		product.ID = primitive.NewObjectID()
+// 		product.Name = &name
+// 		product.ImagePath = imagePath
+// 		product.Description = &description
+// 		product.Price = price
+// 		product.Quantity = &quantity
+// 		product.Created_at = time.Now()
+// 		product.Updated_at = time.Now()
+// 		product.UserID = userObjectID
+
+// 		// Validate dữ liệu
+// 		if err := validate.Struct(product); err != nil {
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// 			return
+// 		}
+
+// 		log.Printf("Product: %v", product)
+
+// 		// Chèn dữ liệu vào MongoDB
+// 		_, err = productCollection.InsertOne(ctx, product)
+// 		if err != nil {
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload product"})
+// 			return
+// 		}
+
+// 		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
+// 	}
+// }
+
+func AddProduct() gin.HandlerFunc {
+    return func(c *gin.Context) {
+
+        log.Printf("Content-Type: %s", c.GetHeader("Content-Type"))
         log.Printf("All form values: %v", c.Request.Form)
 
-		if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+        // Parse multipart form
+        if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
             log.Printf("Error parsing multipart form: %v", err)
         }
 
-		var product models.Product
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		defer cancel()
+        // Get form data
+        formData := c.Request.MultipartForm
+        log.Printf("Form data: %v", formData)
 
-		userID := c.GetHeader("user_id")
-		CheckUserRole(c)
+        var product models.Product
+        var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+        defer cancel()
 
-		userObjectID, err := primitive.ObjectIDFromHex(userID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-			return
-		}
+        // Get user ID from header and check role
+        userID := c.GetHeader("user_id")
+        CheckUserRole(c)
 
-		name := c.PostForm("name")
-		description := c.PostForm("description")
-		quantityStr := c.PostForm("quantity")
-		priceStr := c.PostForm("price")
+        userObjectID, err := primitive.ObjectIDFromHex(userID)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+            return
+        }
 
-		log.Printf("Received quantity: %s", quantityStr)
+        // Get form values
+        name := c.PostForm("name")
+        description := c.PostForm("description")
+        quantityStr := c.PostForm("quantity")
+        priceStr := c.PostForm("price")
 
-		quantity, err := strconv.Atoi(quantityStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
-			return
-		}
+        log.Printf("Received quantity: %s", quantityStr)
 
-		price, err := strconv.ParseFloat(priceStr, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
-			return
-		}
+        quantity, err := strconv.Atoi(quantityStr)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
+            return
+        }
 
-		// Xử lý file ảnh
-		file, err := c.FormFile("image")
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
-			return
-		}
+        price, err := strconv.ParseFloat(priceStr, 64)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
+            return
+        }
 
-		imagePath, err := saveImageToFileSystem(c,file)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
+        // Handle image file
+        file, err := c.FormFile("image")
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
+            return
+        }
 
-		product.ID = primitive.NewObjectID()
-		product.Name = &name
-		product.ImagePath = imagePath
-		product.Description = &description
-		product.Price = price
-		product.Quantity = &quantity
-		product.Created_at = time.Now()
-		product.Updated_at = time.Now()
-		product.UserID = userObjectID
+        imagePath, err := saveImageToFileSystem(c, file)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
 
-		// Validate dữ liệu
-		if err := validate.Struct(product); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+        // Create product object
+        product = models.Product{
+            ID:          primitive.NewObjectID(),
+            Name:        &name,
+            Description: &description,
+            Price:       price,
+            Quantity:    &quantity,
+            ImagePath:   imagePath,
+            Created_at:  time.Now(),
+            Updated_at:  time.Now(),
+            UserID:      userObjectID, // Set the user ID from header
+        }
 
-		// Chèn dữ liệu vào MongoDB
-		_, err = db.Collection("product").InsertOne(ctx, product)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload product"})
-			return
-		}
+        // Validate product
+        if err := validate.Struct(product); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
-	}
+        log.Printf("Product: %v", product)
+
+        // Insert product into MongoDB
+        _, err = productCollection.InsertOne(ctx, product)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload product"})
+            return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
+    }
 }
+
 
 
 // func parseFloat(s string) float64{
@@ -310,8 +410,11 @@ func GetProdctByNameHander() gin.HandlerFunc{
 	}
 }
 
-func GetAllProducts(db *mongo.Database) gin.HandlerFunc{
+func GetAllProducts() gin.HandlerFunc{
 	return func(c *gin.Context) {
+
+		
+
 		var products []models.Product
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
@@ -331,14 +434,19 @@ func GetAllProducts(db *mongo.Database) gin.HandlerFunc{
 		skip := (page - 1) * limit
 
 		// Tổng số sản phẩm
-		total, err := db.Collection("products").CountDocuments(ctx, bson.M{})
+		total, err := productCollection.CountDocuments(ctx, bson.M{})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
 			return
 		}
 
 		// Lấy sản phẩm từ MongoDB
-		cursor, err := db.Collection("products").Find(ctx, bson.M{}, options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)))
+		cursor, err := productCollection.Find(ctx, 
+			bson.M{}, 
+			options.Find().
+			SetSkip(int64(skip)).
+			SetLimit(int64(limit)).
+			SetSort(bson.D{{"created_at", -1}}))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 			return
@@ -360,6 +468,8 @@ func GetAllProducts(db *mongo.Database) gin.HandlerFunc{
 			"total": total,
 			"page":  page,
 			"pages": pages,
+			"has_next": page < pages,
+			"has_prev": page > 1,
 		})
 	}
 }
