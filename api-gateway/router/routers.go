@@ -10,14 +10,229 @@ import (
 	"net/url"
 
 	// "os"
-	"fmt"
 	"time"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/middleware"
 	"github.com/gin-gonic/gin"
 )
 
+// func ForwardRequestToService(c *gin.Context, serviceURL string, method string, contentType string) {
+//     log.Printf("Starting ForwardRequestToService to %s with method %s", serviceURL, method)
 
+//     email, exist := c.Get("email")
+//     if !exist {
+//         c.JSON(http.StatusBadRequest, gin.H{"error": "Email not found in context"})
+//         return
+//     }
+
+//     role, exist := c.Get("role")
+//     if !exist {
+//         c.JSON(http.StatusBadRequest, gin.H{"error": "Role not found in context"})
+//         return
+//     }
+
+//     uid, exist := c.Get("uid")
+//     if !exist {
+//         c.JSON(http.StatusBadRequest, gin.H{"error": "UID not found in context"})
+//         return
+//     }
+
+//     client := &http.Client{
+//         Timeout: time.Second * 30,
+//     }
+
+//     if method == "GET" {
+//         // Handle GET request with query params
+//         reqURL, _ := url.Parse(serviceURL)
+//         reqURL.RawQuery = c.Request.URL.RawQuery
+
+//         req, err := http.NewRequest(method, reqURL.String(), nil)
+//         if err != nil {
+//             log.Printf("Error creating GET request: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+//             return
+//         }
+
+//         // Set headers
+//         req.Header.Set("Content-Type", contentType)
+//         req.Header.Set("email", email.(string))
+//         req.Header.Set("user_type", role.(string))
+//         req.Header.Set("user_id", uid.(string))
+
+//         resp, err := client.Do(req)
+//         if err != nil {
+//             log.Printf("Error in GET request: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
+//             return
+//         }
+//         defer resp.Body.Close()
+
+//         bodyBytes, err := io.ReadAll(resp.Body)
+//         if err != nil {
+//             log.Printf("Error reading GET response: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
+//             return
+//         }
+
+//         c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
+//         return
+//     }
+
+//     if contentType == "multipart/form-data" {
+//         log.Printf("Processing multipart form data")
+//         if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+//             log.Printf("Error parsing multipart form: %v", err)
+//             c.JSON(http.StatusBadRequest, gin.H{"error": "Error parsing multipart form"})
+//             return
+//         }
+
+//         // Tạo pipe và errChan để theo dõi lỗi từ goroutine
+//         pr, pw := io.Pipe()
+//         errChan := make(chan error)
+//         writer := multipart.NewWriter(pw)
+
+//         // Start goroutine để copy dữ liệu
+//         go func() {
+//             defer writer.Close()
+//             defer pw.Close()
+
+//             var copyError error
+//             log.Printf("Form values before forwarding: %v", c.Request.Form)
+
+//             // Copy form fields
+//             for key, values := range c.Request.Form {
+//                 log.Printf("Processing form field - Key: %s, Values: %v", key, values)
+//                 for _, value := range values {
+//                     if err := writer.WriteField(key, value); err != nil {
+//                         copyError = fmt.Errorf("error writing field %s: %v", key, err)
+//                         log.Printf("%v", copyError)
+//                         break
+//                     }
+//                 }
+//                 if copyError != nil {
+//                     break
+//                 }
+//             }
+
+//             // Copy file nếu không có lỗi từ form fields
+//             if copyError == nil {
+//                 if file, header, err := c.Request.FormFile("image"); err == nil {
+//                     log.Printf("Processing file: %s", header.Filename)
+//                     part, err := writer.CreateFormFile("image", header.Filename)
+//                     if err != nil {
+//                         copyError = fmt.Errorf("error creating form file: %v", err)
+//                         log.Printf("%v", copyError)
+//                     } else {
+//                         if _, err := io.Copy(part, file); err != nil {
+//                             copyError = fmt.Errorf("error copying file: %v", err)
+//                             log.Printf("%v", copyError)
+//                         } else {
+//                             log.Printf("File processed successfully")
+//                         }
+//                     }
+//                     file.Close()
+//                 }
+//             }
+
+//             // Gửi lỗi (nếu có) qua channel
+//             errChan <- copyError
+//         }()
+
+//         // Tạo request với pipe reader
+//         req, err := http.NewRequest(method, serviceURL, pr)
+//         if err != nil {
+//             log.Printf("Error creating request: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+//             return
+//         }
+
+//         // Set headers
+//         req.Header.Set("Content-Type", writer.FormDataContentType())
+//         req.Header.Set("email", email.(string))
+//         req.Header.Set("user_type", role.(string))
+//         req.Header.Set("user_id", uid.(string))
+
+//         // Tạo client với timeout
+//         client := &http.Client{
+//             Timeout: time.Second * 30, // Tăng timeout lên 30 giây
+//         }
+
+//         // Tạo channel để nhận response
+//         respChan := make(chan *http.Response)
+//         reqErrChan := make(chan error)
+
+//         // Gửi request trong goroutine
+//         go func() {
+//             resp, err := client.Do(req)
+//             if err != nil {
+//                 reqErrChan <- err
+//                 return
+//             }
+//             respChan <- resp
+//         }()
+
+//         // Đợi và xử lý kết quả
+//         select {
+//         case copyErr := <-errChan:
+//             if copyErr != nil {
+//                 log.Printf("Error in copy goroutine: %v", copyErr)
+//                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing form data"})
+//                 return
+//             }
+//         case reqErr := <-reqErrChan:
+//             log.Printf("Error in request: %v", reqErr)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Error connecting to service"})
+//             return
+//         case resp := <-respChan:
+//             defer resp.Body.Close()
+//             log.Printf("Request successful, status: %d", resp.StatusCode)
+
+//             // Copy response về client
+//             bodyBytes, err := io.ReadAll(resp.Body)
+//             if err != nil {
+//                 log.Printf("Error reading response body: %v", err)
+//                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
+//                 return
+//             }
+
+//             resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+//             c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+//         case <-time.After(time.Second * 30):
+//             log.Printf("Request timeout")
+//             c.JSON(http.StatusGatewayTimeout, gin.H{"error": "Request timeout"})
+//             return
+//         }
+//     } else {
+//         // Xử lý các request không phải multipart form như cũ
+//         var bodyBytes []byte
+//         if c.Request.Body != nil {
+//             bodyBytes, _ = io.ReadAll(c.Request.Body)
+//             c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+//         }
+
+//         req, err := http.NewRequest(method, serviceURL, bytes.NewBuffer(bodyBytes))
+//         if err != nil {
+//             log.Printf("Error creating request: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+//             return
+//         }
+
+//         req.Header.Set("Content-Type", contentType)
+//         req.Header.Set("email", email.(string))
+//         req.Header.Set("user_type", role.(string))
+//         req.Header.Set("user_id", uid.(string))
+
+//         resp, err := http.DefaultClient.Do(req)
+//         if err != nil {
+//             log.Printf("Error in request: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
+//             return
+//         }
+//         defer resp.Body.Close()
+
+//         c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+//     }
+// }
 
 func ForwardRequestToService(c *gin.Context, serviceURL string, method string, contentType string) {
     log.Printf("Starting ForwardRequestToService to %s with method %s", serviceURL, method)
@@ -45,23 +260,23 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
     }
 
     if method == "GET" {
-        // Handle GET request with query params
+                // Handle GET request with query params
         reqURL, _ := url.Parse(serviceURL)
         reqURL.RawQuery = c.Request.URL.RawQuery
-        
+                
         req, err := http.NewRequest(method, reqURL.String(), nil)
         if err != nil {
             log.Printf("Error creating GET request: %v", err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
             return
         }
-
+        
         // Set headers
         req.Header.Set("Content-Type", contentType)
         req.Header.Set("email", email.(string))
         req.Header.Set("user_type", role.(string))
         req.Header.Set("user_id", uid.(string))
-
+        
         resp, err := client.Do(req)
         if err != nil {
             log.Printf("Error in GET request: %v", err)
@@ -69,80 +284,63 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
             return
         }
         defer resp.Body.Close()
-
+        
         bodyBytes, err := io.ReadAll(resp.Body)
         if err != nil {
             log.Printf("Error reading GET response: %v", err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
             return
         }
-
+        
         c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
         return
     }
-
     if contentType == "multipart/form-data" {
-        log.Printf("Processing multipart form data")
-        if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
-            log.Printf("Error parsing multipart form: %v", err)
+        err := c.Request.ParseMultipartForm(10 << 20)
+        if err != nil {
+            log.Printf("Error parsing original multipart form: %v", err)
             c.JSON(http.StatusBadRequest, gin.H{"error": "Error parsing multipart form"})
             return
         }
 
-        // Tạo pipe và errChan để theo dõi lỗi từ goroutine
-        pr, pw := io.Pipe()
-        errChan := make(chan error)
-        writer := multipart.NewWriter(pw)
+        // Create a new buffer to store the multipart form data
+        body := &bytes.Buffer{}
+        writer := multipart.NewWriter(body)
 
-        // Start goroutine để copy dữ liệu
-        go func() {
-            defer writer.Close()
-            defer pw.Close()
-
-            var copyError error
-            log.Printf("Form values before forwarding: %v", c.Request.Form)
-
-            // Copy form fields
-            for key, values := range c.Request.Form {
-                log.Printf("Processing form field - Key: %s, Values: %v", key, values)
-                for _, value := range values {
-                    if err := writer.WriteField(key, value); err != nil {
-                        copyError = fmt.Errorf("error writing field %s: %v", key, err)
-                        log.Printf("%v", copyError)
-                        break
-                    }
-                }
-                if copyError != nil {
-                    break
+        // Copy all form fields
+        for key, values := range c.Request.MultipartForm.Value {
+            for _, value := range values {
+                err := writer.WriteField(key, value)
+                if err != nil {
+                    log.Printf("Error writing field %s: %v", key, err)
+                    c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
+                    return
                 }
             }
+        }
 
-            // Copy file nếu không có lỗi từ form fields
-            if copyError == nil {
-                if file, header, err := c.Request.FormFile("image"); err == nil {
-                    log.Printf("Processing file: %s", header.Filename)
-                    part, err := writer.CreateFormFile("image", header.Filename)
-                    if err != nil {
-                        copyError = fmt.Errorf("error creating form file: %v", err)
-                        log.Printf("%v", copyError)
-                    } else {
-                        if _, err := io.Copy(part, file); err != nil {
-                            copyError = fmt.Errorf("error copying file: %v", err)
-                            log.Printf("%v", copyError)
-                        } else {
-                            log.Printf("File processed successfully")
-                        }
-                    }
-                    file.Close()
-                }
+        // Copy the file
+        if file, header, err := c.Request.FormFile("image"); err == nil {
+            part, err := writer.CreateFormFile("image", header.Filename)
+            if err != nil {
+                log.Printf("Error creating form file: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
+                return
             }
+            
+            if _, err := io.Copy(part, file); err != nil {
+                log.Printf("Error copying file: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
+                return
+            }
+            file.Close()
+        }
 
-            // Gửi lỗi (nếu có) qua channel
-            errChan <- copyError
-        }()
+        // Close the multipart writer
+        writer.Close()
 
-        // Tạo request với pipe reader
-        req, err := http.NewRequest(method, serviceURL, pr)
+        // Create new request
+        req, err := http.NewRequest(method, serviceURL, body)
         if err != nil {
             log.Printf("Error creating request: %v", err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
@@ -155,77 +353,8 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
         req.Header.Set("user_type", role.(string))
         req.Header.Set("user_id", uid.(string))
 
-        // Tạo client với timeout
-        client := &http.Client{
-            Timeout: time.Second * 30, // Tăng timeout lên 30 giây
-        }
-
-        // Tạo channel để nhận response
-        respChan := make(chan *http.Response)
-        reqErrChan := make(chan error)
-
-        // Gửi request trong goroutine
-        go func() {
-            resp, err := client.Do(req)
-            if err != nil {
-                reqErrChan <- err
-                return
-            }
-            respChan <- resp
-        }()
-
-        // Đợi và xử lý kết quả
-        select {
-        case copyErr := <-errChan:
-            if copyErr != nil {
-                log.Printf("Error in copy goroutine: %v", copyErr)
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing form data"})
-                return
-            }
-        case reqErr := <-reqErrChan:
-            log.Printf("Error in request: %v", reqErr)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error connecting to service"})
-            return
-        case resp := <-respChan:
-            defer resp.Body.Close()
-            log.Printf("Request successful, status: %d", resp.StatusCode)
-            
-            // Copy response về client
-            bodyBytes, err := io.ReadAll(resp.Body)
-            if err != nil {
-                log.Printf("Error reading response body: %v", err)
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
-                return
-            }
-            
-            resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-            c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
-        case <-time.After(time.Second * 30):
-            log.Printf("Request timeout")
-            c.JSON(http.StatusGatewayTimeout, gin.H{"error": "Request timeout"})
-            return
-        }
-    } else {
-        // Xử lý các request không phải multipart form như cũ
-        var bodyBytes []byte
-        if c.Request.Body != nil {
-            bodyBytes, _ = io.ReadAll(c.Request.Body)
-            c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-        }
-
-        req, err := http.NewRequest(method, serviceURL, bytes.NewBuffer(bodyBytes))
-        if err != nil {
-            log.Printf("Error creating request: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
-            return
-        }
-
-        req.Header.Set("Content-Type", contentType)
-        req.Header.Set("email", email.(string))
-        req.Header.Set("user_type", role.(string))
-        req.Header.Set("user_id", uid.(string))
-
-        resp, err := http.DefaultClient.Do(req)
+        // Send request
+        resp, err := client.Do(req)
         if err != nil {
             log.Printf("Error in request: %v", err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
@@ -233,8 +362,45 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
         }
         defer resp.Body.Close()
 
-        c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
-    }
+        // Read and forward response
+        bodyBytes, err := io.ReadAll(resp.Body)
+        if err != nil {
+            log.Printf("Error reading response: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
+            return
+        }
+
+        c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
+    } else {
+                // Xử lý các request không phải multipart form như cũ
+                var bodyBytes []byte
+                if c.Request.Body != nil {
+                    bodyBytes, _ = io.ReadAll(c.Request.Body)
+                    c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+                }
+        
+                req, err := http.NewRequest(method, serviceURL, bytes.NewBuffer(bodyBytes))
+                if err != nil {
+                    log.Printf("Error creating request: %v", err)
+                    c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+                    return
+                }
+        
+                req.Header.Set("Content-Type", contentType)
+                req.Header.Set("email", email.(string))
+                req.Header.Set("user_type", role.(string))
+                req.Header.Set("user_id", uid.(string))
+        
+                resp, err := http.DefaultClient.Do(req)
+                if err != nil {
+                    log.Printf("Error in request: %v", err)
+                    c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
+                    return
+                }
+                defer resp.Body.Close()
+        
+                c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+            }
 }
 
 
@@ -327,6 +493,9 @@ func SetupRouter(router *gin.Engine) {
 
         protected.GET("/products/get", func(c *gin.Context){
             ForwardRequestToService(c, "http://product-service:8082/products/get", "GET", "application/json")
+        })
+        protected.DELETE("/products/delete/:id", func(c *gin.Context){
+            ForwardRequestToService(c, "http://product-service:8082/products/delete/:id", "DELETE", "application/json")
         })
     }
 }

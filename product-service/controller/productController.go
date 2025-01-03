@@ -332,29 +332,149 @@ func EditProduct() gin.HandlerFunc{
 
 
 
-func DeleteProduct() gin.HandlerFunc{
-	return func(c *gin.Context){
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		productID := c.Param("id")
+// func DeleteProduct() gin.HandlerFunc{
+// 	return func(c *gin.Context){
+// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+// 		productID := c.Param("id")
 
-		CheckUserRole(c)
+// 		CheckUserRole(c)
 
-		objID, _ := primitive.ObjectIDFromHex(productID)
+// 		objID, _ := primitive.ObjectIDFromHex(productID)
 
-		result, err := productCollection.DeleteOne(ctx, bson.M{"_id": objID})
-		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to delete product"})
-			return
-		}
+// 		result, err := productCollection.DeleteOne(ctx, bson.M{"_id": objID})
+// 		if err != nil{
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to delete product"})
+// 			return
+// 		}
 		
-		if result.DeletedCount == 0{
-			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-			return
-		}
+// 		if result.DeletedCount == 0{
+// 			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+// 			return
+// 		}
 		
-		c.JSON(http.StatusOK, gin.H{"message": "Delete product complete"})
-		defer cancel()
-	}
+// 		c.JSON(http.StatusOK, gin.H{"message": "Delete product complete"})
+// 		defer cancel()
+// 	}
+// }
+
+// func DeleteProduct() gin.HandlerFunc {
+// 	return func(c *gin.Context){
+// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+// 		defer cancel()
+
+// 		userID := c.GetHeader("user_id")
+		
+// 		CheckUserRole(c)
+
+// 		userObjectID, err := primitive.ObjectIDFromHex(userID)
+// 		if err != nil{
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+// 			return
+// 		}
+
+
+// 		var product models.Product
+// 		filter := bson.M{}
+
+// 		filter["user_id"] = userObjectID
+
+// 		log.Printf("Filter: %v", filter)
+
+// 		err = productCollection.FindOne(ctx, filter).Decode(&product)
+// 		if err != nil{
+// 			if err == mongo.ErrNoDocuments{
+// 				c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+// 				return
+// 			}
+
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
+// 			return
+// 		}
+
+// 		result, err := productCollection.DeleteOne(ctx, bson.M{"_id": product.ID})
+//         if err != nil {
+//             log.Printf("Error deleting product: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
+//             return
+//         }
+
+//         if result.DeletedCount == 0 {
+//             c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+//             return
+//         }
+
+//         log.Printf("Successfully deleted product with ID: %s", product.ID.Hex())
+//         c.JSON(http.StatusOK, gin.H{
+//             "message": "Product deleted successfully",
+//             "product_id": product.ID.Hex(),
+// 			"name": *product.Name,
+//         })
+
+// 	}
+// }
+
+func DeleteProduct() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+        defer cancel()
+
+        log.Printf("Starting DeleteProduct handler")
+
+        // 1. Lấy product ID từ URL parameter
+        productID := c.Param("id")
+        log.Printf("Product ID from URL: %s", productID)
+
+
+        // Chuyển đổi string ID thành ObjectID
+        objID, err := primitive.ObjectIDFromHex(productID)
+        if err != nil {
+            log.Printf("Error converting product ID: %v", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+            return
+        }
+
+        // 2. Lấy user ID từ header
+        userID := c.GetHeader("user_id")
+        if userID == "" {
+            log.Printf("User ID not found in header")
+            c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
+            return
+        }
+
+        userObjectID, err := primitive.ObjectIDFromHex(userID)
+        if err != nil {
+            log.Printf("Error converting user ID: %v", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+            return
+        }
+
+        // 3. Tạo filter với cả product ID và user ID
+        filter := bson.M{
+            "_id":     objID,
+            "user_id": userObjectID,
+        }
+        log.Printf("Delete filter: %v", filter)
+
+        // 4. Thực hiện xóa
+        result, err := productCollection.DeleteOne(ctx, filter)
+        if err != nil {
+            log.Printf("Error deleting product: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
+            return
+        }
+
+        if result.DeletedCount == 0 {
+            log.Printf("Product not found or unauthorized. Filter: %v", filter)
+            c.JSON(http.StatusNotFound, gin.H{"error": "Product not found or you don't have permission to delete it"})
+            return
+        }
+
+        log.Printf("Successfully deleted product. ProductID: %s, UserID: %s", productID, userID)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "Product deleted successfully",
+            "id": productID,
+        })
+    }
 }
 
 func GetProductByName(name string) ([]models.Product, error){
@@ -410,67 +530,96 @@ func GetProdctByNameHander() gin.HandlerFunc{
 	}
 }
 
-func GetAllProducts() gin.HandlerFunc{
-	return func(c *gin.Context) {
+func GetAllProducts() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        log.Printf("Starting GetAllProducts handler")
 
-		
+        var products []models.Product
+        var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+        defer cancel()
 
-		var products []models.Product
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		defer cancel()
 
-		CheckUserRole(c)
-		// Lấy tham số page và limit từ query
-		page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-		if err != nil || page < 1 {
-			page = 1
-		}
-		limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
-		if err != nil || limit < 1 {
-			limit = 10
-		}
+        CheckUserRole(c)
 
-		// Tính toán skip và limit
-		skip := (page - 1) * limit
+        page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+        if err != nil || page < 1 {
+            log.Printf("Invalid page parameter, using default: %v", err)
+            page = 1
+        }
+        limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+        if err != nil || limit < 1 {
+            log.Printf("Invalid limit parameter, using default: %v", err)
+            limit = 10
+        }
 
-		// Tổng số sản phẩm
-		total, err := productCollection.CountDocuments(ctx, bson.M{})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
-			return
-		}
+        log.Printf("Pagination: page=%d, limit=%d", page, limit)
 
-		// Lấy sản phẩm từ MongoDB
-		cursor, err := productCollection.Find(ctx, 
-			bson.M{}, 
-			options.Find().
-			SetSkip(int64(skip)).
-			SetLimit(int64(limit)).
-			SetSort(bson.D{{"created_at", -1}}))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
-			return
-		}
-		defer cursor.Close(ctx)
+        skip := (page - 1) * limit
 
-		// Decode dữ liệu
-		if err := cursor.All(ctx, &products); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse products"})
-			return
-		}
+        // Count total products
+        total, err := productCollection.CountDocuments(ctx, bson.M{})
+        if err != nil {
+            log.Printf("Error counting products: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
+            return
+        }
+        log.Printf("Total products count: %d", total)
 
-		// Tổng số trang
-		pages := int(math.Ceil(float64(total) / float64(limit)))
+        if total == 0 {
+            c.JSON(http.StatusOK, gin.H{
+                "data":     []models.Product{},
+                "total":    0,
+                "page":     page,
+                "pages":    0,
+                "has_next": false,
+                "has_prev": false,
+            })
+            return
+        }
 
-		// Trả dữ liệu và metadata
-		c.JSON(http.StatusOK, gin.H{
-			"data":  products,
-			"total": total,
-			"page":  page,
-			"pages": pages,
-			"has_next": page < pages,
-			"has_prev": page > 1,
-		})
-	}
+        // Create find options
+        findOptions := options.Find().
+            SetSkip(int64(skip)).
+            SetLimit(int64(limit)).
+            SetSort(bson.D{{"created_at", -1}})
+
+        // Find products
+        cursor, err := productCollection.Find(ctx, bson.M{}, findOptions)
+        if err != nil {
+            log.Printf("Error fetching products: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+            return
+        }
+        defer cursor.Close(ctx)
+
+        // Decode products
+        if err := cursor.All(ctx, &products); err != nil {
+            log.Printf("Error decoding products: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse products"})
+            return
+        }
+
+        log.Printf("Found %d products for current page", len(products))
+
+        // Calculate pagination info
+        pages := int(math.Ceil(float64(total) / float64(limit)))
+
+        // Add debug info to verify product data
+        for i, product := range products {
+            log.Printf("Product %d: ID=%v, Name=%v", i, product.ID, *product.Name)
+        }
+
+        response := gin.H{
+            "data":     products,
+            "total":    total,
+            "page":     page,
+            "pages":    pages,
+            "has_next": page < pages,
+            "has_prev": page > 1,
+        }
+
+        log.Printf("Sending response with %d products", len(products))
+        c.JSON(http.StatusOK, response)
+    }
 }
 
