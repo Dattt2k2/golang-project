@@ -317,102 +317,6 @@ func EditProduct() gin.HandlerFunc{
 }
 
 
-// func handleImageUpload(ctx, context.Context, productID primitive.ObjecID, file *multipart.FileHeader) (primitive.ObjectID, error){
-// 	var product models.Product
-
-// 	err := productCollection.FindOne(ctx, bson.M{"_id": productID}).Decode(&product)
-// 	if err != nil{
-// 		return primitive.NilObjectID, fmt.Errorf("Failed to fetch product")
-// 	}
-
-// 	if product.Image_id != primitive.NilObjectID{
-// 		err := database.GetBucket().Delete(product.)
-// 	}
-// }
-
-
-
-// func DeleteProduct() gin.HandlerFunc{
-// 	return func(c *gin.Context){
-// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-// 		productID := c.Param("id")
-
-// 		CheckUserRole(c)
-
-// 		objID, _ := primitive.ObjectIDFromHex(productID)
-
-// 		result, err := productCollection.DeleteOne(ctx, bson.M{"_id": objID})
-// 		if err != nil{
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to delete product"})
-// 			return
-// 		}
-		
-// 		if result.DeletedCount == 0{
-// 			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-// 			return
-// 		}
-		
-// 		c.JSON(http.StatusOK, gin.H{"message": "Delete product complete"})
-// 		defer cancel()
-// 	}
-// }
-
-// func DeleteProduct() gin.HandlerFunc {
-// 	return func(c *gin.Context){
-// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-// 		defer cancel()
-
-// 		userID := c.GetHeader("user_id")
-		
-// 		CheckUserRole(c)
-
-// 		userObjectID, err := primitive.ObjectIDFromHex(userID)
-// 		if err != nil{
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-// 			return
-// 		}
-
-
-// 		var product models.Product
-// 		filter := bson.M{}
-
-// 		filter["user_id"] = userObjectID
-
-// 		log.Printf("Filter: %v", filter)
-
-// 		err = productCollection.FindOne(ctx, filter).Decode(&product)
-// 		if err != nil{
-// 			if err == mongo.ErrNoDocuments{
-// 				c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-// 				return
-// 			}
-
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
-// 			return
-// 		}
-
-// 		result, err := productCollection.DeleteOne(ctx, bson.M{"_id": product.ID})
-//         if err != nil {
-//             log.Printf("Error deleting product: %v", err)
-//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
-//             return
-//         }
-
-//         if result.DeletedCount == 0 {
-//             c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-//             return
-//         }
-
-//         log.Printf("Successfully deleted product with ID: %s", product.ID.Hex())
-//         c.JSON(http.StatusOK, gin.H{
-//             "message": "Product deleted successfully",
-//             "product_id": product.ID.Hex(),
-// 			"name": *product.Name,
-//         })
-
-// 	}
-// }
-
 func DeleteProduct() gin.HandlerFunc {
     return func(c *gin.Context) {
         var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
@@ -424,6 +328,7 @@ func DeleteProduct() gin.HandlerFunc {
         productID := c.Param("id")
         log.Printf("Product ID from URL: %s", productID)
 
+        
 
         // Chuyển đổi string ID thành ObjectID
         objID, err := primitive.ObjectIDFromHex(productID)
@@ -432,6 +337,10 @@ func DeleteProduct() gin.HandlerFunc {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
             return
         }
+
+        var product bson.M
+        err = productCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&product)
+        log.Printf("Product before delete: %+v", product)
 
         // 2. Lấy user ID từ header
         userID := c.GetHeader("user_id")
@@ -451,7 +360,7 @@ func DeleteProduct() gin.HandlerFunc {
         // 3. Tạo filter với cả product ID và user ID
         filter := bson.M{
             "_id":     objID,
-            "user_id": userObjectID,
+            "userid": userObjectID,
         }
         log.Printf("Delete filter: %v", filter)
 
