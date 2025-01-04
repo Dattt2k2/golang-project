@@ -2,26 +2,31 @@ syntax = "proto3";
 
 package product;
 
-option go_package = "./product-service/gRPC/service";
+option go_package = "product-service/gRPC/service";
 
-service ProductService{
-    rpc GetProductInfor (ProductRequest) returns (ProductResponse);
+// Service definitions
+service ProductService {
+    rpc GetProductInfo (ProductRequest) returns (ProductResponse);
     rpc CheckStock (StockRequest) returns (StockResponse);
     rpc UpdateStock (UpdateStockRequest) returns (UpdateStockResponse);
 }
 
-message ProductRequest{
-    string id = 1;
+// Messages for product information
+message ProductRequest {
+    string id = 1; // Product ID
 }
 
 message ProductResponse {
     string id = 1;
     string name = 2;
     float price = 3;
-    int32 stock = 4;
+    string description = 4;
+    int32 quantity = 5;
+    string image_url = 6; // Optional: Add image URL for future use
 }
 
-message StockRequest{
+// Messages for stock check
+message StockRequest {
     repeated StockItem items = 1;
 }
 
@@ -30,23 +35,27 @@ message StockItem {
     int32 quantity = 2;
 }
 
-message StockResponse{
+message StockResponse {
     repeated StockStatus status = 1;
+    bool success = 2; // Overall success status
+    string message = 3; // Error message if applicable
 }
 
 message StockStatus {
     string product_id = 1;
     bool in_stock = 2;
-    int32 avaiable_quantity = 3;
+    int32 available_quantity = 3;
 }
 
+// Messages for stock update
 message UpdateStockRequest {
     repeated StockItem items = 1;
 }
 
 message UpdateStockResponse {
-    string product_id = 1;
-    repeated StockUpdateStatus update_status = 2;
+    repeated StockUpdateStatus update_status = 1;
+    bool success = 2; // Overall success status
+    string message = 3; // Error message if applicable
 }
 
 message StockUpdateStatus {

@@ -54,92 +54,7 @@ func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, 
 	return imagePath, nil
 }
 
-// func AddProduct() gin.HandlerFunc {
-// 	return func(c *gin.Context) {
-
-// 		log.Printf("Content-Type: %s", c.GetHeader("Content-Type"))
-//         log.Printf("All form values: %v", c.Request.Form)
-
-// 		if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
-//             log.Printf("Error parsing multipart form: %v", err)
-//         }
-
-// 		formData := c.Request.MultipartForm
-// 		log.Printf("Form data: %v", formData)
-
-// 		var product models.Product
-// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-// 		defer cancel()
-
-// 		userID := c.GetHeader("user_id")
-// 		CheckUserRole(c)
-
-// 		userObjectID, err := primitive.ObjectIDFromHex(userID)
-// 		if err != nil {
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-// 			return
-// 		}
-
-// 		name := c.PostForm("name")
-// 		description := c.PostForm("description")
-// 		quantityStr := c.PostForm("quantity")
-// 		priceStr := c.PostForm("price")
-
-// 		log.Printf("Received quantity: %s", quantityStr)
-
-// 		quantity, err := strconv.Atoi(quantityStr)
-// 		if err != nil {
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
-// 			return
-// 		}
-
-// 		price, err := strconv.ParseFloat(priceStr, 64)
-// 		if err != nil {
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
-// 			return
-// 		}
-
-// 		// Xử lý file ảnh
-// 		file, err := c.FormFile("image")
-// 		if err != nil {
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
-// 			return
-// 		}
-
-// 		imagePath, err := saveImageToFileSystem(c,file)
-// 		if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 			return
-// 		}
-
-// 		product.ID = primitive.NewObjectID()
-// 		product.Name = &name
-// 		product.ImagePath = imagePath
-// 		product.Description = &description
-// 		product.Price = price
-// 		product.Quantity = &quantity
-// 		product.Created_at = time.Now()
-// 		product.Updated_at = time.Now()
-// 		product.UserID = userObjectID
-
-// 		// Validate dữ liệu
-// 		if err := validate.Struct(product); err != nil {
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-// 			return
-// 		}
-
-// 		log.Printf("Product: %v", product)
-
-// 		// Chèn dữ liệu vào MongoDB
-// 		_, err = productCollection.InsertOne(ctx, product)
-// 		if err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload product"})
-// 			return
-// 		}
-
-// 		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
-// 	}
-// }
+                                   
 
 func AddProduct() gin.HandlerFunc {
     return func(c *gin.Context) {
@@ -532,3 +447,16 @@ func GetAllProducts() gin.HandlerFunc {
     }
 }
 
+
+func CheckStock(productID string) (int, error){
+
+    filter := bson.M{"_id": productID}
+
+    var product models.Product
+
+    err := productCollection.FindOne(context.Background(), filter).Decode(&product)
+    if err != nil{
+        return 0, fmt.Errorf("Product not found:" )
+    }
+    return *product.Quantity, nil
+}
