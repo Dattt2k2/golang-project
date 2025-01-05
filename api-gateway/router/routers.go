@@ -503,6 +503,15 @@ func SetupRouter(router *gin.Engine) {
         protected.GET("/products/search", func(c *gin.Context){
             ForwardRequestToService(c, "http://product-service:8082/products/search?name" + c.Query("name"), "GET", "application/json")
         })
+        protected.POST("/cart/add/:id", func(c *gin.Context){
+            ForwardRequestToService(c,"http://cart-service:8083/cart/add/:id" + c.Param("id"), "POST", "application/json")
+        })
+        protected.GET("/cart/get", func(c *gin.Context){
+            ForwardRequestToService(c, "http://cart-service:8083/cart/get", "GET", "appication/json")
+        })
+        protected.DELETE("cart/delete/:id", func(c *gin.Context){
+            ForwardRequestToService(c, "http://cart-service:8083/cart/delete/" + c.Param("id"), "POST", "application/json")
+        })
     }
 }
 

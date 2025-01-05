@@ -9,4 +9,6 @@ func  CartRoutes(incomingRoutes *gin.Engine){
 	authorized := incomingRoutes.Group("/")
 
 	authorized.POST("/cart/add/:id", controller.AddToCart())
+	authorized.GET("/cart/get", controller.GetProductFromCart())
+	authorized.DELETE("/cart/delete/:id")
 }

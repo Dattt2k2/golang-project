@@ -274,7 +274,7 @@ func AddToCart() gin.HandlerFunc{
 		productReq := &pb.ProductRequest{Id: cartItem.ProductID.Hex()}
 		productRes, err := productionClient.GetProductInfo(ctx, productReq)
 		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get prodcut data"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
 			return
 		}
 
