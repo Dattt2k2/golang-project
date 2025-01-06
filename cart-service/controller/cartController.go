@@ -161,6 +161,7 @@ func  InitProductServiceConnection(){
 		log.Fatalf("Coulnd not connect to product service: %v", err)
 	}
 
+	log.Printf("Connect to product-service")
 	productionClient = pb.NewProductServiceClient(conn)
 }
 
@@ -193,6 +194,7 @@ func CheckUserRole(c *gin.Context) {
 	if userRole != "USER" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
 		c.Abort()
+		return
 	}
 }
 
@@ -250,28 +252,36 @@ func CheckUserRole(c *gin.Context) {
 // 	}
 // }
 
+
+// Get ID from url and get data from product-service with gRPC
 func AddToCart() gin.HandlerFunc{
 	return func(c *gin.Context){
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		var cartItem models.CartItem
-		if err := c.ShouldBindJSON(&cartItem); err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// Get id from url
+		productId := c.Param("id")
+		if productId == ""{
+			log.Printf("Product id not found")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
 			return
 		}
 
-		productId, err := primitive.ObjectIDFromHex(cartItem.ProductID.Hex())
+		// Convert id to ObjectID
+		objectID, err := primitive.ObjectIDFromHex(productId)
 		if err != nil{
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product id"})
 			return
 		}
 
-		cartItem.ProductID = productId
+		log.Printf("Product ID: %v", objectID)
+
+		var cartItem models.CartItem
+
 		userID := c.GetHeader("uid")
 		CheckUserRole(c)
 
-		productReq := &pb.ProductRequest{Id: cartItem.ProductID.Hex()}
+		productReq := &pb.ProductRequest{Id: objectID.Hex()}
 		productRes, err := productionClient.GetProductInfo(ctx, productReq)
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
