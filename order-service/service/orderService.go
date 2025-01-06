@@ -8,7 +8,7 @@ import (
 	// "net/http"
 
 	"github.com/Dattt2k2/golang-project/order-service/models"
-	"github.com/Dattt2k2/golang-project/product-service/gRPC/service"
+	"github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
 	// "github.con/Dattt2k2/golang-project/order-service/database"
 	"go.mongodb.org/mongo-driver/mongo"
 	// "github.com/gin-gonic/gin"

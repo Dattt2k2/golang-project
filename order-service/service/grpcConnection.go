@@ -4,8 +4,8 @@ import (
 	"log"
 
 	// pb "github.com/Dattt2k2/golang-project/order-service/gRPC/service"
-    cartPb "github.com/Dattt2k2/golang-project/cart-service/gRPC/service"
-    productPb "github.com/Dattt2k2/golang-project/product-service/gRPC/service"
+    cartPb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
+    productPb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

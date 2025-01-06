@@ -142,7 +142,7 @@ import (
 
 	"github.com/Dattt2k2/golang-project/cart-service/database"
 	"github.com/Dattt2k2/golang-project/cart-service/models"
-	pb "github.com/Dattt2k2/golang-project/product-service/gRPC/service"
+	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -165,35 +165,14 @@ func  InitProductServiceConnection(){
 	productionClient = pb.NewProductServiceClient(conn)
 }
 
-// func InitUserServiceConnection(){
-// 	conn, err := grpc.NewClient("user-service:8080", grpc.WithTransportCredentials(insecure.NewCredentials()))
-// 	if err != nil{
-// 		log.Fatalf("Could not connect to product service: %v",  err)
-// 	}
-
-// 	userServiceClient =ub.NewUserServiceClient(conn)
-// }
-
-// func CheckUserRole(userID string) (string, error){
-// 	ctx, cancel :=  context.WithTimeout(context.Background(), 10*time.Second)
-// 	defer cancel()
-
-// 	req := &ub.UserRoleRequest{UserId: userID}
-// 	resp, err := userServiceClient.GetUserRole(ctx, req)
-
-// 	if err != nil{
-// 		return "", err
-// 	}
-
-// 	return resp.Role, nil
-// } 
 
 
 func CheckUserRole(c *gin.Context) {
-	userRole := c.GetHeader("role")
+	userRole := c.GetHeader("user_type")
+	log.Println(userRole)
 	if userRole != "USER" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
-		c.Abort()
+		// c.Abort()
 		return
 	}
 }
@@ -283,6 +262,7 @@ func AddToCart() gin.HandlerFunc{
 
 		productReq := &pb.ProductRequest{Id: objectID.Hex()}
 		productRes, err := productionClient.GetProductInfo(ctx, productReq)
+		log.Printf(c.Request.Proto)
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
 			return
