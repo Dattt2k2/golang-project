@@ -31,7 +31,9 @@ func CheckUserRole(c *gin.Context) {
 	if userRole != "SELLER" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
 		c.Abort()
+        return
 	}
+    c.Next()
 }
 
 
@@ -62,6 +64,11 @@ func AddProduct() gin.HandlerFunc {
         log.Printf("Content-Type: %s", c.GetHeader("Content-Type"))
         log.Printf("All form values: %v", c.Request.Form)
 
+        CheckUserRole(c)
+        if c.IsAborted(){
+            return
+        }
+
         // Parse multipart form
         if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
             log.Printf("Error parsing multipart form: %v", err)
@@ -77,7 +84,6 @@ func AddProduct() gin.HandlerFunc {
 
         // Get user ID from header and check role
         userID := c.GetHeader("user_id")
-        CheckUserRole(c)
 
         userObjectID, err := primitive.ObjectIDFromHex(userID)
         if err != nil {
@@ -364,6 +370,9 @@ func GetAllProducts() gin.HandlerFunc {
 
 
         CheckUserRole(c)
+        if c.IsAborted(){
+            return
+        }
 
         page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
         if err != nil || page < 1 {

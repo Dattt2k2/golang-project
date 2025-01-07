@@ -153,7 +153,7 @@ import (
 )
 
 var cartCollection *mongo.Collection = database.OpenCollection(database.Client, "cart")
-var productionClient pb.ProductServiceClient
+var productClient pb.ProductServiceClient
 
 func  InitProductServiceConnection(){
 	conn, err := grpc.NewClient("product-service:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -162,7 +162,7 @@ func  InitProductServiceConnection(){
 	}
 
 	log.Printf("Connect to product-service")
-	productionClient = pb.NewProductServiceClient(conn)
+	productClient = pb.NewProductServiceClient(conn)
 }
 
 
@@ -177,101 +177,49 @@ func CheckUserRole(c *gin.Context) {
 	}
 }
 
-// func AddToCart() gin.HandlerFunc{
-// 	return func(c *gin.Context){
-// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-// 		defer cancel()
 
-// 		var cartItem models.CartItem
-
-// 		if err := c.ShouldBindJSON(&cartItem); err != nil{
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-// 			return
-// 		}
-
-// 		userID := c.GetHeader("uid")
-// 		CheckUserRole(c)
-
-// 		productReq := &pb.ProductRequest{Id: cartItem.ProductID.Hex()}
-// 		productRes, err := productionClient.GetProductInfor(ctx, productReq)
-
-// 		if err != nil{
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product infor"})
-// 			return
-// 		}
-
-// 		cartItem.Price = float64(productRes.Price)
-// 		cartItem.Name = productRes.Name
-
-// 		// userID, err := primitive.ObjectIDFromHex(c.Param("userId"))
-// 		// if err != nil{
-// 		// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get userID"})
-// 		// 	return
-// 		// }
-
-// 		update := bson.M{
-// 			"$push": bson.M{
-// 				"items": bson.M{
-// 					"$each": []models.CartItem{cartItem},
-// 					"position": 0,
-// 				},
-// 			},
-// 			"$set": bson.M{"updated_at": time.Now()},
-// 		}
-
-// 		opt := options.Update().SetUpsert(true)
-// 		_, err  = cartCollection.UpdateOne(ctx, bson.M{"user_id": userID}, update, opt)
-// 		if err != nil{
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Add product to cart failed"})
-// 			return
-// 		}
-
-// 		c.JSON(http.StatusOK, gin.H{"message": "Item added to cart successfully"})
-
-// 	}
-// }
-
-
-// Get ID from url and get data from product-service with gRPC
 func AddToCart() gin.HandlerFunc{
 	return func(c *gin.Context){
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		// Get id from url
 		productId := c.Param("id")
+
 		if productId == ""{
-			log.Printf("Product id not found")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
 			return
 		}
 
-		// Convert id to ObjectID
-		objectID, err := primitive.ObjectIDFromHex(productId)
+		userID, err := primitive.ObjectIDFromHex(c.GetHeader("uid"))
 		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get userID"})
 			return
 		}
 
-		log.Printf("Product ID: %v", objectID)
-
-		var cartItem models.CartItem
-
-		userID := c.GetHeader("uid")
 		CheckUserRole(c)
-
-		productReq := &pb.ProductRequest{Id: objectID.Hex()}
-		productRes, err := productionClient.GetProductInfo(ctx, productReq)
-		log.Printf(c.Request.Proto)
+		productReq := &pb.ProductRequest{Id : productId}
+		basicInfo, err := productClient.GetBasicInfo(ctx, productReq)
 		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product info"})
+			return
+		}
+		checkStock, err := productClient.CheckStock(ctx, productReq)
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check stock"})
 			return
 		}
 
-		cartItem.Name = productRes.Name
-		cartItem.Price = float64(productRes.Price)
-		cartItem.Quantity = int(productRes.Quantity)
-
+		productiontId, err := primitive.ObjectIDFromHex(productId)
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Can not convert id to objectID"})
+			return
+		}
+		cartItem := models.CartItem{
+			ProductID: productiontId,
+			Name: basicInfo.Name,
+			Price: float64(basicInfo.Price),
+			Quantity: int(checkStock.AvailableQuantity),
+		}
 
 		update := bson.M{
 			"$push": bson.M{
@@ -284,7 +232,7 @@ func AddToCart() gin.HandlerFunc{
 		}
 
 		opt := options.Update().SetUpsert(true)
-		_, err = cartCollection.UpdateOne(ctx, bson.M{"user_id": userID}, update, opt)
+		_, err = cartCollection.UpdateOne(ctx, bson.M{"user_id": userID }, update, opt)
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product to cart"})
 			return
@@ -295,12 +243,75 @@ func AddToCart() gin.HandlerFunc{
 }
 
 
+// Get ID from url and get data from product-service with gRPC
+// func AddToCart() gin.HandlerFunc{
+// 	return func(c *gin.Context){
+// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// 		defer cancel()
+
+// 		// Get id from url
+// 		productId := c.Param("id")
+// 		if productId == ""{
+// 			log.Printf("Product id not found")
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
+// 			return
+// 		}
+
+// 		// Convert id to ObjectID
+// 		objectID, err := primitive.ObjectIDFromHex(productId)
+// 		if err != nil{
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product id"})
+// 			return
+// 		}
+
+// 		log.Printf("Product ID: %v", objectID)
+
+// 		var cartItem models.CartItem
+
+// 		userID := c.GetHeader("uid")
+// 		CheckUserRole(c)
+
+// 		productReq := &pb.ProductRequest{Id: objectID.Hex()}
+// 		productRes, err := productionClient.GetProductInfo(ctx, productReq)
+// 		log.Printf(c.Request.Proto)
+// 		if err != nil{
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
+// 			return
+// 		}
+
+// 		cartItem.Name = productRes.Name
+// 		cartItem.Price = float64(productRes.Price)
+// 		cartItem.Quantity = int(productRes.Quantity)
+
+
+// 		update := bson.M{
+// 			"$push": bson.M{
+// 				"items": bson.M{
+// 					"$each": []models.CartItem{cartItem},
+// 					"$position": 0,
+// 				},
+// 			},
+// 			"$set": bson.M{"updated_at": time.Now()},
+// 		}
+
+// 		opt := options.Update().SetUpsert(true)
+// 		_, err = cartCollection.UpdateOne(ctx, bson.M{"user_id": userID}, update, opt)
+// 		if err != nil{
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product to cart"})
+// 			return
+// 		}
+
+// 		c.JSON(http.StatusOK, gin.H{"message": "Item added to cart successfully"})
+// 	}
+// }
+
+
 func  GetProductFromCart() gin.HandlerFunc{
 	return func(c *gin.Context){
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("uid")
+		userID := c.GetHeader("user_id")
 		if userID == ""{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get userID"})
 			return
@@ -344,7 +355,7 @@ func  GetProductFromCart() gin.HandlerFunc{
 
 		for _, item := range cartItems{
 			productReq := &pb.ProductRequest{Id: item.ProductID.Hex()}
-			productRes, err := productionClient.GetProductInfo(ctx, productReq)
+			productRes, err := productClient.GetProductInfo(ctx, productReq)
 			if err != nil{
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
 				return
