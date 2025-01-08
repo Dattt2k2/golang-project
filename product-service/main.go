@@ -2,13 +2,17 @@ package main
 
 import (
 	"log"
+	"net"
 	"os"
 
 	// database "github.com/Dattt2k2/golang-project/product-service/database"
 	"github.com/Dattt2k2/golang-project/product-service/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
 	// "go.mongodb.org/mongo-driver/mongo"
+
+	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 )
 
 
@@ -28,6 +32,25 @@ func main(){
 	}
 
 	// controller.InitUserServiceConnection()
+
+	grpcPort := os.Getenv("gRPC_PORT")
+	if port == ""{
+		port = "50051"
+	}
+	lis, err := net.Listen("tcp", grpcPort)
+	if err != nil{
+		log.Fatalf("Failed to listen on port 50051: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+
+	pb.RegisterProductServiceServer(grpcServer, &pb.UnimplementedProductServiceServer{})
+
+	log.Printf("gRPC server is running on port: 50051")
+	if err := grpcServer.Serve(lis); err != nil{
+		log.Fatalf("Failed to serve gRPC server : %v", err)
+	}
+
 
 	router := gin.New()
 	router.Use(gin.Logger())

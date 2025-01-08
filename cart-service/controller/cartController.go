@@ -156,7 +156,7 @@ var cartCollection *mongo.Collection = database.OpenCollection(database.Client, 
 var productClient pb.ProductServiceClient
 
 func  InitProductServiceConnection(){
-	conn, err := grpc.NewClient("product-service:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("product-service:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil{
 		log.Fatalf("Coulnd not connect to product service: %v", err)
 	}
