@@ -34,12 +34,12 @@ func main(){
 	// controller.InitUserServiceConnection()
 
 	grpcPort := os.Getenv("gRPC_PORT")
-	if port == ""{
-		port = "50051"
+	if grpcPort == ""{
+		grpcPort = "8089"
 	}
 	lis, err := net.Listen("tcp", grpcPort)
 	if err != nil{
-		log.Fatalf("Failed to listen on port 50051: %v", err)
+		log.Fatalf("Failed to listen on port 8089: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()

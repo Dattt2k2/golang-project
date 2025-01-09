@@ -156,7 +156,7 @@ var cartCollection *mongo.Collection = database.OpenCollection(database.Client, 
 var productClient pb.ProductServiceClient
 
 func  InitProductServiceConnection(){
-	conn, err := grpc.NewClient("product-service:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("product-service:8089", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil{
 		log.Fatalf("Coulnd not connect to product service: %v", err)
 	}
@@ -172,7 +172,7 @@ func CheckUserRole(c *gin.Context) {
 	log.Println(userRole)
 	if userRole != "USER" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
-		// c.Abort()
+		c.Abort()
 		return
 	}
 }
@@ -182,6 +182,11 @@ func AddToCart() gin.HandlerFunc{
 	return func(c *gin.Context){
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
+
+		CheckUserRole(c)
+		if c.IsAborted(){
+			return
+		}
 
 		productId := c.Param("id")
 
@@ -196,7 +201,7 @@ func AddToCart() gin.HandlerFunc{
 			return
 		}
 
-		CheckUserRole(c)
+	
 		productReq := &pb.ProductRequest{Id : productId}
 		basicInfo, err := productClient.GetBasicInfo(ctx, productReq)
 		if err != nil{
@@ -318,6 +323,9 @@ func  GetProductFromCart() gin.HandlerFunc{
 		}
 
 		CheckUserRole(c)
+		if c.IsAborted(){
+			return
+		}
 
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -443,6 +451,9 @@ func DeleteProductFromCart() gin.HandlerFunc{
 		}
 
 		CheckUserRole(c)
+		if c.IsAborted(){
+			return
+		}
 		
 		var requestBody struct{
 			productID []string `bson:"product_id"`
