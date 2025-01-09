@@ -195,7 +195,9 @@ func AddToCart() gin.HandlerFunc{
 			return
 		}
 
-		userID, err := primitive.ObjectIDFromHex(c.GetHeader("uid"))
+		uid := c.GetHeader("user_id")
+
+		userID, err := primitive.ObjectIDFromHex(uid)
 		if err != nil{
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get userID"})
 			return

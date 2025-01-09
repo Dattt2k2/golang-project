@@ -12,7 +12,7 @@ type ProductServer struct {
 	pb.UnimplementedProductServiceServer
 }
 
-func (s *ProductServer) GetBasicProductInfo(ctx context.Context, req *pb.ProductRequest) (*pb.BasicProductResponse, error){
+func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest) (*pb.BasicProductResponse, error){
 
 	id := req.Id
 

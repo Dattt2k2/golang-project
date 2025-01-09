@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 	// "go.mongodb.org/mongo-driver/mongo"
 
-	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
+	// pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 )
 
 
@@ -26,6 +26,29 @@ func main(){
 		log.Fatalf("MONGODB_URL is not set on .env file yet")
 	}
 
+	grpcReady := make(chan bool)
+
+	go func(){
+		grpcPort := os.Getenv("gRPC_PORT")
+		if grpcPort == ""{
+			grpcPort = "8089"
+		}
+		lis, err := net.Listen("tcp", ":"+grpcPort)
+		if err != nil{
+			log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
+		}
+
+		s:= grpc.NewServer()
+
+		grpcReady <- true
+
+		if err := s.Serve(lis); err != nil{
+			log.Fatalf("Failed to connect to gRPC Server: %v", err)
+		}
+	}()
+
+	<-grpcReady
+
 	port := os.Getenv("PORT")
 	if port == ""{
 		port = "8082`"
@@ -33,23 +56,23 @@ func main(){
 
 	// controller.InitUserServiceConnection()
 
-	grpcPort := os.Getenv("gRPC_PORT")
-	if grpcPort == ""{
-		grpcPort = "8089"
-	}
-	lis, err := net.Listen("tcp", grpcPort)
-	if err != nil{
-		log.Fatalf("Failed to listen on port 8089: %v", err)
-	}
+	// grpcPort := os.Getenv("gRPC_PORT")
+	// if grpcPort == ""{
+	// 	grpcPort = "8089"
+	// }
+	// lis, err := net.Listen("tcp", ":"+grpcPort)
+	// if err != nil{
+	// 	log.Fatalf("Failed to listen on port 8089: %v", err)
+	// }
 
-	grpcServer := grpc.NewServer()
+	// grpcServer := grpc.NewServer()
 
-	pb.RegisterProductServiceServer(grpcServer, &pb.UnimplementedProductServiceServer{})
+	// pb.RegisterProductServiceServer(grpcServer, &pb.UnimplementedProductServiceServer{})
 
-	log.Printf("gRPC server is running on port: 50051")
-	if err := grpcServer.Serve(lis); err != nil{
-		log.Fatalf("Failed to serve gRPC server : %v", err)
-	}
+	// log.Printf("gRPC server is running on port: %v", grpcPort)
+	// if err := grpcServer.Serve(lis); err != nil{
+	// 	log.Fatalf("Failed to serve gRPC server : %v", err)
+	// }
 
 
 	router := gin.New()
