@@ -6,13 +6,15 @@ import (
 	"os"
 
 	// database "github.com/Dattt2k2/golang-project/product-service/database"
+	controllers "github.com/Dattt2k2/golang-project/product-service/controller"
 	"github.com/Dattt2k2/golang-project/product-service/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+
 	// "go.mongodb.org/mongo-driver/mongo"
 
-	// pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
+	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 )
 
 
@@ -39,6 +41,8 @@ func main(){
 		}
 
 		s:= grpc.NewServer()
+		
+		pb.RegisterProductServiceServer(s, &controllers.ProductServer{})
 
 		grpcReady <- true
 

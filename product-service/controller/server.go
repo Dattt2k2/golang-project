@@ -2,10 +2,14 @@ package controllers
 
 import (
 	"context"
+	"log"
 
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 	"github.com/Dattt2k2/golang-project/product-service/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type ProductServer struct {
@@ -15,11 +19,19 @@ type ProductServer struct {
 func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest) (*pb.BasicProductResponse, error){
 
 	id := req.Id
+	log.Printf("Product id: %v", id)
+	productID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid product ID format: %v", err)
+	}
 
+
+
+	log.Printf("product id: %v", productID)
 	var product models.Product
 
 
-	if err := productCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&product); err != nil{
+	if err := productCollection.FindOne(ctx, bson.M{"_id": productID}).Decode(&product); err != nil{
 		return nil, err
 	}
 
@@ -54,8 +66,14 @@ func (s *ProductServer) CheckStock(ctx context.Context, req *pb.ProductRequest) 
 	
 	id := req.Id
 
+	log.Printf("Product id: %v", id)
+	productID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid product ID format: %v", err)
+	}
+
 	var product models.Product
-	if err := productCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&product); err != nil{
+	if err := productCollection.FindOne(ctx, bson.M{"_id": productID}).Decode(&product); err != nil{
 		return nil, err
 	}
 
