@@ -448,120 +448,55 @@ func  GetProductFromCart() gin.HandlerFunc{
 			return
 		}
 
-		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-		if page <= 0{
-			page = 1
-		}
-		if limit <= 0{
-			limit = 10
+
+		var request struct{
+			ProductID []string `json:"product_id"`
 		}
 
-		skip := (page - 1) *limit
-
-		cursor, err := cartCollection.Aggregate(ctx, mongo.Pipeline{
-			bson.D{{"$unwind", "$items"}},
-			bson.D{{"$skip", skip}},
-			bson.D{{"$limit", limit}},
-		})
-
-		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get  product"})
+		if err := c.ShouldBindJSON(&request); err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 			return
 		}
 
-		defer cursor.Close(ctx)
-
-
-		var cartItems []models.CartItem
-
-		if err := cursor.All(ctx, &cartItems); err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data "})
+		if len(request.ProductID) == 0{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id are nul"})
 			return
 		}
-
-		id := c.GetHeader("user_id")
-
+		
 		var products []models.CartItem
 
-		for _, item := range cartItems{
-			productReq := &pb.ProductRequest{Id: id}
+		for _, productID := range request.ProductID{
+			productReq := &pb.ProductRequest{Id: productID}
 			productRes, err := productClient.GetProductInfo(ctx, productReq)
 			if err != nil{
-				log.Printf("Error: %s", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
 				return
 			}
 
-			item.Name = productRes.Name
-			item.Price = float64(productRes.Price)
-			item.Quantity = int(productRes.Quantity)
-			item.ImageUrl = productRes.GetImageUrl()
+			id, err := primitive.ObjectIDFromHex(productRes.Id)
+			if err != nil{
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product id"})
+				return
+			}
+			
+			item := models.CartItem{
+				ProductID: id,
+				Name: productRes.Name,
+				Price: float64(productRes.Price),
+				Quantity: int(productRes.Quantity),
+				ImageUrl: productRes.ImageUrl,
+			}
 			products = append(products, item)
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"page": page,
-			"limit": limit,
-			"products": products,
+			"user_id": userID,
+			"products" : products,
 		})
 	}
 }
 
-// func GetProductFromCart() gin.HandlerFunc{
-// 	return func(c *gin.Context){
-// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-// 		defer cancel()
 
-// 		userID := c.GetHeader("uid")
-// 		if userID == ""{
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user ID"})
-// 			return
-// 		}
-
-// 		CheckUserRole(c)
-
-
-// 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-// 		limit, _ := strconv.Atoi(c.DefaultQuery("limit","10"))
-
-// 		if page <= 0{
-// 			page = 1
-// 		}
-// 		if limit <= 0{
-// 			limit = 10
-// 		}
-
-// 		skip := (page - 1) * limit
-
-// 		cursor, err := cartCollection.Aggregate(ctx, mongo.Pipeline{
-// 			bson.D{{"$unwind", "$items"}},
-// 			bson.D{{"$skip", skip}},
-// 			bson.D{{"$limit", limit}},
-// 		})
-
-// 		if err != nil{
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product"})
-// 			return
-// 		}
-
-// 		defer cursor.Close(ctx)
-
-// 		var products []models.CartItem
-		
-// 		if err := cursor.All(ctx, &products); err != nil{
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode data"})
-// 			return
-// 		}
-
-// 		c.JSON(http.StatusOK, gin.H{
-// 			"page": page,
-// 			"limit": limit,
-// 			"products": products,
-// 		})
-
-// 	}
-// }
 
 func DeleteProductFromCart() gin.HandlerFunc{
 	return func (c *gin.Context)  {
