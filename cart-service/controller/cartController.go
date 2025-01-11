@@ -552,6 +552,7 @@ func DeleteProductFromCart() gin.HandlerFunc{
 
 		result, err := cartCollection.UpdateOne(ctx, filter, update)
 		if err != nil{
+			log.Printf("Failed to delete product from cart`")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product from cart"})
 			return
 		}
