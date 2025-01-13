@@ -46,9 +46,16 @@ func (s *ProductServer) GetProductInfo(ctx context.Context, req *pb.ProductReque
 	
 	id := req.Id
 
+	productID, err := primitive.ObjectIDFromHex(id)
+	if err != nil{
+		return nil, err
+	}
+
+	log.Printf(id)
+
 	var product models.Product
 
-	if err := productCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&product); err != nil{
+	if err := productCollection.FindOne(ctx, bson.M{"_id": productID}).Decode(&product); err != nil{
 		return nil, err
 	}
 	

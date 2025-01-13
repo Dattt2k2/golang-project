@@ -12,6 +12,7 @@ type CartItem struct{
 	Price       		float64            		`json:"price" validate:"required"`
 	Name           		string					`json:"name" validate:"required"`
 	ImageUrl			string					`json:"image_url" validate:"required"`
+	Description			string					`json:"description" validate"required`
 }
 
 type Cart struct{
