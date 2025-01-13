@@ -157,13 +157,6 @@ func AddProduct() gin.HandlerFunc {
 }
 
 
-
-// func parseFloat(s string) float64{
-// 	f, _ := strconv.ParseFloat(s, 64)
-// 	return f
-// }
-
-
 func EditProduct() gin.HandlerFunc{
 	return func (c *gin.Context)  {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
@@ -245,13 +238,11 @@ func DeleteProduct() gin.HandlerFunc {
 
         log.Printf("Starting DeleteProduct handler")
 
-        // 1. Lấy product ID từ URL parameter
         productID := c.Param("id")
         log.Printf("Product ID from URL: %s", productID)
 
         
 
-        // Chuyển đổi string ID thành ObjectID
         objID, err := primitive.ObjectIDFromHex(productID)
         if err != nil {
             log.Printf("Error converting product ID: %v", err)
@@ -263,7 +254,6 @@ func DeleteProduct() gin.HandlerFunc {
         err = productCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&product)
         log.Printf("Product before delete: %+v", product)
 
-        // 2. Lấy user ID từ header
         userID := c.GetHeader("user_id")
         if userID == "" {
             log.Printf("User ID not found in header")
@@ -278,14 +268,12 @@ func DeleteProduct() gin.HandlerFunc {
             return
         }
 
-        // 3. Tạo filter với cả product ID và user ID
         filter := bson.M{
             "_id":     objID,
             "userid": userObjectID,
         }
         log.Printf("Delete filter: %v", filter)
 
-        // 4. Thực hiện xóa
         result, err := productCollection.DeleteOne(ctx, filter)
         if err != nil {
             log.Printf("Error deleting product: %v", err)

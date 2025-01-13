@@ -265,13 +265,15 @@ func  GetProductFromCart() gin.HandlerFunc{
 		
 		productReq := &pb.ProductRequest{Id: productID}
 		productRes, err := productClient.GetProductInfo(ctx, productReq)
+		log.Printf(productReq.String())
+		log.Printf(productRes.String())
 		if err != nil{
 			log.Printf(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
 			return
 		}
 
-		id, err := primitive.ObjectIDFromHex(productRes.Id)
+		id, err := primitive.ObjectIDFromHex(productID)
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get Product info"})
 			return
@@ -294,64 +296,58 @@ func  GetProductFromCart() gin.HandlerFunc{
 	}
 }
 
-
-
 func DeleteProductFromCart() gin.HandlerFunc{
-	return func (c *gin.Context)  {
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	return func(c *gin.Context){
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("uid")
+		userID := c.GetHeader("user_id")
 		if userID == ""{
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authorized"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
 			return
 		}
-
 		CheckUserRole(c)
 		if c.IsAborted(){
 			return
 		}
-		
-		var requestBody struct{
-			productID []string `bson:"product_id"`
-		}
 
-		if err := c.ShouldBindJSON(&requestBody); err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get productID"})
+		productID := c.Param("id")
+		if productID == ""{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
 			return
 		}
 
-		var objectID []primitive.ObjectID
-
-		for _, id := range requestBody.productID{
-			objID, err := primitive.ObjectIDFromHex(id)
-			if err != nil{
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product id"})
-				return
-			}
-			objectID = append(objectID, objID)
+		objID, err := primitive.ObjectIDFromHex(productID)
+		if err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product id"})
+			return
 		}
 
+		userId, err := primitive.ObjectIDFromHex(userID)
+		if err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user id"})
+			return
+		}
 		filter := bson.M{
-			"items": bson.M{
-				"$elementMatch" : bson.M{
-					"$product_id": bson.M{"$in":objectID},
-				},
-			},
-		}
+            "user_id": userId,
+            "items": bson.M{
+                "$elemMatch": bson.M{
+                    "product_id": objID,
+                },
+            },
+        }
 
 		update := bson.M{
-			"$pull": bson.M{
-				"$items":  bson.M{
-					"$product_id": bson.M{"$in":objectID},
-				},
-			},
-		}
+            "$pull": bson.M{
+                "items": bson.M{
+                    "product_id": objID,
+                },
+            },
+        }
 
 		result, err := cartCollection.UpdateOne(ctx, filter, update)
 		if err != nil{
-			log.Printf("Failed to delete product from cart`")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product from cart"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
 			return
 		}
 
@@ -360,6 +356,74 @@ func DeleteProductFromCart() gin.HandlerFunc{
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Delete product from cart successfully"})
+		c.JSON(http.StatusOK, gin.H{"message": "Delete product successfully"})
 	}
 }
+
+// func DeleteProductFromCart() gin.HandlerFunc{
+// 	return func (c *gin.Context)  {
+// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// 		defer cancel()
+
+// 		userID := c.GetHeader("uid")
+// 		if userID == ""{
+// 			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authorized"})
+// 			return
+// 		}
+
+// 		CheckUserRole(c)
+// 		if c.IsAborted(){
+// 			return
+// 		}
+		
+// 		var requestBody struct{
+// 			productID []string `bson:"product_id"`
+// 		}
+
+// 		if err := c.ShouldBindJSON(&requestBody); err != nil{
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get productID"})
+// 			return
+// 		}
+
+// 		var objectID []primitive.ObjectID
+
+// 		for _, id := range requestBody.productID{
+// 			objID, err := primitive.ObjectIDFromHex(id)
+// 			if err != nil{
+// 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product id"})
+// 				return
+// 			}
+// 			objectID = append(objectID, objID)
+// 		}
+
+// 		filter := bson.M{
+// 			"items": bson.M{
+// 				"$elementMatch" : bson.M{
+// 					"$product_id": bson.M{"$in":objectID},
+// 				},
+// 			},
+// 		}
+
+// 		update := bson.M{
+// 			"$pull": bson.M{
+// 				"$items":  bson.M{
+// 					"$product_id": bson.M{"$in":objectID},
+// 				},
+// 			},
+// 		}
+
+// 		result, err := cartCollection.UpdateOne(ctx, filter, update)
+// 		if err != nil{
+// 			log.Printf("Failed to delete product from cart`")
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product from cart"})
+// 			return
+// 		}
+
+// 		if result.ModifiedCount == 0{
+// 			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+// 			return
+// 		}
+
+// 		c.JSON(http.StatusOK, gin.H{"message": "Delete product from cart successfully"})
+// 	}
+// }

@@ -297,7 +297,7 @@ func SetupRouter(router *gin.Engine) {
             ForwardRequestToService(c, "http://cart-service:8083/cart/get/" + c.Param("id"), "GET", "application/json")
         })
         protected.DELETE("cart/delete/:id", func(c *gin.Context){
-            ForwardRequestToService(c, "http://cart-service:8083/cart/delete/" + c.Param("id"), "POST", "application/json")
+            ForwardRequestToService(c, "http://cart-service:8083/cart/delete/" + c.Param("id"), "DELETE", "application/json")
         })
     }
 }

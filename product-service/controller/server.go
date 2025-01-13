@@ -43,29 +43,30 @@ func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest
 }
 
 func (s *ProductServer) GetProductInfo(ctx context.Context, req *pb.ProductRequest) (*pb.ProductResponse, error){
-	
 	id := req.Id
-
+	log.Printf("Product id: %v", id)
 	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil{
-		return nil, err
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid product ID format: %v", err)
 	}
 
-	log.Printf(id)
 
+
+	log.Printf("product id: %v", productID)
 	var product models.Product
+
 
 	if err := productCollection.FindOne(ctx, bson.M{"_id": productID}).Decode(&product); err != nil{
 		return nil, err
 	}
-	
+
 	return &pb.ProductResponse{
 		Id: product.ID.String(),
-		Name : *product.Name,
-		Description: *product.Description,
+		Name: *product.Name,
 		Price: float32(product.Price),
-		Quantity: int32(*product.Quantity),
+		Description: *product.Description,
 		ImageUrl: product.ImagePath,
+		Quantity: int32(*product.Quantity),
 	}, nil
 }
 
