@@ -37,20 +37,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Tạo file .env từ secrets
-    - name: Create .env file
+    - name: Install Docker Compose
       run: |
-        echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
-        echo "PORT=${{ secrets.PORT }}" >> .env
-        echo "GRPC_PORT=${{ secrets.GRPC_PORT }}" >> .env
-        echo "MONGODB_URL=${{ secrets.MONGODB_URL }}" >> .env
-        echo "MONGODB_DATABASE=${{ secrets.MONGODB_DATABASE }}" >> .env
+        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
 
     - name: Set up Docker Compose
       run: docker-compose --version
       
     - name: Build with Docker Compose
-      run: docker-compose build
+      run: docker compose build
       env:
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
         PORT: ${{ secrets.PORT }}
@@ -58,13 +54,11 @@ jobs:
         MONGODB_URL: ${{ secrets.MONGODB_URL }}
         MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
 
-    # Chạy integration tests với các services
     - name: Run integration tests
       run: |
-        
-        docker-compose up -d
+        docker compose up -d
         sleep 10
-        docker-compose exec -T cart-service go test -v ./... -tags=integration
+        docker compose exec -T cart-service go test -v ./... -tags=integration
       env:
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
         PORT: ${{ secrets.PORT }}
@@ -73,13 +67,13 @@ jobs:
         MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
 
     - name: Check running containers
-      run: docker-compose ps
+      run: docker compose ps
 
     - name: Check container logs
-      run: docker-compose logs
+      run: docker compose logs
 
     - name: Stop Docker Compose
-      run: docker-compose down
+      run: docker compose down
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -97,9 +91,9 @@ jobs:
     - name: Run integration tests
       run: |
         sleep 10
-        docker-compose exec -T cart-service go test -v ./... -tags=integration
-        docker-compose exec -T auth-service go test -v ./... -tags=integration 
-        docker-compose exec -T product-service go test -v ./... -tags=integration
+        docker compose exec -T cart-service go test -v ./... -tags=integration
+        docker compose exec -T auth-service go test -v ./... -tags=integration 
+        docker compose exec -T product-service go test -v ./... -tags=integration
       env:
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
         PORT: ${{ secrets.PORT }}
@@ -108,10 +102,10 @@ jobs:
         MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
 
     - name: Check containers
-      run: docker-compose ps
+      run: docker compose ps
 
     - name: View logs
-      run: docker-compose logs
+      run: docker compose logs
 
     - name: Cleanup
-      run: docker-compose down
+      run: docker compose down
