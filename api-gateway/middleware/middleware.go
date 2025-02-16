@@ -14,18 +14,74 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CORSMiddleware() gin.HandlerFunc{
-	return func(c *gin.Context){
+// func CORSMiddleware() gin.HandlerFunc{
+// 	return func(c *gin.Context){
+// 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+// 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+// 		// c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+// 		if c.Request.Method == "OPTIONS"{
+// 			c.AbortWithStatus(http.StatusOK)
+// 			return
+// 		}
+// 		c.Next()
+// 	}
+// }
+
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if c.Request.Method == "OPTIONS"{
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization") // Để cho phép Authorization
+
+		// Nếu là yêu cầu OPTIONS, phản hồi thành công ngay lập tức
+		if c.Request.Method == "OPTIONS" {
+			// Chỉ cần xử lý cho OPTIONS
 			c.AbortWithStatus(http.StatusOK)
 			return
 		}
+
+		// Nếu là đăng nhập hoặc đăng ký, không yêu cầu Authorization
+		if c.FullPath() == "/auth/users/login" || c.FullPath() == "/auth/users/register" {
+			c.Next()
+			return
+		}
+
+		// Kiểm tra token cho các route còn lại
+		tokenString := c.GetHeader("Authorization")
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Không tìm thấy token"})
+			c.Abort()
+			return
+		}
+
+		// Validate Bearer token
+		if len(tokenString) < 7 || tokenString[:7] != "Bearer " {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token không đúng định dạng"})
+			c.Abort()
+			return
+		}
+		tokenString = tokenString[7:]
+
+		// Validate và lấy claims
+		claims, msg := helper.ValidateToken(tokenString)
+		if claims == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+			c.Abort()
+			return
+		}
+
+		// Set context từ claims
+		c.Set("email", claims.Email)
+		c.Set("role", claims.UserType)
+		c.Set("uid", claims.Uid)
+
+		log.Printf("Context đã được set: email=%s, role=%s, uid=%s", 
+			claims.Email, claims.UserType, claims.Uid)
+
 		c.Next()
 	}
 }
+
 
 func Authenticate() gin.HandlerFunc {
     return func(c *gin.Context) {
