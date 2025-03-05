@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.28.3
-// source: module/gRPC-cart/cart_service.proto
+// source: cart_service.proto
 
 package service
 
@@ -117,5 +117,5 @@ var CartService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "module/gRPC-cart/cart_service.proto",
+	Metadata: "cart_service.proto",
 }
