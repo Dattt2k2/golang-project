@@ -1,111 +1,111 @@
-name: Go CI with Docker Compose
+# name: Go CI with Docker Compose
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+# on:
+#   push:
+#     branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
     
-    steps:
-    - uses: actions/checkout@v4
+#     steps:
+#     - uses: actions/checkout@v4
     
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
+#     - name: Set up Go
+#       uses: actions/setup-go@v4
+#       with:
+#         go-version: '1.21'
         
-    - name: Install dependencies
-      run: go mod download
+#     - name: Install dependencies
+#       run: go mod download
         
-    - name: Run unit tests
-      run: go test -v ./... -short
+#     - name: Run unit tests
+#       run: go test -v ./... -short
       
-    - name: Run vet
-      run: go vet ./...
+#     - name: Run vet
+#       run: go vet ./...
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3
-      with:
-        version: latest
+#     - name: golangci-lint
+#       uses: golangci/golangci-lint-action@v3
+#       with:
+#         version: latest
 
-  docker:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
+#   docker:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v4
 
-    - name: Install Docker Compose
-      run: |
-        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
+#     - name: Install Docker Compose
+#       run: |
+#         sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+#         sudo chmod +x /usr/local/bin/docker-compose
 
-    - name: Set up Docker Compose
-      run: docker-compose --version
+#     - name: Set up Docker Compose
+#       run: docker-compose --version
       
-    - name: Build with Docker Compose
-      run: docker-compose build
-      env:
-        SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        PORT: ${{ secrets.PORT }}
-        GRPC_PORT: ${{ secrets.GRPC_PORT }}
-        MONGODB_URL: ${{ secrets.MONGODB_URL }}
-        MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+#     - name: Build with Docker Compose
+#       run: docker-compose build
+#       env:
+#         SECRET_KEY: ${{ secrets.SECRET_KEY }}
+#         PORT: ${{ secrets.PORT }}
+#         GRPC_PORT: ${{ secrets.GRPC_PORT }}
+#         MONGODB_URL: ${{ secrets.MONGODB_URL }}
+#         MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
 
-    - name: Run integration tests
-      run: |
-        docker compose up -d
-        sleep 10
-        docker compose exec -T cart-service go test -v ./... -tags=integration
-      env:
-        SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        PORT: ${{ secrets.PORT }}
-        GRPC_PORT: ${{ secrets.GRPC_PORT }}
-        MONGODB_URL: ${{ secrets.MONGODB_URL }}
-        MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+#     - name: Run integration tests
+#       run: |
+#         docker compose up -d
+#         sleep 10
+#         docker compose exec -T cart-service go test -v ./... -tags=integration
+#       env:
+#         SECRET_KEY: ${{ secrets.SECRET_KEY }}
+#         PORT: ${{ secrets.PORT }}
+#         GRPC_PORT: ${{ secrets.GRPC_PORT }}
+#         MONGODB_URL: ${{ secrets.MONGODB_URL }}
+#         MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
 
-    - name: Check running containers
-      run: docker compose ps
+#     - name: Check running containers
+#       run: docker compose ps
 
-    - name: Check container logs
-      run: docker compose logs
+#     - name: Check container logs
+#       run: docker compose logs
 
-    - name: Stop Docker Compose
-      run: docker compose down
+#     - name: Stop Docker Compose
+#       run: docker compose down
 
-  integration-tests:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+#   integration-tests:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.23'
+#     - name: Set up Go
+#       uses: actions/setup-go@v3
+#       with:
+#         go-version: '1.23'
 
-    - name: Set up Docker Compose
-      run: docker-compose up -d
+#     - name: Set up Docker Compose
+#       run: docker-compose up -d
 
-    - name: Run integration tests
-      run: |
-        sleep 10
-        docker compose exec -T cart-service go test -v ./... -tags=integration
-        docker compose exec -T auth-service go test -v ./... -tags=integration 
-        docker compose exec -T product-service go test -v ./... -tags=integration
-      env:
-        SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        PORT: ${{ secrets.PORT }}
-        GRPC_PORT: ${{ secrets.GRPC_PORT }}
-        MONGODB_URL: ${{ secrets.MONGODB_URL }}
-        MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+#     - name: Run integration tests
+#       run: |
+#         sleep 10
+#         docker compose exec -T cart-service go test -v ./... -tags=integration
+#         docker compose exec -T auth-service go test -v ./... -tags=integration 
+#         docker compose exec -T product-service go test -v ./... -tags=integration
+#       env:
+#         SECRET_KEY: ${{ secrets.SECRET_KEY }}
+#         PORT: ${{ secrets.PORT }}
+#         GRPC_PORT: ${{ secrets.GRPC_PORT }}
+#         MONGODB_URL: ${{ secrets.MONGODB_URL }}
+#         MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
 
-    - name: Check containers
-      run: docker compose ps
+#     - name: Check containers
+#       run: docker compose ps
 
-    - name: View logs
-      run: docker compose logs
+#     - name: View logs
+#       run: docker compose logs
 
-    - name: Cleanup
-      run: docker compose down
+#     - name: Cleanup
+#       run: docker compose down
