@@ -2,14 +2,16 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
-	"log"
 
 	"github.com/Dattt2k2/golang-project/product-service/database"
 	"github.com/Dattt2k2/golang-project/product-service/models"
@@ -327,7 +329,7 @@ func GetProductByName(name string) ([]models.Product, error){
 func GetProdctByNameHander() gin.HandlerFunc{
 	return func (c *gin.Context)  {
 		name := c.Query("name")
-		CheckUserRole(c)
+		// CheckUserRole(c)
 		if name == ""{
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Name query parameter is required"})
 			return
@@ -348,43 +350,239 @@ func GetProdctByNameHander() gin.HandlerFunc{
 	}
 }
 
-func GetAllProducts() gin.HandlerFunc {
-    return func(c *gin.Context) {
-        log.Printf("Starting GetAllProducts handler")
+// func GetAllProducts() gin.HandlerFunc {
+//     return func(c *gin.Context) {
+//         log.Printf("Starting GetAllProducts handler")
 
-        var products []models.Product
-        var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+//         var products []models.Product
+//         var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+//         defer cancel()
+
+
+//         // CheckUserRole(c)
+//         if c.IsAborted(){
+//             return
+//         }
+
+//         page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+//         if err != nil || page < 1 {
+//             log.Printf("Invalid page parameter, using default: %v", err)
+//             page = 1
+//         }
+//         limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+//         if err != nil || limit < 1 {
+//             log.Printf("Invalid limit parameter, using default: %v", err)
+//             limit = 10
+//         }
+
+//         log.Printf("Pagination: page=%d, limit=%d", page, limit)
+
+//         skip := (page - 1) * limit
+
+//         // Count total products
+//         total, err := productCollection.CountDocuments(ctx, bson.M{})
+//         if err != nil {
+//             log.Printf("Error counting products: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
+//             return
+//         }
+//         log.Printf("Total products count: %d", total)
+
+//         if total == 0 {
+//             c.JSON(http.StatusOK, gin.H{
+//                 "data":     []models.Product{},
+//                 "total":    0,
+//                 "page":     page,
+//                 "pages":    0,
+//                 "has_next": false,
+//                 "has_prev": false,
+//             })
+//             return
+//         }
+
+//         // Create find options
+//         findOptions := options.Find().
+//             SetSkip(int64(skip)).
+//             SetLimit(int64(limit)).
+//             SetSort(bson.D{{"created_at", -1}})
+
+//         // Find products
+//         cursor, err := productCollection.Find(ctx, bson.M{}, findOptions)
+//         if err != nil {
+//             log.Printf("Error fetching products: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+//             return
+//         }
+//         defer cursor.Close(ctx)
+
+//         // Decode products
+//         if err := cursor.All(ctx, &products); err != nil {
+//             log.Printf("Error decoding products: %v", err)
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse products"})
+//             return
+//         }
+
+//         log.Printf("Found %d products for current page", len(products))
+
+//         // Calculate pagination info
+//         pages := int(math.Ceil(float64(total) / float64(limit)))
+
+//         // Add debug info to verify product data
+//         for i, product := range products {
+//             log.Printf("Product %d: ID=%v, Name=%v", i, product.ID, *product.Name)
+//         }
+
+//         response := gin.H{
+//             "data":     products,
+//             "total":    total,
+//             "page":     page,
+//             "pages":    pages,
+//             "has_next": page < pages,
+//             "has_prev": page > 1,
+//         }
+
+//         log.Printf("Sending response with %d products", len(products))
+//         c.JSON(http.StatusOK, response)
+//     }
+// }
+
+func GetAllProducts() gin.HandlerFunc{
+    return func (c *gin.Context)  {
+        log.Printf("Starting GetAllProducts handler")
+        ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
         defer cancel()
 
-
-        CheckUserRole(c)
-        if c.IsAborted(){
-            return
-        }
-
         page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-        if err != nil || page < 1 {
-            log.Printf("Invalid page parameter, using default: %v", err)
+        if err != nil || page < 1{
             page = 1
         }
         limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
-        if err != nil || limit < 1 {
-            log.Printf("Invalid limit parameter, using default: %v", err)
+        if err != nil || limit < 1{
             limit = 10
         }
 
-        log.Printf("Pagination: page=%d, limit=%d", page, limit)
+        cacheKey := fmt.Sprintf("products_%d_%d", page, limit)
 
-        skip := (page - 1) * limit
+        type cacheResult struct {
+            found bool
+            products []models.Product
+            total int64
+            err error
+        }
 
-        // Count total products
-        total, err := productCollection.CountDocuments(ctx, bson.M{})
-        if err != nil {
-            log.Printf("Error counting products: %v", err)
+        cacheChannel := make(chan cacheResult, 1)
+
+        go func(){
+            var result cacheResult
+            cacheData , err := database.RedisClient.Get(ctx, cacheKey).Result()
+            if err == nil{
+                var cachedResponse struct {
+                    Products []models.Product `json:"products"`
+                    Total int64 `json:"total"`
+                }
+
+                if err := json.Unmarshal([]byte(cacheData), &cachedResponse); err == nil{
+                    result.found = true
+                    result.products = cachedResponse.Products
+                    result.total = cachedResponse.Total
+                }
+            }
+            cacheChannel <- result
+        }()
+
+        result := <- cacheChannel
+
+        if result.found{
+            total := result.total
+            product:= result.products
+
+            pages := int(math.Ceil(float64(total) / float64(limit)))
+
+            c.JSON(http.StatusOK, gin.H{
+                "data": product,
+                "total": total,
+                "page": page,
+                "pages": pages,
+                "has_next": page < pages,
+                "has_prev": page > 1,
+                "source": "cache",
+            })
+            return
+        }
+
+        var wg sync.WaitGroup
+        wg.Add(2)
+
+        type countResult struct {
+            total int64
+            err error
+        }
+
+        type productResult struct {
+            products []models.Product
+            err error
+        }
+
+        countChan := make(chan countResult, 1)
+        productsChan := make(chan productResult, 1)
+
+        go func(){
+            defer wg.Done()
+
+            total, err := productCollection.CountDocuments(ctx, bson.M{})
+            countChan <- countResult{total, err}
+        }()
+
+        go func(){
+            defer wg.Done()
+
+            skip := (page - 1) * limit
+
+            findOptions := options.Find().
+                SetSkip(int64(skip)).
+                SetLimit(int64(limit)).
+                SetSort(bson.D{{"created_at", -1}})
+
+            cursor, err := productCollection.Find(ctx, bson.M{}, findOptions)
+            if err != nil{
+                productsChan <- productResult{err: err}
+                return
+            }
+
+            defer cursor.Close(ctx)
+
+            var products []models.Product
+            if err := cursor.All(ctx, &products); err != nil{
+                productsChan <- productResult{err:err}
+                return
+            }
+
+            productsChan <- productResult{products: products}
+        }()
+
+        go func(){
+            wg.Wait()
+            close(countChan)
+            close(productsChan)
+        }()
+
+        countRes := <- countChan
+        if countRes.err != nil{
+            log.Printf("Error counting products: %v", countRes.err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
             return
         }
-        log.Printf("Total products count: %d", total)
+
+        productRes := <- productsChan
+        if productRes.err != nil{
+            log.Printf("Error fetching products: %v", productRes.err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+            return
+        }
+
+        total := countRes.total
+        products := productRes.products
+
 
         if total == 0 {
             c.JSON(http.StatusOK, gin.H{
@@ -394,41 +592,12 @@ func GetAllProducts() gin.HandlerFunc {
                 "pages":    0,
                 "has_next": false,
                 "has_prev": false,
+                "source": "db",
             })
             return
         }
 
-        // Create find options
-        findOptions := options.Find().
-            SetSkip(int64(skip)).
-            SetLimit(int64(limit)).
-            SetSort(bson.D{{"created_at", -1}})
-
-        // Find products
-        cursor, err := productCollection.Find(ctx, bson.M{}, findOptions)
-        if err != nil {
-            log.Printf("Error fetching products: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
-            return
-        }
-        defer cursor.Close(ctx)
-
-        // Decode products
-        if err := cursor.All(ctx, &products); err != nil {
-            log.Printf("Error decoding products: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse products"})
-            return
-        }
-
-        log.Printf("Found %d products for current page", len(products))
-
-        // Calculate pagination info
         pages := int(math.Ceil(float64(total) / float64(limit)))
-
-        // Add debug info to verify product data
-        for i, product := range products {
-            log.Printf("Product %d: ID=%v, Name=%v", i, product.ID, *product.Name)
-        }
 
         response := gin.H{
             "data":     products,
@@ -437,11 +606,25 @@ func GetAllProducts() gin.HandlerFunc {
             "pages":    pages,
             "has_next": page < pages,
             "has_prev": page > 1,
+            "source": "database",
         }
 
-        log.Printf("Sending response with %d products", len(products))
+        cacheData := struct {
+            Products []models.Product `json:"products"`
+            Total int64 `json:"total"`
+        }{
+            Products: products,
+            Total: total,
+        }
+
+        cacheJSON, err := json.Marshal(cacheData)
+        if err != nil{
+            database.RedisClient.Set(ctx, cacheKey, cacheJSON, 10*time.Minute)
+        }
+
         c.JSON(http.StatusOK, response)
     }
+
 }
 
 
