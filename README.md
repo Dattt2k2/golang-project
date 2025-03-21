@@ -1,4 +1,4 @@
-# Project E-commerce using Go, MongoDB using Microservice 
+# Project E-commerce using Go, MongoDB, Microservice architechture 
 
 ## Techstack
 ### Golang, Kafka, Redis
