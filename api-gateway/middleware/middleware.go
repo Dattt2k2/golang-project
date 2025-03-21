@@ -5,10 +5,12 @@ import (
 	// "fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	// "time"
 
 	helper "github.com/Dattt2k2/golang-project/api-gateway/helpers"
+	"github.com/google/uuid"
 	// "github.com/Dattt2k2/golang-project/api-gateway/redisdb"
 	// grpcClient "github.com/Dattt2k2/golang-project/api-gateway/grpc"
 	"github.com/gin-gonic/gin"
@@ -164,4 +166,53 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func DeviceInfoMiddleware() gin.HandlerFunc{
+	return func(c *gin.Context){
+		deviceId := c.GetHeader("Device-Id")
+		if deviceId == ""{
+			deviceId = genterateDeviceId(c)
+			c.Request.Header.Set("X-Device-ID", deviceId)
+		}
+
+		platform := c.GetHeader("X-Platform")
+		if platform == ""{
+			userAgent := c.GetHeader("User-Agent")
+			platform = detectPlatform(userAgent)
+			c.Request.Header.Set("X-Platform", platform)
+		}
+
+		c.Next()
+	}
+}
+
+func genterateDeviceId(c *gin.Context) string{
+	if deviceId, err := c. Cookie("device_id"); err == nil{
+		return deviceId
+	}
+
+	deviceId := uuid.New().String()
+	if !isMobileRequest(c.GetHeader("User-Agent")){
+		c.SetCookie("device_id", deviceId, 86400*365, "/", "", false, true)
+	}
+
+	return deviceId
+}
+
+func detectPlatform(userAgent string) string{
+	userAgent = strings.ToLower(userAgent)
+
+	if strings.Contains(userAgent, "android"){
+		return "android"
+	} else if strings.Contains(userAgent, "ios"){
+		return "ios"
+	} else {
+		return "web"
+	}
+}
+
+func isMobileRequest(userAgent string) bool{
+	userAgent = strings.ToLower(userAgent)
+	return strings.Contains(userAgent, "android") || strings.Contains(userAgent, "ios")
 }

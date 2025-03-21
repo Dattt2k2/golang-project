@@ -25,6 +25,8 @@ import (
 var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
 var validate = validator.New()
 
+
+
 func HashPass(password string) string {
     bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
     if err != nil {
@@ -301,4 +303,63 @@ func GetUserType(c *gin.Context) (string, error) {
     }
 
     return result.UserType, nil
+}
+
+
+func Logout() gin.HandlerFunc {
+	return func(c *gin.Context){
+		userId := c.GetString("uid")
+		deviceId := c.GetHeader("device_id")
+
+		if userId == "" || deviceId == ""{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User Id or Device ID not found"})
+			return
+		}
+
+		err := helper.InvalidateRefreshToken(userId, deviceId)
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error when logout"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Logout successfully"})
+	}
+}
+
+func LogouAll() gin.HandlerFunc{
+	return func (c *gin.Context){
+		userId := c.GetString("uid")
+
+		if userId == ""{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User Id not found"})
+			return
+		}
+
+		err := helper.InvalidateAllUserRefreshToken(userId)
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error when logout"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Logout successfully"})
+	}
+}
+
+func GetDevices() gin.HandlerFunc{
+	return func (c *gin.Context){
+		userId := c.GetString("uid")
+
+		if userId == ""{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User Id not found"})
+			return
+		}
+
+		devices, err := helper.GetUserDevices(userId)
+		if err != nil{
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error when get Devices"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"devices": devices})
+	}
 }

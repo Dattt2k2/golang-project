@@ -1,4 +1,3 @@
-
 # services:
 #   mongo:
 #     image: mongo:latest
@@ -133,6 +132,8 @@ services:
       - "8080:8080"
     env_file:
       - ./api-gateway/.env
+    networks:
+      - default
 
   auth-service:
     build:
@@ -146,6 +147,8 @@ services:
       - ./auth-service/.env
     depends_on:
       - mongodb
+    networks:
+      - default
 
   product-service:
     build:
@@ -160,6 +163,8 @@ services:
       - ./product-service/.env
     depends_on:
       - mongodb
+    networks:
+      - default
 
   cart-service:
     build:
@@ -174,6 +179,8 @@ services:
       - ./cart-service/.env
     depends_on:
       - mongodb
+    networks:
+      - default
 
   order-service:
     build:
@@ -187,6 +194,8 @@ services:
       - ./order-service/.env
     depends_on:
       - mongodb
+    networks:
+      - default
 
   mongodb:
     image: mongo:latest
@@ -197,6 +206,8 @@ services:
       # MONGO_INITDB_ROOT_PASSWORD: example
     volumes:
       - mongodb_data:/data/db
+    networks:
+      - default
 
   mongo-express:
     image: mongo-express:latest
@@ -204,13 +215,16 @@ services:
       - "8085:8081"
     environment:
       - ME_CONFIG_MONGODB_URL=mongodb://mongodb:27017/
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
       - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
-      - ME_CONFIG_BASICAUTH_USERNAME=""
-      - ME_CONFIG_BASICAUTH_PASSWORD=""
-      - ME_CONFIG_OPTIONS_EDITORTHEME=ambiance
-
+      - ME_CONFIG_BASICAUTH_USERNAME=admin  # Set a username
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass   # Set a password
+      - ME_CONFIG_MONGODB_NO_AUTH=true  
     depends_on:
       - mongodb
+    networks:
+      - default
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -220,6 +234,8 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - default
 
   kafka:
     image: confluentinc/cp-kafka:latest
@@ -233,6 +249,9 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     depends_on:
       - zookeeper
+    networks:
+      - default
+
   redis:
     image: redis:latest
     container_name: redis
@@ -241,6 +260,9 @@ services:
     volumes:
       - redis_data:/data
     restart: always
+    networks:
+      - default
+
 volumes:
   mongodb_data:
   redis_data:

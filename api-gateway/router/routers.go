@@ -13,6 +13,7 @@ import (
 	"time"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/middleware"
+	"github.com/Dattt2k2/golang-project/api-gateway/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,6 +39,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
         c.JSON(http.StatusBadRequest, gin.H{"error": "UID not found in context"})
         return
     }
+
 
     client := &http.Client{
         Timeout: time.Second * 30,
@@ -190,6 +192,10 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 func SetupRouter(router *gin.Engine) {
     var client = &http.Client{}
+
+    router.Use(gin.Logger())
+    router.Use(gin.Recovery())
+    router.Use(middleware.DeviceInfoMiddleware())
 
     // Public routes - không cần auth
     auth := router.Group("/auth/users")

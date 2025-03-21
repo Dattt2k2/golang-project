@@ -6,6 +6,7 @@ import (
 	"os"
 
 	// database "github.com/Dattt2k2/golang-project/product-service/database"
+	"github.com/Dattt2k2/golang-project/auth-service/database"
 	controllers "github.com/Dattt2k2/golang-project/product-service/controller"
 	"github.com/Dattt2k2/golang-project/product-service/routes"
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,10 @@ func main(){
 	if mongodbURL == ""{
 		log.Fatalf("MONGODB_URL is not set on .env file yet")
 	}
+
+	database.InitRedis()
+	defer database.RedisClient.Close()
+	log.Printf("Connected to Redis")
 
 	grpcReady := make(chan bool)
 

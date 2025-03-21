@@ -300,6 +300,7 @@ func DeleteProduct() gin.HandlerFunc {
 func GetProductByName(name string) ([]models.Product, error){
 	var products []models.Product
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+    defer cancel()
 
 	// filter := bson.D{{"name", bson.D{{"$regex", name}, {"$options", "i"}}}}
 	filter := bson.M{"name": bson.M{"$regex": name, "$options": "i"}}
@@ -321,7 +322,7 @@ func GetProductByName(name string) ([]models.Product, error){
 		return nil, err
 	}
 	
-	defer cancel()
+	// defer cancel()
 	return products, nil
 
 }
