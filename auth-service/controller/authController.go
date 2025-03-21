@@ -67,25 +67,13 @@ func SignUp() gin.HandlerFunc {
 			return
 		}
 
-		// Kiểm tra email có tồn tại không
-		count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
+		emailExists ,err := helper.CheckUsernameExists(*user.Email)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while checking email"})
 			return
 		}
-		if count > 0 {
+		if emailExists {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Email is already taken"})
-			return
-		}
-
-		// Kiểm tra số điện thoại có tồn tại không
-		count, err = userCollection.CountDocuments(ctx, bson.M{"phone": user.Phone})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occurred while checking phone number"})
-			return
-		}
-		if count > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone number is already taken"})
 			return
 		}
 
