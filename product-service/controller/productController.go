@@ -98,6 +98,7 @@ func AddProduct() gin.HandlerFunc {
         description := c.PostForm("description")
         quantityStr := c.PostForm("quantity")
         priceStr := c.PostForm("price")
+        category := c.PostForm("category")
 
         log.Printf("Received quantity: %s", quantityStr)
 
@@ -130,6 +131,7 @@ func AddProduct() gin.HandlerFunc {
         product = models.Product{
             ID:          primitive.NewObjectID(),
             Name:        &name,
+            Category:    &category,
             Description: &description,
             Price:       price,
             Quantity:    &quantity,
@@ -641,3 +643,19 @@ func CheckStock(productID string) (int, error){
     }
     return *product.Quantity, nil
 }
+
+
+// func GetProductImage() gin.HandlerFunc{
+//     return func(c *gin.Context){
+//         imageName := c.Param("filename")
+
+//         imagePath:= "./product-service/uploads/images/" + imageName
+
+//         if _, err := os.Stat(imagePath); os.IsNotExist(err){
+//             c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
+//             return
+//         }
+
+//         c.File(imagePath)
+//     }
+// }

@@ -25,6 +25,7 @@ type Product struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Name        *string            `json:"name" validate:"required,min=2,max=100"`
 	ImagePath   string             `json:"image_path"` 
+	Category	*string             `json:"category validate:"required"`
 	Description *string            `json:"description" validate:"required,min=2,max=100"`
 	Quantity    *int               `json:"quantity" validate:"required,min=1"`
 	Price       float64            `json:"price" validate:"required"`
