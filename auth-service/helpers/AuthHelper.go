@@ -41,22 +41,44 @@ func CheckUsernameExists(username string) (bool, error){
 	return count > 0, nil
 }
 
+// func CheckEmailExists(email string) (bool, error){
+// 	exists , err := userBloom.Contains(email)
+// 	if err != nil{
+// 		log.Printf("Error checking email: %v", err)
+// 		return false, err
+// 	}
+
+// 	if !exists{
+// 		return false, nil
+// 	}
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// 	defer cancel()
+
+// 	count, err := userCollection.CountDocuments(ctx, bson.M{"email": email})
+// 	if err != nil{
+// 		return false, err
+// 	}
+
+// 	return count > 0, nil
+// }
+
 func CheckEmailExists(email string) (bool, error){
-	exists , err := userBloom.Contains(email)
-	if err != nil{
-		log.Printf("Error checking email: %v", err)
-		return false, err
+	if userBloom != nil{
+		exists, err := userBloom.Contains(email)
+		if err != nil{
+			log.Printf("Error checking email in BloomFilter: %v", err)
+		} else if !exists{
+			return false, nil
+		}
 	}
 
-	if !exists{
-		return false, nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	count, err := userCollection.CountDocuments(ctx, bson.M{"email": email})
 	if err != nil{
+		log.Printf("Error checking email in MongoDB: %v", err)
 		return false, err
 	}
 

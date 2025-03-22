@@ -3,6 +3,7 @@ package router
 import (
 	"bytes"
 	"encoding/json"
+	// "fmt"
 	"io"
 	"log"
 	"mime/multipart"
@@ -200,6 +201,45 @@ func SetupRouter(router *gin.Engine) {
     // Public routes - không cần auth
     auth := router.Group("/auth/users")
     {
+        // auth.POST("/register", func(c *gin.Context) {
+        //     bodyBytes, err := io.ReadAll(c.Request.Body)
+        //     if err != nil{
+        //         log.Printf("Error reading requets body: %v", err)
+        //         c.JSON(http.StatusBadRequest, gin.H{"error": "Error reading requets"})
+        //         return
+        //     }
+
+        //     log.Printf("Body bytes: %v", bodyBytes)
+        //     req, err := http.NewRequest("POST", "http://auth-service:8081/users/register", bytes.NewBuffer(bodyBytes))
+        //     if err != nil{
+        //         log.Println("Error creating new request:", err)
+        //         c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create new request"})
+        //         return
+        //     }
+        //     req.Header.Set("Content-Type", "application/json")
+        //     req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+
+        //     client := &http.Client{
+        //         Timeout: 10 * time.Second,
+        //     }
+
+        //     resp, err := client.Do(req)
+        //     if err != nil {
+		// 		log.Println("Error reading request body:", err)
+        //         c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
+        //         return
+        //     }
+        //     respBody, err := io.ReadAll(resp.Body)
+        //     if err != nil{
+        //         log.Printf("Error reading response body: %v", err)
+        //         c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading request body"})
+        //         return
+        //     }
+        //     c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), respBody)
+        //     // defer resp.Body.Close()
+
+        //     // c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+        // })
         auth.POST("/register", func(c *gin.Context) {
             bodyBytes, _ := io.ReadAll(c.Request.Body)
             req, _ := http.NewRequest("POST", "http://auth-service:8081/users/register", bytes.NewReader(bodyBytes))

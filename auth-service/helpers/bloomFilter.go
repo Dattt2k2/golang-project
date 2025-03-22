@@ -118,12 +118,39 @@ func (bf *BloomFilter) Add(value string) error{
 }
 
 func (bf *BloomFilter) Contains(value string) (bool, error){
+	// ctx := context.Background()
+
+	// positions := bf.positions(value)
+
+	// for _, pos := range positions{
+	// 	bit, err := database.RedisClient.GetBit(ctx, bf.Name, int64(pos)).Result()
+	// 	if err != nil{
+	// 		return false, err
+	// 	}
+	// 	if bit == 0{
+	// 		return false, nil
+	// 	}
+	// }
+
+	// return true, nil
+
 	ctx := context.Background()
+	posistions := bf.positions(value)
 
-	positions := bf.positions(value)
+	pipe := database.RedisClient.Pipeline()
 
-	for _, pos := range positions{
-		bit, err := database.RedisClient.GetBit(ctx, bf.Name, int64(pos)).Result()
+	results := make([]*redis.IntCmd, len(posistions))
+	for i, pos := range posistions{
+		results[i] = pipe.GetBit(ctx, bf.Name, int64(pos))
+	}
+
+	_, err := pipe.Exec(ctx)
+	if err != nil{
+		return false, err
+	}
+
+	for _, result := range results{
+		bit, err := result.Result()
 		if err != nil{
 			return false, err
 		}
@@ -136,7 +163,7 @@ func (bf *BloomFilter) Contains(value string) (bool, error){
 }
 
 func (bf *BloomFilter) positions(value string) []uint{
-	positions := make([]uint, 0, bf.K)
+	positions := make([]uint, bf.K)
 
 	h1 := sha1.Sum([]byte(value))
 	h2 := sha256.Sum256([]byte(value))
