@@ -3,7 +3,7 @@ package router
 import (
 	"bytes"
 	"encoding/json"
-	// "fmt"
+	"fmt"
 	"io"
 	"log"
 	"mime/multipart"
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/middleware"
-	// "github.com/Dattt2k2/golang-project/api-gateway/middleware"
+	"github.com/Dattt2k2/golang-project/api-gateway/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -194,9 +194,9 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 func SetupRouter(router *gin.Engine) {
     var client = &http.Client{}
 
-    // router.Use(gin.Logger())
-    // router.Use(gin.Recovery())
-    // router.Use(middleware.DeviceInfoMiddleware())
+    router.Use(gin.Logger())
+    router.Use(gin.Recovery())
+    router.Use(middleware.DeviceInfoMiddleware())
 
     // Public routes - không cần auth
     auth := router.Group("/auth/users")
@@ -244,6 +244,10 @@ func SetupRouter(router *gin.Engine) {
             bodyBytes, _ := io.ReadAll(c.Request.Body)
             req, _ := http.NewRequest("POST", "http://auth-service:8081/users/register", bytes.NewReader(bodyBytes))
             req.Header.Set("Content-Type", "application/json")
+            req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+            req.Header.Set("X-Device-Id", c.GetString("device_id"))
+            req.Header.Set("User-Agent", c.GetString("user_agent"))
+            req.Header.Set("X-Platform", c.GetString("platform"))
 
             resp, err := client.Do(req)
             if err != nil {
@@ -260,6 +264,9 @@ func SetupRouter(router *gin.Engine) {
             bodyBytes, _ := io.ReadAll(c.Request.Body)
             req, _ := http.NewRequest("POST", "http://auth-service:8081/users/login", bytes.NewReader(bodyBytes))
             req.Header.Set("Content-Type", "application/json")
+            req.Header.Set("X-Device-Id", c.GetString("device_id"))
+            req.Header.Set("User-Agent", c.GetString("user_agent"))
+            req.Header.Set("X-Platform", c.GetString("platform"))
 
             resp, err := client.Do(req)
             if err != nil {
@@ -295,6 +302,18 @@ func SetupRouter(router *gin.Engine) {
             a, _ := c.Get("email")
             log.Println("Email from context:", a)
 
+            c.SetCookie(
+                "auth_token",
+                loginResponse.Token,
+                60*60*24*7,
+                "/",
+                "",
+                c.Request.TLS != nil,
+                true,
+            )
+
+            log.Printf("Set auth_token cokkies")
+
             // Gửi phản hồi trở lại client (bao gồm token)
             c.JSON(resp.StatusCode, gin.H{
                 "email": loginResponse.Email,
@@ -307,7 +326,7 @@ func SetupRouter(router *gin.Engine) {
 
         // Protected routes - cần auth
         protected := router.Group("/api")
-        // protected.Use(middleware.Authenticate())
+        protected.Use(middleware.AuthMiddleware())
     {
         protected.POST("/products/add", func(c *gin.Context) {
             ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "multipart/form-data")

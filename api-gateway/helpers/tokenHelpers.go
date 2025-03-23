@@ -1,25 +1,30 @@
 package helpers
 
 import (
+	// "context"
+	// "fmt"
 	"log"
+	"net/url"
 	"os"
+	"strings"
 	"time"
-	"fmt"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/joho/godotenv"
 )
 
 type SignedDetails struct {
-    Email     string `json:"email"`
-    FirstName string `json:"first_name"`
-    LastName  string `json:"last_name"`
-    UserType  string `json:"user_type"` 
-    Uid       string `json:"uid"`
-    jwt.RegisteredClaims
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Uid       string `json:"uid"`
+	UserType  string `json:"user_type"`
+	jwt.RegisteredClaims
 }
 
-var SECRECT_KEY string
+// var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+
+var SECRET_KEY string
 
 // Hàm init để load SECRET_KEY từ .env
 func InitDotEnv() {
@@ -30,95 +35,167 @@ func InitDotEnv() {
 	}
 
 	// Lấy giá trị SECRET_KEY từ biến môi trường
-	SECRECT_KEY = os.Getenv("SECRET_KEY")
-	if SECRECT_KEY == "" {
+	SECRET_KEY = os.Getenv("SECRET_KEY")
+	if SECRET_KEY == "" {
 		log.Fatal("SECRET_KEY not found in .env")
 	}
 }
 
-func ValidateToken(tokenString string) (*SignedDetails, string) {
-    log.Printf("[Debug] Secret key length: %d", len(SECRECT_KEY))
+// GenerateAllToken tạo access token và refresh token
+// func GenerateAllToken(email, firstname, lastname, userType, uid string) (signedToken string, signedRefreshToken string, err error) {
+// 	claims := &SignedDetails{
+// 		Email:     email,
+// 		FirstName: firstname,
+// 		LastName:  lastname,
+// 		Uid:       uid,
+// 		UserType:  userType,
+// 		RegisteredClaims: jwt.RegisteredClaims{
+// 			ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * 24)), // Hết hạn sau 24 giờ
+// 		},
+// 	}
 
-    token, err := jwt.ParseWithClaims(
-        tokenString,
-        &SignedDetails{},
-        func(token *jwt.Token) (interface{}, error) {
-            // Verify signing method
-            if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-                log.Printf("[Error] Expected HMAC signing method but got %v", token.Header["alg"])
-                return nil, fmt.Errorf("invalid signing method")
-            }
-            
-            // Debug signing key
-            signingKey := []byte(SECRECT_KEY)
-            log.Printf("[Debug] Using signing key length: %d", len(signingKey))
-            
-            return signingKey, nil
-        },
-    )
+// 	refreshClaims := &SignedDetails{
+// 		Email:     email,
+// 		FirstName: firstname,
+// 		LastName:  lastname,
+// 		Uid:       uid,
+// 		UserType:  userType,
+// 		RegisteredClaims: jwt.RegisteredClaims{
+// 			ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * 168)), // Hết hạn sau 7 ngày (168 giờ)
+// 		},
+// 	}
 
-    if err != nil {
-        ve, ok := err.(*jwt.ValidationError)
-        if ok {
-            log.Printf("[Debug] Validation error type: %d", ve.Errors)
-            log.Printf("[Debug] Raw error message: %s", ve.Error())
+// 	// Tạo JWT token
+// 	signedToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRECT_KEY))
+// 	if err != nil {
+// 		log.Panic(err)
+// 		return
+// 	}
 
-            switch {
-            case ve.Errors&jwt.ValidationErrorSignatureInvalid != 0:
-                log.Printf("[Error] Signature validation failed")
-                return nil, "invalid signature"
-            case ve.Errors&jwt.ValidationErrorExpired != 0:
-                return nil, "token expired"
-            case ve.Errors&jwt.ValidationErrorMalformed != 0:
-                return nil, "token malformed"
-            default:
-                return nil, fmt.Sprintf("token validation error: %v", ve.Error())
-            }
-        }
-        return nil, "token validation failed"
-    }
+// 	signedRefreshToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(SECRECT_KEY))
+// 	if err != nil {
+// 		log.Panic(err)
+// 		return
+// 	}
 
-    claims, ok := token.Claims.(*SignedDetails)
-    if !ok || !token.Valid {
-        log.Println("[Error] Invalid claims or token")
-        return nil, "invalid token claims"
-    }
+// 	return signedToken, signedRefreshToken, err
+// }
 
-    log.Printf("[Debug] Token validated successfully for: %s", claims.Email)
-    return claims, ""
+func GenerateToken(email, firstname, lastname, userType, uid string, duration time.Duration) (string, error) {
+	claims := &SignedDetails{
+		Email:     email,
+		FirstName: firstname,
+		LastName:  lastname,
+		Uid:       uid,
+		UserType:  userType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(duration)),
+		},
+	}
+
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRET_KEY))
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
+func GenerateAllToken(email, firstname, lastname, userType, uid string) (string, string, error) {
+	accessToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour*24)
+	if err != nil {
+		return "", "", err
+	}
 
-func GenerateAllToken(email, firstName, lastName, userType, uid string) (signedToken string, signedRefreshToken string, err error) {
-    claims := &SignedDetails{
-        Email:     email,
-        FirstName: firstName,
-        LastName:  lastName,
-        UserType:  userType,
-        Uid:       uid,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
+	refreshToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour*168)
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+// ValidateToken kiểm tra token có hợp lệ không
+func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
+	// Check if token is empty
+	if signedToken == "" {
+		log.Println("[DEBUG] Empty token provided")
+		return nil, "token is empty"
+	}
+
+	// Add debug logging
+	log.Printf("[DEBUG] Validating token (length: %d)", len(signedToken))
+	log.Printf("[DEBUG] SECRET_KEY length: %d", len(SECRET_KEY))
+
+	// URL-decode if needed
+	if strings.Contains(signedToken, "%") {
+		decodedToken, err := url.QueryUnescape(signedToken)
+		if err != nil {
+			log.Println("[DEBUG] Error unescaping token: ", err)
+		} else {
+			signedToken = decodedToken
+			log.Printf("[DEBUG] Decoded token (length: %d)", len(signedToken))
+		}
+	}
+
+	// Check if token has correct format
+	parts := strings.Split(signedToken, ".")
+	if len(parts) != 3 {
+		log.Printf("[DEBUG] Malformed token: has %d parts instead of 3", len(parts))
+		return nil, "token contains an invalid number of segments"
+	}
+
+	// Parse the token
+	token, err := jwt.ParseWithClaims(
+		signedToken,
+		&SignedDetails{},
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(SECRET_KEY), nil
 		},
-    }
+	)
 
-    refreshClaims := &SignedDetails{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 7)),
-		},
-    }
+	if err != nil {
+		log.Printf("[DEBUG] JWT parse error: %v", err)
+		msg = err.Error()
+		return
+	}
 
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-    refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	claims, ok := token.Claims.(*SignedDetails)
+	if !ok {
+		log.Printf("[DEBUG] Invalid claims type")
+		msg = "the token is invalid"
+		return
+	}
 
-    signedToken, err = token.SignedString([]byte(SECRECT_KEY))
-    if err != nil {
-        return
-    }
+	if claims.ExpiresAt.Before(time.Now()) {
+		log.Printf("[DEBUG] Token expired")
+		msg = "token is expired"
+		return
+	}
 
-    signedRefreshToken, err = refreshToken.SignedString([]byte(SECRECT_KEY))
-    if err != nil {
-        return
-    }
+	log.Printf("[DEBUG] Token valid for user: %s", claims.Email)
+	return claims, ""
+}
 
-    return signedToken, signedRefreshToken, nil
+func RefreshToken(refreshToken string) (newAccessToken string, msg string) {
+	claims, msg := ValidateToken(refreshToken)
+	if msg != "" {
+		return "", msg
+	}
+
+	// Nếu refresh token hợp lệ, tạo lại access token mới
+	newAccessToken, _, err := GenerateAllToken(claims.Email, claims.FirstName, claims.LastName, claims.UserType, claims.Uid)
+	if err != nil {
+		return "", "Error generating new access token"
+	}
+
+	return newAccessToken, ""
+}
+
+// Helper function to get the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -10,7 +10,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
+
+	// "sync"
 	"time"
 
 	"github.com/Dattt2k2/golang-project/product-service/database"
@@ -23,21 +24,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-
 var productCollection *mongo.Collection = database.OpenCollection(database.Client, "product")
 var validate = validator.New()
-
 
 func CheckUserRole(c *gin.Context) {
 	userRole := c.GetHeader("user_type")
 	if userRole != "SELLER" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
 		c.Abort()
-        return
+		return
 	}
-    c.Next()
+	c.Next()
 }
-
 
 func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
 	saveDir := "./product-service/uploads/images/"
@@ -58,116 +56,113 @@ func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, 
 	return imagePath, nil
 }
 
-                                   
-
 func AddProduct() gin.HandlerFunc {
-    return func(c *gin.Context) {
+	return func(c *gin.Context) {
 
-        log.Printf("Content-Type: %s", c.GetHeader("Content-Type"))
-        log.Printf("All form values: %v", c.Request.Form)
+		log.Printf("Content-Type: %s", c.GetHeader("Content-Type"))
+		log.Printf("All form values: %v", c.Request.Form)
 
-        CheckUserRole(c)
-        if c.IsAborted(){
-            return
-        }
+		CheckUserRole(c)
+		if c.IsAborted() {
+			return
+		}
 
-        // Parse multipart form
-        if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
-            log.Printf("Error parsing multipart form: %v", err)
-        }
+		// Parse multipart form
+		if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+			log.Printf("Error parsing multipart form: %v", err)
+		}
 
-        // Get form data
-        formData := c.Request.MultipartForm
-        log.Printf("Form data: %v", formData)
+		// Get form data
+		formData := c.Request.MultipartForm
+		log.Printf("Form data: %v", formData)
 
-        var product models.Product
-        var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-        defer cancel()
+		var product models.Product
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
-        // Get user ID from header and check role
-        userID := c.GetHeader("user_id")
+		// Get user ID from header and check role
+		userID := c.GetHeader("user_id")
 
-        userObjectID, err := primitive.ObjectIDFromHex(userID)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-            return
-        }
+		userObjectID, err := primitive.ObjectIDFromHex(userID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
 
-        // Get form values
-        name := c.PostForm("name")
-        description := c.PostForm("description")
-        quantityStr := c.PostForm("quantity")
-        priceStr := c.PostForm("price")
-        category := c.PostForm("category")
+		// Get form values
+		name := c.PostForm("name")
+		description := c.PostForm("description")
+		quantityStr := c.PostForm("quantity")
+		priceStr := c.PostForm("price")
+		category := c.PostForm("category")
 
-        log.Printf("Received quantity: %s", quantityStr)
+		log.Printf("Received quantity: %s", quantityStr)
 
-        quantity, err := strconv.Atoi(quantityStr)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
-            return
-        }
+		quantity, err := strconv.Atoi(quantityStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
+			return
+		}
 
-        price, err := strconv.ParseFloat(priceStr, 64)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
-            return
-        }
+		price, err := strconv.ParseFloat(priceStr, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
+			return
+		}
 
-        // Handle image file
-        file, err := c.FormFile("image")
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
-            return
-        }
+		// Handle image file
+		file, err := c.FormFile("image")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
+			return
+		}
 
-        imagePath, err := saveImageToFileSystem(c, file)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-            return
-        }
+		imagePath, err := saveImageToFileSystem(c, file)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 
-        // Create product object
-        product = models.Product{
-            ID:          primitive.NewObjectID(),
-            Name:        &name,
-            Category:    &category,
-            Description: &description,
-            Price:       price,
-            Quantity:    &quantity,
-            ImagePath:   imagePath,
-            Created_at:  time.Now(),
-            Updated_at:  time.Now(),
-            UserID:      userObjectID, // Set the user ID from header
-        }
+		// Create product object
+		product = models.Product{
+			ID:          primitive.NewObjectID(),
+			Name:        &name,
+			Category:    &category,
+			Description: &description,
+			Price:       price,
+			Quantity:    &quantity,
+			ImagePath:   imagePath,
+			Created_at:  time.Now(),
+			Updated_at:  time.Now(),
+			UserID:      userObjectID, // Set the user ID from header
+		}
 
-        // Validate product
-        if err := validate.Struct(product); err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-            return
-        }
+		// Validate product
+		if err := validate.Struct(product); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 
-        log.Printf("Product: %v", product)
+		log.Printf("Product: %v", product)
 
-        // Insert product into MongoDB
-        _, err = productCollection.InsertOne(ctx, product)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload product"})
-            return
-        }
+		// Insert product into MongoDB
+		_, err = productCollection.InsertOne(ctx, product)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload product"})
+			return
+		}
 
-        c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
-    }
+		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
+	}
 }
 
-
-func EditProduct() gin.HandlerFunc{
-	return func (c *gin.Context)  {
+func EditProduct() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
 		productID, err := primitive.ObjectIDFromHex(c.Param("id"))
-		if err != nil{
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product"})
 			return
 		}
@@ -180,7 +175,7 @@ func EditProduct() gin.HandlerFunc{
 		quantityStr := c.PostForm("quantity")
 
 		update := bson.M{"updated_at": time.Now()}
-		if name != ""{
+		if name != "" {
 			update["name"] = name
 		}
 
@@ -205,9 +200,9 @@ func EditProduct() gin.HandlerFunc{
 		}
 
 		file, err := c.FormFile("image")
-		if err == nil{
-			imagePath, err := saveImageToFileSystem(c,file)
-			if err != nil{
+		if err == nil {
+			imagePath, err := saveImageToFileSystem(c, file)
+			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
@@ -216,16 +211,16 @@ func EditProduct() gin.HandlerFunc{
 
 		result, err := productCollection.UpdateOne(
 			ctx,
-			bson.M{"_id":productID},
+			bson.M{"_id": productID},
 			bson.M{"$set": update},
 		)
-		
-		if err != nil{
+
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
 			return
 		}
 
-		if result.MatchedCount == 0{
+		if result.MatchedCount == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
 			return
 		}
@@ -234,117 +229,114 @@ func EditProduct() gin.HandlerFunc{
 	}
 }
 
-
 func DeleteProduct() gin.HandlerFunc {
-    return func(c *gin.Context) {
-        var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-        defer cancel()
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
-        log.Printf("Starting DeleteProduct handler")
+		log.Printf("Starting DeleteProduct handler")
 
-        productID := c.Param("id")
-        log.Printf("Product ID from URL: %s", productID)
+		productID := c.Param("id")
+		log.Printf("Product ID from URL: %s", productID)
 
-        
+		objID, err := primitive.ObjectIDFromHex(productID)
+		if err != nil {
+			log.Printf("Error converting product ID: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+			return
+		}
 
-        objID, err := primitive.ObjectIDFromHex(productID)
-        if err != nil {
-            log.Printf("Error converting product ID: %v", err)
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
-            return
-        }
+		var product bson.M
+		err = productCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&product)
+		log.Printf("Product before delete: %+v", product)
 
-        var product bson.M
-        err = productCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&product)
-        log.Printf("Product before delete: %+v", product)
+		userID := c.GetHeader("user_id")
+		if userID == "" {
+			log.Printf("User ID not found in header")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
+			return
+		}
 
-        userID := c.GetHeader("user_id")
-        if userID == "" {
-            log.Printf("User ID not found in header")
-            c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
-            return
-        }
+		userObjectID, err := primitive.ObjectIDFromHex(userID)
+		if err != nil {
+			log.Printf("Error converting user ID: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
 
-        userObjectID, err := primitive.ObjectIDFromHex(userID)
-        if err != nil {
-            log.Printf("Error converting user ID: %v", err)
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-            return
-        }
+		filter := bson.M{
+			"_id":    objID,
+			"userid": userObjectID,
+		}
+		log.Printf("Delete filter: %v", filter)
 
-        filter := bson.M{
-            "_id":     objID,
-            "userid": userObjectID,
-        }
-        log.Printf("Delete filter: %v", filter)
+		result, err := productCollection.DeleteOne(ctx, filter)
+		if err != nil {
+			log.Printf("Error deleting product: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
+			return
+		}
 
-        result, err := productCollection.DeleteOne(ctx, filter)
-        if err != nil {
-            log.Printf("Error deleting product: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
-            return
-        }
+		if result.DeletedCount == 0 {
+			log.Printf("Product not found or unauthorized. Filter: %v", filter)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found or you don't have permission to delete it"})
+			return
+		}
 
-        if result.DeletedCount == 0 {
-            log.Printf("Product not found or unauthorized. Filter: %v", filter)
-            c.JSON(http.StatusNotFound, gin.H{"error": "Product not found or you don't have permission to delete it"})
-            return
-        }
-
-        log.Printf("Successfully deleted product. ProductID: %s, UserID: %s", productID, userID)
-        c.JSON(http.StatusOK, gin.H{
-            "message": "Product deleted successfully",
-            "id": productID,
-        })
-    }
+		log.Printf("Successfully deleted product. ProductID: %s, UserID: %s", productID, userID)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Product deleted successfully",
+			"id":      productID,
+		})
+	}
 }
 
-func GetProductByName(name string) ([]models.Product, error){
+func GetProductByName(name string) ([]models.Product, error) {
 	var products []models.Product
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-    defer cancel()
+	defer cancel()
 
 	// filter := bson.D{{"name", bson.D{{"$regex", name}, {"$options", "i"}}}}
 	filter := bson.M{"name": bson.M{"$regex": name, "$options": "i"}}
 	cursor, err := productCollection.Find(ctx, filter)
-	if  err != nil {
+	if err != nil {
 		return nil, err
 	}
 	defer cursor.Close(ctx)
 
-	for cursor.Next(ctx){
+	for cursor.Next(ctx) {
 		var product models.Product
-		if err := cursor.Decode(&product); err != nil{
+		if err := cursor.Decode(&product); err != nil {
 			return nil, err
 		}
 		products = append(products, product)
 	}
 
-	if err := cursor.Err(); err != nil{
+	if err := cursor.Err(); err != nil {
 		return nil, err
 	}
-	
+
 	// defer cancel()
 	return products, nil
 
 }
 
-func GetProdctByNameHander() gin.HandlerFunc{
-	return func (c *gin.Context)  {
+func GetProdctByNameHander() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		name := c.Query("name")
 		// CheckUserRole(c)
-		if name == ""{
+		if name == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Name query parameter is required"})
 			return
 		}
 
 		products, err := GetProductByName(name)
-		if err != nil{
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		if len(products) == 0{
+		if len(products) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"message": "No product found"})
 			return
 		}
@@ -360,7 +352,6 @@ func GetProdctByNameHander() gin.HandlerFunc{
 //         var products []models.Product
 //         var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 //         defer cancel()
-
 
 //         // CheckUserRole(c)
 //         if c.IsAborted(){
@@ -449,201 +440,174 @@ func GetProdctByNameHander() gin.HandlerFunc{
 //     }
 // }
 
-func GetAllProducts() gin.HandlerFunc{
-    return func (c *gin.Context)  {
-        log.Printf("Starting GetAllProducts handler")
-        ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-        defer cancel()
+func GetAllProducts() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log.Printf("Starting GetAllProducts handler")
 
-        page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-        if err != nil || page < 1{
-            page = 1
-        }
-        limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
-        if err != nil || limit < 1{
-            limit = 10
-        }
+		// Check if Redis client is initialized
+		if database.RedisClient == nil {
+			log.Printf("WARNING: Redis client is nil, initializing...")
+			database.InitRedis() // Make sure this function exists
 
-        cacheKey := fmt.Sprintf("products_%d_%d", page, limit)
+			// If still nil after init, proceed without Redis
+			if database.RedisClient == nil {
+				log.Printf("ERROR: Failed to initialize Redis client, proceeding without caching")
+				// Continue with MongoDB only approach
+			}
+		}
 
-        type cacheResult struct {
-            found bool
-            products []models.Product
-            total int64
-            err error
-        }
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
-        cacheChannel := make(chan cacheResult, 1)
+		if c.IsAborted() {
+			return
+		}
 
-        go func(){
-            var result cacheResult
-            cacheData , err := database.RedisClient.Get(ctx, cacheKey).Result()
-            if err == nil{
-                var cachedResponse struct {
-                    Products []models.Product `json:"products"`
-                    Total int64 `json:"total"`
-                }
+		// Parse pagination parameters
+		page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+		if err != nil || page < 1 {
+			log.Printf("Invalid page parameter, using default: %v", err)
+			page = 1
+		}
+		limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+		if err != nil || limit < 1 {
+			log.Printf("Invalid limit parameter, using default: %v", err)
+			limit = 10
+		}
 
-                if err := json.Unmarshal([]byte(cacheData), &cachedResponse); err == nil{
-                    result.found = true
-                    result.products = cachedResponse.Products
-                    result.total = cachedResponse.Total
-                }
-            }
-            cacheChannel <- result
-        }()
+		log.Printf("Pagination: page=%d, limit=%d", page, limit)
 
-        result := <- cacheChannel
+		// Create cache key
+		cacheKey := fmt.Sprintf("products_page_%d_limit_%d", page, limit)
+		log.Printf("Cache key: %s", cacheKey)
 
-        if result.found{
-            total := result.total
-            product:= result.products
+		// Try to get data from Redis cache
+		cachedData, err := database.RedisClient.Get(ctx, cacheKey).Result()
+		if err == nil {
+			log.Printf("Cache hit for key: %s", cacheKey)
 
-            pages := int(math.Ceil(float64(total) / float64(limit)))
+			// Unmarshal cached data
+			var cachedResponse gin.H
+			if err := json.Unmarshal([]byte(cachedData), &cachedResponse); err == nil {
+				log.Printf("Successfully unmarshaled cached data")
 
-            c.JSON(http.StatusOK, gin.H{
-                "data": product,
-                "total": total,
-                "page": page,
-                "pages": pages,
-                "has_next": page < pages,
-                "has_prev": page > 1,
-                "source": "cache",
-            })
-            return
-        }
+				// Add cache source information
+				cachedResponse["cache"] = true
 
-        var wg sync.WaitGroup
-        wg.Add(2)
+				c.JSON(http.StatusOK, cachedResponse)
+				return
+			} else {
+				log.Printf("Error unmarshaling cached data: %v", err)
+			}
+		} else {
+			log.Printf("Cache miss for key: %s, error: %v", cacheKey, err)
+		}
 
-        type countResult struct {
-            total int64
-            err error
-        }
+		// If cache miss or error, fetch from MongoDB
+		skip := (page - 1) * limit
 
-        type productResult struct {
-            products []models.Product
-            err error
-        }
+		// Count total products
+		total, err := productCollection.CountDocuments(ctx, bson.M{})
+		if err != nil {
+			log.Printf("Error counting products: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
+			return
+		}
+		log.Printf("Total products count: %d", total)
 
-        countChan := make(chan countResult, 1)
-        productsChan := make(chan productResult, 1)
+		if total == 0 {
+			emptyResponse := gin.H{
+				"data":     []models.Product{},
+				"total":    0,
+				"page":     page,
+				"pages":    0,
+				"has_next": false,
+				"has_prev": false,
+				"cache":    false,
+			}
 
-        go func(){
-            defer wg.Done()
+			// Cache empty result
+			cacheData, _ := json.Marshal(emptyResponse)
+			database.RedisClient.Set(ctx, cacheKey, cacheData, 10*time.Minute)
 
-            total, err := productCollection.CountDocuments(ctx, bson.M{})
-            countChan <- countResult{total, err}
-        }()
+			c.JSON(http.StatusOK, emptyResponse)
+			return
+		}
 
-        go func(){
-            defer wg.Done()
+		// Create find options
+		findOptions := options.Find().
+			SetSkip(int64(skip)).
+			SetLimit(int64(limit)).
+			SetSort(bson.D{{"created_at", -1}})
 
-            skip := (page - 1) * limit
+		// Find products
+		var products []models.Product
+		cursor, err := productCollection.Find(ctx, bson.M{}, findOptions)
+		if err != nil {
+			log.Printf("Error fetching products: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+			return
+		}
+		defer cursor.Close(ctx)
 
-            findOptions := options.Find().
-                SetSkip(int64(skip)).
-                SetLimit(int64(limit)).
-                SetSort(bson.D{{"created_at", -1}})
+		// Decode products
+		if err := cursor.All(ctx, &products); err != nil {
+			log.Printf("Error decoding products: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse products"})
+			return
+		}
 
-            cursor, err := productCollection.Find(ctx, bson.M{}, findOptions)
-            if err != nil{
-                productsChan <- productResult{err: err}
-                return
-            }
+		log.Printf("Found %d products for current page", len(products))
 
-            defer cursor.Close(ctx)
+		// Calculate pagination info
+		pages := int(math.Ceil(float64(total) / float64(limit)))
 
-            var products []models.Product
-            if err := cursor.All(ctx, &products); err != nil{
-                productsChan <- productResult{err:err}
-                return
-            }
+		// Add debug info to verify product data
+		for i, product := range products {
+			log.Printf("Product %d: ID=%v, Name=%v", i, product.ID, *product.Name)
+		}
 
-            productsChan <- productResult{products: products}
-        }()
+		response := gin.H{
+			"data":     products,
+			"total":    total,
+			"page":     page,
+			"pages":    pages,
+			"has_next": page < pages,
+			"has_prev": page > 1,
+			"cache":    false,
+		}
 
-        go func(){
-            wg.Wait()
-            close(countChan)
-            close(productsChan)
-        }()
+		// Cache the response for future requests
+		cacheData, err := json.Marshal(response)
+		if err == nil {
+			// Set cache with expiration time
+			err = database.RedisClient.Set(ctx, cacheKey, cacheData, 10*time.Minute).Err()
+			if err != nil {
+				log.Printf("Error caching products: %v", err)
+			} else {
+				log.Printf("Successfully cached products with key: %s", cacheKey)
+			}
+		} else {
+			log.Printf("Error marshaling products for cache: %v", err)
+		}
 
-        countRes := <- countChan
-        if countRes.err != nil{
-            log.Printf("Error counting products: %v", countRes.err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count products"})
-            return
-        }
-
-        productRes := <- productsChan
-        if productRes.err != nil{
-            log.Printf("Error fetching products: %v", productRes.err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
-            return
-        }
-
-        total := countRes.total
-        products := productRes.products
-
-
-        if total == 0 {
-            c.JSON(http.StatusOK, gin.H{
-                "data":     []models.Product{},
-                "total":    0,
-                "page":     page,
-                "pages":    0,
-                "has_next": false,
-                "has_prev": false,
-                "source": "db",
-            })
-            return
-        }
-
-        pages := int(math.Ceil(float64(total) / float64(limit)))
-
-        response := gin.H{
-            "data":     products,
-            "total":    total,
-            "page":     page,
-            "pages":    pages,
-            "has_next": page < pages,
-            "has_prev": page > 1,
-            "source": "database",
-        }
-
-        cacheData := struct {
-            Products []models.Product `json:"products"`
-            Total int64 `json:"total"`
-        }{
-            Products: products,
-            Total: total,
-        }
-
-        cacheJSON, err := json.Marshal(cacheData)
-        if err != nil{
-            database.RedisClient.Set(ctx, cacheKey, cacheJSON, 10*time.Minute)
-        }
-
-        c.JSON(http.StatusOK, response)
-    }
-
+		log.Printf("Sending response with %d products", len(products))
+		c.JSON(http.StatusOK, response)
+	}
 }
 
+func CheckStock(productID string) (int, error) {
 
-func CheckStock(productID string) (int, error){
+	filter := bson.M{"_id": productID}
 
-    filter := bson.M{"_id": productID}
+	var product models.Product
 
-    var product models.Product
-
-    err := productCollection.FindOne(context.Background(), filter).Decode(&product)
-    if err != nil{
-        return 0, fmt.Errorf("Product not found:" )
-    }
-    return *product.Quantity, nil
+	err := productCollection.FindOne(context.Background(), filter).Decode(&product)
+	if err != nil {
+		return 0, fmt.Errorf("Product not found:")
+	}
+	return *product.Quantity, nil
 }
-
 
 // func GetProductImage() gin.HandlerFunc{
 //     return func(c *gin.Context){

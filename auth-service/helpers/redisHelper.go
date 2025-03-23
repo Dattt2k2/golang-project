@@ -23,7 +23,7 @@ func StoreRefreshToken(userId, refreshToken, deviceId, platfrom, ipAddress, user
 
 	key := fmt.Sprintf("refresh_token:%s", userId)
 	if deviceId != ""{
-		key = fmt.Sprint("refresh_token:%s:%s", userId, deviceId)
+		key = fmt.Sprint("refresh_token:", userId, deviceId)
 	}
 
 	deviceInfo := DeviceInfo{
@@ -72,7 +72,7 @@ func InvalidateRefreshToken(userId, deviceId string) error {
 	ctx := context.Background()
 
 	if deviceId == ""{
-		return fmt.Errorf("Device ID is required")
+		return fmt.Errorf("device ID is required")
 	}
 
 	key := fmt.Sprintf("refresh_token:%s:%s", userId, deviceId)
@@ -164,7 +164,7 @@ func isDeviceTrusted(userId, deviceId string) (bool, error){
 
 func VerifyRefreshToken(userId, deviceId, providedToken string) (bool, error) {
 	if providedToken == "" || userId == ""{
-		return false, fmt.Errorf("Invalid token or user ID")
+		return false, fmt.Errorf("invalid token or user ID")
 	}
 
 	storedToken, err := GetRefreshToken(userId, deviceId)

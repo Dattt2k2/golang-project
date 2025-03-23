@@ -102,9 +102,9 @@
 // 			{"$set", updateObj},
 // 		},
 // 		&opt,
-// 	) 
+// 	)
 
-// 	defer cancel()	
+// 	defer cancel()
 
 // 	if err != nil{
 // 		log.Panic(err)
@@ -119,7 +119,9 @@ import (
 	// "context"
 	// "fmt"
 	"log"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	// database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
@@ -142,7 +144,7 @@ type SignedDetails struct{
 
 // var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
 
-var SECRECT_KEY string
+var SECRET_KEY string
 
 // Hàm init để load SECRET_KEY từ .env
 func InitDotEnv() {
@@ -153,59 +155,107 @@ func InitDotEnv() {
 	}
 
 	// Lấy giá trị SECRET_KEY từ biến môi trường
-	SECRECT_KEY = os.Getenv("SECRET_KEY")
-	if SECRECT_KEY == "" {
+	SECRET_KEY = os.Getenv("SECRET_KEY")
+	if SECRET_KEY == "" {
 		log.Fatal("SECRET_KEY not found in .env")
 	}
 }
 
 // GenerateAllToken tạo access token và refresh token
-func GenerateAllToken(email, firstname, lastname, userType, uid string) (signedToken string, signedRefreshToken string, err error) {
+// func GenerateAllToken(email, firstname, lastname, userType, uid string) (signedToken string, signedRefreshToken string, err error) {
+// 	claims := &SignedDetails{
+// 		Email:     email,
+// 		FirstName: firstname,
+// 		LastName:  lastname,
+// 		Uid:       uid,
+// 		UserType:  userType,
+// 		RegisteredClaims: jwt.RegisteredClaims{
+// 			ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * 24)), // Hết hạn sau 24 giờ
+// 		},
+// 	}
+
+// 	refreshClaims := &SignedDetails{
+// 		Email:     email,
+// 		FirstName: firstname,
+// 		LastName:  lastname,
+// 		Uid:       uid,
+// 		UserType:  userType,
+// 		RegisteredClaims: jwt.RegisteredClaims{
+// 			ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * 168)), // Hết hạn sau 7 ngày (168 giờ)
+// 		},
+// 	}
+
+// 	// Tạo JWT token
+// 	signedToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRECT_KEY))
+// 	if err != nil {
+// 		log.Panic(err)
+// 		return
+// 	}
+
+// 	signedRefreshToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(SECRECT_KEY))
+// 	if err != nil {
+// 		log.Panic(err)
+// 		return
+// 	}
+
+// 	return signedToken, signedRefreshToken, err
+// }
+
+
+func GenerateToken(email, firstname, lastname, userType, uid string, duration time.Duration)(string, error){
 	claims := &SignedDetails{
-		Email:     email,
+		Email: email,
 		FirstName: firstname,
-		LastName:  lastname,
-		Uid:       uid,
-		UserType:  userType,
+		LastName: lastname,
+		Uid: uid,
+		UserType: userType,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * 24)), // Hết hạn sau 24 giờ
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(duration)),
 		},
 	}
 
-	refreshClaims := &SignedDetails{
-		Email:     email,
-		FirstName: firstname,
-		LastName:  lastname,
-		Uid:       uid,
-		UserType:  userType,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * 168)), // Hết hạn sau 7 ngày (168 giờ)
-		},
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRET_KEY))
+	if err != nil{
+		return "", err
+	}
+	
+	return token, nil
+} 
+
+func GenerateAllToken(email, firstname, lastname, userType, uid string) (string, string,  error){
+	accessToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour * 24)
+	if err != nil{
+		return "", "", err 
 	}
 
-	// Tạo JWT token
-	signedToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRECT_KEY))
-	if err != nil {
-		log.Panic(err)
-		return
+	refreshToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour * 168)
+	if err != nil{
+		return "", "", err
 	}
 
-	signedRefreshToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(SECRECT_KEY))
-	if err != nil {
-		log.Panic(err)
-		return
-	}
-
-	return signedToken, signedRefreshToken, err
+	return accessToken, refreshToken, nil
 }
 
 // ValidateToken kiểm tra token có hợp lệ không
 func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
+
+	if strings.Contains(signedToken, "%"){
+		decodedToken, err := url.QueryUnescape(signedToken)
+		if err != nil{
+			log.Println("Error unescaping token: ", err)
+		}else{
+			signedToken = decodedToken
+			log.Printf("Decoded token: %s... (length: %d)", 
+            signedToken[:min(10, len(signedToken))], len(signedToken))
+			
+		}
+	}
+
 	token, err := jwt.ParseWithClaims(
 		signedToken,
 		&SignedDetails{},
 		func(token *jwt.Token) (interface{}, error) {
-			return []byte(SECRECT_KEY), nil
+			return []byte(SECRET_KEY), nil
 		},
 	)
 	if err != nil {
