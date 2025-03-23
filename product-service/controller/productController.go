@@ -155,7 +155,6 @@ func AddProduct() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
 	}
 }
-
 func EditProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)

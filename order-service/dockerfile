@@ -1,16 +1,49 @@
+# FROM golang:1.23-alpine AS builder
+
+# WORKDIR /app/golang-project  # Đổi WORKDIR để match với module name
+
+# # Copy toàn bộ source code
+# COPY . .
+
+# # Cài đặt dependencies
+# RUN go mod download
+# RUN go mod tidy
+
+# # Build service
+# RUN cd order-service && go build -o order-service .
+
+# # Đặt entrypoint 
+# CMD ["./order-service/order-service"]
+
+# Build stage
+# Build stage
 FROM golang:1.23-alpine AS builder
 
-WORKDIR /app/golang-project  # Đổi WORKDIR để match với module name
+WORKDIR /app
 
-# Copy toàn bộ source code
+# Copy only dependency files first
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
 COPY . .
 
-# Cài đặt dependencies
-RUN go mod download
-RUN go mod tidy
-
-# Build service
+# Build
 RUN cd order-service && go build -o order-service .
 
-# Đặt entrypoint 
-CMD ["./order-service/order-service"]
+# Final stage
+FROM alpine:3.18
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/order-service .
+
+# Create non-root user
+RUN adduser -D appuser
+USER appuser
+
+# Expose port
+EXPOSE 8084
+
+CMD ["./order-service"]

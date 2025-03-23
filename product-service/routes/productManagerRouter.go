@@ -22,5 +22,5 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine){
 	// search product
 	authorized.GET("/products/search", controller.GetProdctByNameHander())
 	// get product image
-	authorized.Static("/images", "./product-service/uploads")	
+	authorized.StaticFS("/images", gin.Dir("./product-service/uploads/images", true))	
 }

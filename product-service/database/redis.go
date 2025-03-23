@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,8 +14,9 @@ var RedisClient *redis.Client
 
 func InitRedis(){
 	redisUrl := os.Getenv("REDIS_URL")
+	redisUrl = strings.TrimPrefix(redisUrl, "redis://")
 	if redisUrl == ""{
-		redisUrl = "localhost:6379"
+		redisUrl = "redis:6379"
 	}
 
 	RedisClient = redis.NewClient(&redis.Options{

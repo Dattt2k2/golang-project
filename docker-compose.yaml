@@ -161,6 +161,8 @@ services:
       - "8089:8089"
     env_file:
       - ./product-service/.env
+    environment:
+      - REDIS_URL=redis:6379
     depends_on:
       - mongodb
     networks:

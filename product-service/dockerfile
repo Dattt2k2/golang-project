@@ -1,16 +1,57 @@
+# FROM golang:1.23-alpine AS builder
+
+# WORKDIR /app/golang-project  # Đổi WORKDIR để match với module name
+
+# # Copy toàn bộ source code
+# COPY . .
+
+# # Cài đặt dependencies
+# RUN go mod download
+# RUN go mod tidy
+
+# # Build service
+# RUN cd product-service && go build -o product-service .
+
+# # Đặt entrypoint 
+# CMD ["./product-service/product-service"]
+
+# Build stage
+# Build stage
+# Build stage
 FROM golang:1.23-alpine AS builder
 
-WORKDIR /app/golang-project  # Đổi WORKDIR để match với module name
+WORKDIR /app
 
-# Copy toàn bộ source code
+# Copy only dependency files first
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
 COPY . .
 
-# Cài đặt dependencies
-RUN go mod download
-RUN go mod tidy
-
-# Build service
+# Build
 RUN cd product-service && go build -o product-service .
 
-# Đặt entrypoint 
-CMD ["./product-service/product-service"]
+# Final stage
+FROM alpine:3.18
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/product-service .
+
+# Copy config
+COPY --from=builder /app/product-service/.env* ./
+
+# Create uploads directory if needed
+RUN mkdir -p uploads/images
+
+# Create non-root user
+RUN adduser -D appuser && \
+    chown -R appuser:appuser /app/uploads
+USER appuser
+
+# Expose port
+EXPOSE 8082
+
+CMD ["./product-service"]
