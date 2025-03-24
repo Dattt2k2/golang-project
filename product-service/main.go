@@ -63,6 +63,22 @@ func main(){
 		port = "8082`"
 	}
 
+
+	uploadDir := "./uploads/images"
+    if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+        log.Fatalf("Failed to create upload directory: %v", err)
+    }
+    
+    // List all files in the directory
+    files, err := os.ReadDir(uploadDir)
+    if err != nil {
+        log.Printf("Error reading upload directory: %v", err)
+    } else {
+        log.Printf("Files in upload directory:")
+        for _, file := range files {
+            log.Printf("- %s", file.Name())
+        }
+    }
 	// controller.InitUserServiceConnection()
 
 	// grpcPort := os.Getenv("gRPC_PORT")

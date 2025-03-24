@@ -9,7 +9,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	// "sync"
 	"time"
@@ -37,23 +39,69 @@ func CheckUserRole(c *gin.Context) {
 	c.Next()
 }
 
+// func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
+// 	saveDir := "./product-service/uploads/images/"
+// 	err := os.MkdirAll(saveDir, os.ModePerm) // Đảm bảo thư mục tồn tại
+// 	if err != nil {
+// 		return "", fmt.Errorf("Failed to create directory: %v", err)
+// 	}
+
+// 	// Tạo tên file duy nhất
+// 	imageFileName := fmt.Sprintf("%d-%s", time.Now().Unix(), file.Filename)
+// 	imagePath := saveDir + imageFileName
+
+// 	// Lưu file vào thư mục
+// 	if err := c.SaveUploadedFile(file, imagePath); err != nil {
+// 		return "", fmt.Errorf("Failed to save image: %v", err)
+// 	}
+
+// 	return imagePath, nil
+// }
+
 func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
-	saveDir := "./product-service/uploads/images/"
-	err := os.MkdirAll(saveDir, os.ModePerm) // Đảm bảo thư mục tồn tại
-	if err != nil {
-		return "", fmt.Errorf("Failed to create directory: %v", err)
-	}
-
-	// Tạo tên file duy nhất
-	imageFileName := fmt.Sprintf("%d-%s", time.Now().Unix(), file.Filename)
-	imagePath := saveDir + imageFileName
-
-	// Lưu file vào thư mục
-	if err := c.SaveUploadedFile(file, imagePath); err != nil {
-		return "", fmt.Errorf("Failed to save image: %v", err)
-	}
-
-	return imagePath, nil
+    // Get current working directory
+    wd, err := os.Getwd()
+    if err != nil {
+        return "", fmt.Errorf("Error getting working directory: %v", err)
+    }
+    log.Printf("Current working directory: %s", wd)
+    
+    // Create absolute paths
+    possibleDirs := []string{
+        filepath.Join(wd, "uploads", "images"),
+        filepath.Join(wd, "product-service", "uploads", "images"),
+    }
+    
+    var saveDir string
+    for _, dir := range possibleDirs {
+        err := os.MkdirAll(dir, os.ModePerm)
+        if err == nil {
+            saveDir = dir
+            log.Printf("Successfully created directory: %s", saveDir)
+            break
+        }
+        log.Printf("Failed to create directory %s: %v", dir, err)
+    }
+    
+    if saveDir == "" {
+        return "", fmt.Errorf("Failed to create any image directory")
+    }
+    
+    // Create a unique filename
+    imageFileName := fmt.Sprintf("%d-%s", time.Now().Unix(), file.Filename)
+    imagePath := filepath.Join(saveDir, imageFileName)
+    
+    log.Printf("Saving file to: %s", imagePath)
+    
+    // Save the file
+    if err := c.SaveUploadedFile(file, imagePath); err != nil {
+        return "", fmt.Errorf("Failed to save image: %v", err)
+    }
+    
+    log.Printf("Successfully saved image to: %s", imagePath)
+    
+    // Return just the filename
+    return imageFileName, nil
 }
 
 func AddProduct() gin.HandlerFunc {
@@ -608,17 +656,247 @@ func CheckStock(productID string) (int, error) {
 	return *product.Quantity, nil
 }
 
-// func GetProductImage() gin.HandlerFunc{
-//     return func(c *gin.Context){
-//         imageName := c.Param("filename")
+func GetProductImage() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        filename := c.Param("filename")
+        log.Printf("Requested image: %s", filename)
+        
+        // Get current working directory
+        wd, err := os.Getwd()
+        if err != nil {
+            log.Printf("Error getting working directory: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+            return
+        }
+        
+        // Try many possible paths
+        possiblePaths := []string{
+            filepath.Join(wd, "product-service", "uploads", "images", filename),
+            filepath.Join(wd, "uploads", "images", filename),
+            filepath.Join("product-service", "uploads", "images", filename),
+            filepath.Join("uploads", "images", filename),
+            filename, // Try just the filename
+            filepath.Join("/tmp", filename),
+            filepath.Join("/app", "uploads", "images", filename),
+            filepath.Join("/app", "product-service", "uploads", "images", filename),
+        }
+        
+        // Check each path
+        var foundPath string
+        for _, path := range possiblePaths {
+            log.Printf("Checking path: %s", path)
+            if _, err := os.Stat(path); err == nil {
+                foundPath = path
+                log.Printf("Image found at: %s", foundPath)
+                break
+            } else {
+                log.Printf("Image not found at: %s", path)
+            }
+        }
+        
+        if foundPath == "" {
+            // Do a recursive search for the file as a last resort
+            log.Printf("Starting recursive search for file: %s", filename)
+            foundPath = searchFileRecursively(wd, filename)
+            
+            if foundPath == "" {
+                log.Printf("Image not found in any location: %s", filename)
+                c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
+                return
+            }
+        }
+        
+        // Determine content type based on file extension
+        ext := strings.ToLower(filepath.Ext(filename))
+        var contentType string
+        switch ext {
+        case ".jpg", ".jpeg":
+            contentType = "image/jpeg"
+        case ".png":
+            contentType = "image/png"
+        case ".gif":
+            contentType = "image/gif"
+        default:
+            contentType = "application/octet-stream"
+        }
+        
+        log.Printf("Serving image: %s with content type: %s", foundPath, contentType)
+        c.Header("Content-Type", contentType)
+        c.File(foundPath)
+    }
+}
 
-//         imagePath:= "./product-service/uploads/images/" + imageName
+// Helper function to recursively search for a file
+func searchFileRecursively(rootDir string, filename string) string {
+    log.Printf("Searching in directory: %s", rootDir)
+    
+    files, err := os.ReadDir(rootDir)
+    if err != nil {
+        log.Printf("Error reading directory %s: %v", rootDir, err)
+        return ""
+    }
+    
+    for _, file := range files {
+        if file.IsDir() {
+            // Skip certain directories to avoid endless recursion
+            if file.Name() == "node_modules" || file.Name() == ".git" {
+                continue
+            }
+            
+            // Recursively search subdirectory
+            path := searchFileRecursively(filepath.Join(rootDir, file.Name()), filename)
+            if path != "" {
+                return path
+            }
+        } else if file.Name() == filename {
+            // Found the file
+            path := filepath.Join(rootDir, file.Name())
+            log.Printf("File found at: %s", path)
+            return path
+        }
+    }
+    
+    return ""
+}
 
-//         if _, err := os.Stat(imagePath); os.IsNotExist(err){
-//             c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
-//             return
-//         }
+// Add this to your productController.go in the product service
+func FindImageLocations() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        result := make(map[string]interface{})
+        
+        // Get the current working directory
+        wd, err := os.Getwd()
+        if err != nil {
+            result["error"] = fmt.Sprintf("Error getting working directory: %v", err)
+            c.JSON(http.StatusInternalServerError, result)
+            return
+        }
+        
+        result["working_directory"] = wd
+        
+        // List of directories to search
+        dirsToSearch := []string{
+            wd,
+            filepath.Join(wd, "product-service"),
+            filepath.Join(wd, "uploads"),
+            filepath.Join(wd, "product-service", "uploads"),
+            filepath.Join(wd, "product-service", "uploads", "images"),
+            filepath.Join(wd, "uploads", "images"),
+            "/tmp",
+            "/app",
+            "/app/product-service",
+            "/app/uploads",
+            "/app/product-service/uploads",
+            "/app/product-service/uploads/images",
+            "/app/uploads/images",
+        }
+        
+        // Search for image files in these directories
+        foundImages := make(map[string][]string)
+        
+        for _, dir := range dirsToSearch {
+            // Check if directory exists
+            info, err := os.Stat(dir)
+            if os.IsNotExist(err) || !info.IsDir() {
+                continue
+            }
+            
+            // Read files in the directory
+            files, err := os.ReadDir(dir)
+            if err != nil {
+                continue
+            }
+            
+            // Filter for image files
+            imageFiles := []string{}
+            for _, file := range files {
+                if !file.IsDir() {
+                    // Check if it's an image file by extension
+                    ext := strings.ToLower(filepath.Ext(file.Name()))
+                    if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp" {
+                        imageFiles = append(imageFiles, file.Name())
+                    }
+                }
+            }
+            
+            if len(imageFiles) > 0 {
+                foundImages[dir] = imageFiles
+            }
+        }
+        
+        result["found_images"] = foundImages
+        
+        // Also try to locate the specific file
+        searchFilename := "1742719764-FinWell.png" // The problematic image
+        foundPaths := []string{}
+        
+        for _, dir := range dirsToSearch {
+            fullPath := filepath.Join(dir, searchFilename)
+            if _, err := os.Stat(fullPath); err == nil {
+                foundPaths = append(foundPaths, fullPath)
+            }
+        }
+        
+        result["specific_image_found_at"] = foundPaths
+        
+        c.JSON(http.StatusOK, result)
+    }
+}
 
-//         c.File(imagePath)
-//     }
-// }
+// Add this function to verify if images exist
+func VerifyImageExists() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        wd, err := os.Getwd()
+        if err != nil {
+            log.Printf("Error getting working directory: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+            return
+        }
+        
+        // Use absolute paths
+        uploadDirs := []string{
+            filepath.Join(wd, "uploads", "images"),
+            filepath.Join(wd, "product-service", "uploads", "images"),
+            filepath.Join(wd, "..", "uploads", "images"),
+        }
+        
+        result := make(map[string]interface{})
+        
+        for _, dir := range uploadDirs {
+            dirInfo := make(map[string]interface{})
+            
+            // Check if directory exists
+            if _, err := os.Stat(dir); os.IsNotExist(err) {
+                dirInfo["exists"] = false
+                dirInfo["error"] = "Directory does not exist"
+            } else {
+                dirInfo["exists"] = true
+                
+                // Try to read files
+                files, err := os.ReadDir(dir)
+                if err != nil {
+                    dirInfo["readable"] = false
+                    dirInfo["error"] = fmt.Sprintf("Cannot read directory: %v", err)
+                } else {
+                    dirInfo["readable"] = true
+                    
+                    fileList := make([]string, 0)
+                    for _, file := range files {
+                        fileList = append(fileList, file.Name())
+                    }
+                    
+                    dirInfo["files"] = fileList
+                    dirInfo["count"] = len(fileList)
+                }
+            }
+            
+            // Add to result
+            result[dir] = dirInfo
+        }
+        
+        // Add working directory for reference
+        result["working_directory"] = wd
+        
+        c.JSON(http.StatusOK, result)
+    }
+}
