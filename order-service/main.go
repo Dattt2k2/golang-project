@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/Dattt2k2/golang-project/order-service/routes"
 	"github.com/Dattt2k2/golang-project/order-service/service"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -31,6 +32,8 @@ func main(){
 
 	service.CartServiceConnection()
 	service.ProductServiceConnection()
+
+	routes.OrderRotes(router)
 
 	router.Run(":" + port)
 

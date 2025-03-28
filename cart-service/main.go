@@ -26,6 +26,8 @@ func main(){
 		log.Fatalf("MONGODB_URL is not set on .env file yet")
 	}
 
+	controllers.InitProductServiceConnection()
+
 	grpcReady := make(chan bool)
 
 	go func(){

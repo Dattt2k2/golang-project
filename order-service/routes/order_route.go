@@ -9,6 +9,6 @@ import (
 func OrderRotes(incomming *gin.Engine){
 	authorized := incomming.Group("/")
 
-	authorized.POST("/order/:userId", controller.OrderFromCart())
-	authorized.POST("/order-direct/:userId", controller.OrderDirectly())
+	authorized.POST("order/cart/:id", controller.OrderFromCart())
+	authorized.POST("order/direct/:id", controller.OrderDirectly())
 }

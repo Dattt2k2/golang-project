@@ -20,7 +20,7 @@ func main() {
 
 	ginrouter := gin.Default()
 	ginrouter.Use(middleware.CORSMiddleware())
-	ginrouter.Use(middleware.Authenticate())
+	// ginrouter.Use(middleware.Authenticate())
 	// ginrouter.Use(middleware.AuthMiddleware())
 
 	router.SetupRouter(ginrouter)

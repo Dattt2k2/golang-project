@@ -85,85 +85,85 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-func Authenticate() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Bỏ qua routes không cần auth
-		if c.FullPath() == "/auth/users/register" || c.FullPath() == "/auth/users/login" {
-			c.Next()
-			return
-		}
+// func Authenticate() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		// Bỏ qua routes không cần auth
+// 		if c.FullPath() == "/auth/users/register" || c.FullPath() == "/auth/users/login" {
+// 			c.Next()
+// 			return
+// 		}
 
-		// var tokenString string
+// 		// var tokenString string
 
-		// authHeader := c.GetHeader("Authorization")
-		// if authHeader != "" {
-		// 	if strings.HasPrefix(authHeader, "Bearer ") {
-		// 		tokenString = strings.TrimPrefix(authHeader, "Bearer ")
-		// 	} else {
-		// 		tokenString = authHeader
-		// 	}
-		// }
+// 		// authHeader := c.GetHeader("Authorization")
+// 		// if authHeader != "" {
+// 		// 	if strings.HasPrefix(authHeader, "Bearer ") {
+// 		// 		tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+// 		// 	} else {
+// 		// 		tokenString = authHeader
+// 		// 	}
+// 		// }
 
-		// if tokenString == "" {
-		// 	var err error
-		// 	tokenString, err := c.Cookie("auth_token")
-		// 	if err != nil || tokenString == "" {
-		// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token is required"})
-		// 		c.Abort()
-		// 		return
-		// 	}
-		// }
+// 		// if tokenString == "" {
+// 		// 	var err error
+// 		// 	tokenString, err := c.Cookie("auth_token")
+// 		// 	if err != nil || tokenString == "" {
+// 		// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token is required"})
+// 		// 		c.Abort()
+// 		// 		return
+// 		// 	}
+// 		// }
 
-		// claims, msg := helper.ValidateToken(tokenString)
-		// if claims == nil {
-		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
-		// 	c.Abort()
-		// 	return
-		// }
+// 		// claims, msg := helper.ValidateToken(tokenString)
+// 		// if claims == nil {
+// 		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+// 		// 	c.Abort()
+// 		// 	return
+// 		// }
 
-		// c.Set("email", claims.Email)
-		// c.Set("role", claims.UserType)
-		// c.Set("uid", claims.Uid)
+// 		// c.Set("email", claims.Email)
+// 		// c.Set("role", claims.UserType)
+// 		// c.Set("uid", claims.Uid)
 
-		// log.Printf("User authenticated: email=%s, role=%s, uid=%s",
-		// 	claims.Email, claims.UserType, claims.Uid)
-		c.Next()
+// 		// log.Printf("User authenticated: email=%s, role=%s, uid=%s",
+// 		// 	claims.Email, claims.UserType, claims.Uid)
+// 		c.Next()
 
-		// Kiểm tra token
-		// tokenString := c.GetHeader("Authorization")
-		// if tokenString == "" {
-		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Không tìm thấy token"})
-		// 	c.Abort()
-		// 	return
-		// }
+// 		// Kiểm tra token
+// 		// tokenString := c.GetHeader("Authorization")
+// 		// if tokenString == "" {
+// 		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Không tìm thấy token"})
+// 		// 	c.Abort()
+// 		// 	return
+// 		// }
 
-		// // Validate Bearer token
-		// if len(tokenString) < 7 || tokenString[:7] != "Bearer " {
-		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Token không đúng định dạng"})
-		// 	c.Abort()
-		// 	return
-		// }
-		// tokenString = tokenString[7:]
+// 		// // Validate Bearer token
+// 		// if len(tokenString) < 7 || tokenString[:7] != "Bearer " {
+// 		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Token không đúng định dạng"})
+// 		// 	c.Abort()
+// 		// 	return
+// 		// }
+// 		// tokenString = tokenString[7:]
 
-		// // Validate và lấy claims
-		// claims, msg := helper.ValidateToken(tokenString)
-		// if claims == nil {
-		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
-		// 	c.Abort()
-		// 	return
-		// }
+// 		// // Validate và lấy claims
+// 		// claims, msg := helper.ValidateToken(tokenString)
+// 		// if claims == nil {
+// 		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+// 		// 	c.Abort()
+// 		// 	return
+// 		// }
 
-		// // Set context từ claims
-		// c.Set("email", claims.Email)
-		// c.Set("role", claims.UserType)
-		// c.Set("uid", claims.Uid)
+// 		// // Set context từ claims
+// 		// c.Set("email", claims.Email)
+// 		// c.Set("role", claims.UserType)
+// 		// c.Set("uid", claims.Uid)
 
-		// log.Printf("Context đã được set: email=%s, role=%s, uid=%s",
-		// 	claims.Email, claims.UserType, claims.Uid)
+// 		// log.Printf("Context đã được set: email=%s, role=%s, uid=%s",
+// 		// 	claims.Email, claims.UserType, claims.Uid)
 
-		// c.Next()
-	}
-}
+// 		// c.Next()
+// 	}
+// }
 
 
 

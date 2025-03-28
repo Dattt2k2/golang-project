@@ -134,6 +134,9 @@ services:
       - ./api-gateway/.env
     networks:
       - default
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
   auth-service:
     build:
@@ -149,6 +152,9 @@ services:
       - mongodb
     networks:
       - default
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
   product-service:
     build:
@@ -167,6 +173,9 @@ services:
       - mongodb
     networks:
       - default
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
   cart-service:
     build:
@@ -183,6 +192,9 @@ services:
       - mongodb
     networks:
       - default
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
   order-service:
     build:
@@ -198,6 +210,9 @@ services:
       - mongodb
     networks:
       - default
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
   mongodb:
     image: mongo:latest

@@ -12,9 +12,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"google.golang.org/grpc"
+	// "google.golang.org/grpc"
 
 	cartpb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
+    services "github.com/Dattt2k2/golang-project/order-service/service"
 )
 
 // func OrderFromCart() gin.HandlerFunc{
@@ -38,29 +39,39 @@ func CheckUserRole(c *gin.Context) {
 
 func OrderFromCart() gin.HandlerFunc{
 	return func(c *gin.Context){
-		conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
-		if err != nil{
-			log.Printf("Failed to connect to gRPC server: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return 
-		}
-		defer conn.Close()
+		
 
 		CheckUserRole(c)
+        if c.IsAborted(){
+            return
+        }
 
-		userIdStr := c.Param("userId")
-		userId, err := primitive.ObjectIDFromHex(userIdStr)
+		// userIdStr := c.Param("userId")
+		// userId, err := primitive.ObjectIDFromHex(userIdStr)
+		// if err != nil{
+		// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// 	return 
+		// }
+
+        uid := c.GetHeader("user_id")
+
+		userID, err := primitive.ObjectIDFromHex(uid)
 		if err != nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return 
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get userID"})
+			return
 		}
+        
 
-		client := cartpb.NewCartServiceClient(conn)
+		client := services.CartServiceConnection()
+        if client  == nil{
+            c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Cart service unavailable"})
+            return
+        }
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		req:= &cartpb.CartRequest{
-			UserId: userIdStr,
+			UserId: userID.Hex(),
 		}
 
 		resp, err := client.GetCartItems(ctx, req)
@@ -94,7 +105,7 @@ func OrderFromCart() gin.HandlerFunc{
 		now := time.Now()
 		newOrder:= models.Order{
 			ID: primitive.NewObjectID(),
-			UserID: userId,
+			UserID: userID,
 			Items: orderItems,
 			TotalPrice: totalPrice,
 			Status: "PENDING",
@@ -110,7 +121,7 @@ func OrderFromCart() gin.HandlerFunc{
 		}
 
 		orderEvent:= kafka.PaymentOrder{
-			UserId: userIdStr,
+			UserId: uid,
 			Amount: totalPrice,
 			Products: resp.Items,
 		}

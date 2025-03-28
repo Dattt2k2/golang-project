@@ -27,7 +27,7 @@ var cartCollection *mongo.Collection = database.OpenCollection(database.Client, 
 var productClient pb.ProductServiceClient
 
 func  InitProductServiceConnection(){
-	conn, err := grpc.NewClient("product-service:8089", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial("product-service:8089", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil{
 		log.Fatalf("Could not connect to product service: %v", err)
 	}
@@ -51,7 +51,7 @@ func CheckUserRole(c *gin.Context) {
 
 func AddToCart() gin.HandlerFunc{
 	return func(c *gin.Context){
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		CheckUserRole(c)
@@ -65,6 +65,17 @@ func AddToCart() gin.HandlerFunc{
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
 			return
 		}
+
+		var requestBody struct {
+			Quantity int `json:"quantity" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&requestBody); err != nil{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get quantity"})
+			return
+		}
+
+		requestedQuantity := requestBody.Quantity
 
 		uid := c.GetHeader("user_id")
 
@@ -89,6 +100,17 @@ func AddToCart() gin.HandlerFunc{
 			return
 		}
 
+		avaiableQuantity := int(checkStock.AvailableQuantity)
+		
+		if requestedQuantity > avaiableQuantity {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Not enough stock available",
+				"available_quantity": avaiableQuantity,
+				"requested_quantity": requestedQuantity,
+			})
+			return
+		}
+
 		productiontId, err := primitive.ObjectIDFromHex(productId)
 		if err != nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Can not convert id to objectID"})
@@ -98,7 +120,7 @@ func AddToCart() gin.HandlerFunc{
 			ProductID: productiontId,
 			Name: basicInfo.Name,
 			Price: float64(basicInfo.Price),
-			Quantity: int(checkStock.AvailableQuantity),
+			Quantity: requestedQuantity,
 		}
 
 		update := bson.M{

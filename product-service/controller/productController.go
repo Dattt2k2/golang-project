@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -203,6 +204,12 @@ func AddProduct() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
 	}
 }
+
+func safeRegexFilter(name string) bson.M{
+	safeName := regexp.QuoteMeta(name)
+	return bson.M{"name": bson.M{"$regex": safeName, "$options": "i"}}
+}
+
 func EditProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
@@ -343,8 +350,11 @@ func GetProductByName(name string) ([]models.Product, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
+	
+
 	// filter := bson.D{{"name", bson.D{{"$regex", name}, {"$options", "i"}}}}
-	filter := bson.M{"name": bson.M{"$regex": name, "$options": "i"}}
+	// filter := bson.M{"name": bson.M{"$regex": name, "$options": "i"}}
+	filter := safeRegexFilter(name)
 	cursor, err := productCollection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
