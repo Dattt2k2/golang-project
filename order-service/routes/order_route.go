@@ -11,4 +11,5 @@ func OrderRotes(incomming *gin.Engine){
 
 	authorized.POST("order/cart/:id", controller.OrderFromCart())
 	authorized.POST("order/direct/:id", controller.OrderDirectly())
+	authorized.GET("order", controller.GetOrder())
 }

@@ -19,7 +19,7 @@ import (
 	// "google.golang.org/grpc/status"
 )
 
-type CartServer struct{
+type CartServer struct {
 	pb.UnimplementedCartServiceServer
 }
 
@@ -43,19 +43,19 @@ func (s *CartServer) GetCartItems(ctx context.Context, req *pb.CartRequest) (*pb
 	userId := req.UserId
 	log.Printf("User ID: %v", userId)
 
-	if userId == ""{
-		return nil,  status.Errorf(codes.InvalidArgument, "User ID is required")
+	if userId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "User ID is required")
 	}
 
 	userObjectId, err := primitive.ObjectIDFromHex(userId)
-	if err != nil{
+	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid User ID format: %v", err)
 	}
 
-	var cart models.Cart 
+	var cart models.Cart
 
 	err = cartCollection.FindOne(ctx, bson.M{"user_id": userObjectId}).Decode(&cart)
-	if err != nil{
+	if err != nil {
 		log.Printf("Error finding cart: %v", err)
 		return nil, status.Errorf(codes.NotFound, "Cart not found for user ID: %v", userId)
 	}
@@ -63,7 +63,7 @@ func (s *CartServer) GetCartItems(ctx context.Context, req *pb.CartRequest) (*pb
 	var items []*pb.CartItem
 	for _, item := range cart.Items {
 		cartItem := &pb.CartItem{
-			ProductId: item.ProductID.String(),
+			ProductId: item.ProductID.Hex(), 
 			Quantity:  int32(item.Quantity),
 			Price:     float32(item.Price),
 			Name:      item.Name,
@@ -72,7 +72,7 @@ func (s *CartServer) GetCartItems(ctx context.Context, req *pb.CartRequest) (*pb
 	}
 
 	response := &pb.CartResponse{
-		Items:  items,
+		Items: items,
 	}
 
 	log.Printf("Cart response: %v", response)

@@ -3,19 +3,23 @@ package controller
 import (
 	"context"
 	"log"
+	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Dattt2k2/golang-project/order-service/database"
-	"github.com/Dattt2k2/golang-project/order-service/kafka"
 	"github.com/Dattt2k2/golang-project/order-service/models"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+    "github.com/Dattt2k2/golang-project/order-service/kafka"
 	// "google.golang.org/grpc"
 
 	cartpb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
-    services "github.com/Dattt2k2/golang-project/order-service/service"
+	services "github.com/Dattt2k2/golang-project/order-service/service"
 )
 
 // func OrderFromCart() gin.HandlerFunc{
@@ -85,11 +89,11 @@ func OrderFromCart() gin.HandlerFunc{
 		var totalPrice float64 = 0
 
 		for _, item:= range resp.Items{
-			productId, err := primitive.ObjectIDFromHex(item.ProductId)
-			if err != nil{
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				return
-			}
+            productId, err := primitive.ObjectIDFromHex(item.ProductId) 
+            if err != nil{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+            }
 
 			orderItem := models.OrderItem{
 				ProductID: productId,
@@ -120,23 +124,15 @@ func OrderFromCart() gin.HandlerFunc{
 			return
 		}
 
-		orderEvent:= kafka.PaymentOrder{
-			UserId: uid,
-			Amount: totalPrice,
-			Products: resp.Items,
-		}
+        if err := kafka.ProduceOrderSuccessEvent(ctx, newOrder); err != nil{
+            log.Printf("warning: Failed to produce order created event: %v", err)
+        }
 
-		if err := kafka.ProducePaymentOrder(orderEvent); err != nil{
-			log.Printf("Failed to produce payment order: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "Order placed successfully",
-			"order_id": newOrder.ID.Hex(),
-			"total_price": totalPrice,
-		})
-
+        c.JSON(http.StatusOK, gin.H{
+            "message": "Order placed successfully",
+            "order_id": newOrder.ID.Hex(),
+            "total": totalPrice,
+        })
 	}
 }
 
@@ -215,6 +211,10 @@ func OrderDirectly() gin.HandlerFunc {
             return
         }
 
+        if err := kafka.ProduceOrderSuccessEvent(ctx, newOrder); err != nil {
+            log.Printf("warning: Failed to produce order created event: %v", err)
+        }
+
         // Send to kafka for payment processing
         kafkaItems := make([]interface{}, len(orderItems))
         for i, item := range orderItems {
@@ -226,17 +226,7 @@ func OrderDirectly() gin.HandlerFunc {
             }
         }
 
-        orderEvent := kafka.PaymentOrder{
-            UserId:   orderReq.UserID,
-            Amount:   totalPrice,
-            Products: kafkaItems,
-        }
-
-        if err := kafka.ProducePaymentOrder(orderEvent); err != nil {
-            log.Printf("Failed to produce payment order: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Order created but payment processing failed"})
-            return
-        }
+        
 
         c.JSON(http.StatusOK, gin.H{
             "message": "Order placed successfully",
@@ -254,103 +244,114 @@ func calculateAmount(resp *cartpb.CartResponse) float64 {
     return total
 }
 
-// func OrderFromProduct() gin.HandlerFunc{
-// 	return func(c *gin.Context){
-// 		conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
-// 		if err != nil{
-// 			log.Printf("Failed to connect to gRPC server: %v", err)
-// 			return
-// 		}
-// 		defer conn.Close()
+func GetOrder() gin.HandlerFunc{
+    return func (c *gin.Context){
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
 
-// 		CheckUserRole(c)
+        CheckUserRole(c)
+        if c.IsAborted(){
+            return
+        }
 
-// 		client:= cartpb.NewCartServiceClient(conn)
-// 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-// 		defer cancel()
+        var orders []models.Order
 
-// 		req:= &cartpb.CartRequest{
-// 			UserId: c.Param("userId"),
-// 		}
+        page, err := strconv.Atoi(c.Query("page"))
+        if err != nil{
+            log.Printf("Failed to parse page: %v", err)
+            page = 1
+        } 
+        limit, err := strconv.Atoi(c.Query("limit"))
+        if err != nil{
+            log.Printf("Failed to parse limit: %v", err)
+            limit = 10
+        }
 
-// 		resp, err := client.GetCartItems(ctx, req)
-// 		if err != nil{
-// 			log.Printf("Failed to get cart items: %v", err)
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 			return
-// 		}
+        log.Printf("Pagination: page %d, limit %d", page, limit)
 
-// 		total := calculateAmount(resp)
-// 		log.Printf("Total amount: %v", total)
+        skip := (page - 1) * limit
 
-// 		orderEvent:= kafka.PaymentOrder{
-// 			UserId: req.UserId,
-// 			Amount: total,
-// 			Products: resp.Items,
-// 		}
+        total, err := orderCollection.CountDocuments(ctx, bson.M{})
+        if err != nil{
+            log.Printf("Failed to count documents: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count documents"})
+            return
+        }
 
-// 		if err := kafka.ProducePaymentOrder(orderEvent); err != nil{
-// 			log.Printf("Failed to produce payment order: %v", err)
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 			return
-// 		}
+        log.Printf("Total documents: %d", total)
 
+        if total == 0{
+            c.JSON(http.StatusOK, gin.H{
+                "data": []models.Order{},
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "pages": 0,
+                "has_next": false,
+                "has_prev": false,
+            })
+            return
+        }
 
-// 		c.JSON(http.StatusOK, gin.H{"message": "Order placed successfully"})
+        findOptions := options.Find().
+            SetSkip(int64(skip)).
+            SetLimit(int64(limit)).
+            SetSort(bson.D{{Key:"created_at",Value: -1}})
 
-// 	}
+        cursor, err := orderCollection.Find(ctx, bson.M{}, findOptions)
+        if err != nil{
+            log.Printf("Failed to find documents: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fect order"})
+            return
+        }
+        defer cursor.Close(ctx)
 
-// }
+        if err := cursor.All(ctx, &orders); err != nil{
+            log.Printf("Failed to decode documents: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode documents"})
+            return
+        }
 
-// func OrderDirectly() gin.HandlerFunc{
+        for i := range orders{
+            var items []models.OrderItem
+            itemCursor, err := orderCollection.Aggregate(ctx, mongo.Pipeline{
+                bson.D{{Key: "$match", Value: bson.M{"_id": orders[i].ID}}},
+                bson.D{{Key: "unwind", Value: bson.M{"path": "$items"}}},
+                bson.D{{Key: "$lookup", Value: bson.M{
+                    "product_id": "$items.product_id",
+                    "quantity": "$items.quantity",
+                    "price": "$items.price",
+                    "name": "$items.name",
+                    "image_url": "$items.image_url",
+                    "description": "$items.description",
+                }}},
+            })
+            if err != nil{
+                log.Printf("Error fetching order items: %v", err)
+                continue
+            }
+            defer itemCursor.Close(ctx)
 
-// 	type OrderRequest struct{
-// 		Userid string `json:"user_id"`
-// 		Items []struct{
-// 			ProductId string `json:"product_id"`
-// 			Quantity int32 `json:"quantity"`
-// 			Price float64 `json:"price"`
-// 		} `json:"items"`
-// 	}
+            if err := itemCursor.All(ctx, &orders); err != nil{
+                log.Printf("Failed to decode order items: %v", err)
+                continue
+            }
+            orders[i].Items = items
+        }
 
-// 	return func(c *gin.Context){
-		
-// 		CheckUserRole(c)
+        pages := int(math.Ceil(float64(total)/ float64(limit)))
 
-// 		var orderReq OrderRequest
-// 		if err := c.ShouldBindJSON(&orderReq); err != nil{
-// 			log.Printf("Failed to bind JSON: %v", err)
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-// 			return
-// 		}
+        response := gin.H{
+            "data": orders,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": pages,
+            "has_next": page < pages,
+            "has_prev": page > 1,
+        }
 
-// 		var total float64
-// 		for _, items := range orderReq.Items{
-// 			total += float64(items.Quantity) * float64(items.Price)
-// 		}
-
-// 		orderEvent:= kafka.PaymentOrder{
-// 			UserId: orderReq.Userid,
-// 			Amount: total,
-// 			Products: orderReq.Items,
-// 		}
-
-// 		if err := kafka.ProducePaymentOrder(orderEvent); err != nil{
-// 			log.Printf("Failed to produce payment order: %v", err)
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 			return
-// 		}
-
-// 		c.JSON(http.StatusOK, gin.H{"message": "Order placed successfully"})
-// 	}
-
-
-// }
-
-// func calculateAmount(resp *cartpb.CartResponse) float64{
-// 	var total float64
-// 	for _, item := range resp.Items{
-// 		total += float64(item.Quantity) * float64(item.Price)
-// 	}
-// 	return total
-// }
+        log.Printf("Response: %v", response)
+        c.JSON(http.StatusOK, response)
+    }
+}

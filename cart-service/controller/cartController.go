@@ -26,6 +26,10 @@ import (
 var cartCollection *mongo.Collection = database.OpenCollection(database.Client, "cart")
 var productClient pb.ProductServiceClient
 
+type CartController struct{
+	ClearCartFunc func(ctx context.Context, userID primitive.ObjectID)
+}
+
 func  InitProductServiceConnection(){
 	conn, err := grpc.Dial("product-service:8089", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil{
@@ -42,6 +46,16 @@ func CheckUserRole(c *gin.Context) {
 	userRole := c.GetHeader("user_type")
 	log.Println(userRole)
 	if userRole != "USER" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
+		c.Abort()
+		return
+	}
+}
+
+func CheckSellerRole(c *gin.Context){
+	userRole := c.GetHeader("user_type")
+	log.Println(userRole)
+	if userRole != "SELLER" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
 		c.Abort()
 		return
@@ -145,12 +159,12 @@ func AddToCart() gin.HandlerFunc{
 }
 
 
-func GetCart() gin.HandlerFunc {
+func GetCartSeller() gin.HandlerFunc {
 	return func(c *gin.Context){
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		CheckUserRole(c)
+		CheckSellerRole(c)
 		if c.IsAborted(){
 			return
 		}
@@ -179,11 +193,7 @@ func GetCart() gin.HandlerFunc {
 			return
 		}
 
-		if err != nil{
-			log.Printf("Error counting cart: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get cart"})
-			return
-		}
+		
 		log.Printf("Total product count: %d", total)
 
 		if total == 0{
@@ -219,17 +229,17 @@ func GetCart() gin.HandlerFunc {
 		for i := range carts {
             var items []models.CartItem
 
-            itemCursor, err := cartCollection.Aggregate(ctx, mongo.Pipeline{
-                bson.D{{"$match", bson.M{"_id": carts[i].ID}}},
-                bson.D{{"$unwind", "$items"}},
-                bson.D{{"$project", bson.M{
-                    "product_id": "$items.product_id",
-                    "quantity":   "$items.quantity",
-                    "price":      "$items.price",
-                    "name":       "$items.name",
-                    "image_url":  "$items.image_url",
-                }}},
-            })
+			itemCursor, err := cartCollection.Aggregate(ctx, mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.M{"_id": carts[i].ID}}},
+				bson.D{{Key: "$unwind", Value: "$items"}},
+				bson.D{{Key: "$project", Value: bson.M{
+					"product_id": "$items.product_id",
+					"quantity":   "$items.quantity",
+					"price":      "$items.price",
+					"name":       "$items.name",
+					"image_url":  "$items.image_url",
+				}}},
+			})
             if err != nil {
                 log.Printf("Error fetching cart items: %v", err)
                 continue
@@ -260,60 +270,107 @@ func GetCart() gin.HandlerFunc {
 	}
 }
 
-func  GetProductFromCart() gin.HandlerFunc{
-	return func(c *gin.Context){
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-		defer cancel()
+// func  GetCart() gin.HandlerFunc{
+// 	return func(c *gin.Context){
+// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// 		defer cancel()
 
-		userID := c.GetHeader("user_id")
-		if userID == ""{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get userID"})
-			return
-		}
+// 		userID := c.GetHeader("user_id")
+// 		if userID == ""{
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get userID"})
+// 			return
+// 		}
+
+// 		CheckUserRole(c)
+// 		if c.IsAborted(){
+// 			return
+// 		}
+
+
+// 		productID := c.Param("id")
+// 		if productID == ""{
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
+// 			return
+// 		}
+
+// 		log.Printf(productID)
+		
+// 		productReq := &pb.ProductRequest{Id: productID}
+// 		productRes, err := productClient.GetProductInfo(ctx, productReq)
+// 		log.Printf(productReq.String())
+// 		log.Printf(productRes.String())
+// 		if err != nil{
+// 			log.Printf(err.Error())
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
+// 			return
+// 		}
+
+// 		id, err := primitive.ObjectIDFromHex(productID)
+// 		if err != nil{
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get Product info"})
+// 			return
+// 		}
+
+// 		item := models.CartItem{
+// 			ProductID:  id,
+// 			Name: productRes.Name,
+// 			Price: float64(productRes.GetPrice()),
+// 			Quantity: int(productRes.GetQuantity()),
+// 			ImageUrl: productRes.ImageUrl,
+// 			Description: productRes.Description,
+// 		}
+
+
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"user_id": userID,
+// 			"products" : item,
+// 		})
+// 	}
+// }
+
+func GetCart() gin.HandlerFunc{
+	return func(c *gin.Context){
+		context, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
 		CheckUserRole(c)
 		if c.IsAborted(){
 			return
 		}
 
-
-		productID := c.Param("id")
-		if productID == ""{
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
+		uid := c.Param("id")
+		if uid == ""{
+			log.Printf("User id not found")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
 			return
 		}
 
-		log.Printf(productID)
-		
-		productReq := &pb.ProductRequest{Id: productID}
-		productRes, err := productClient.GetProductInfo(ctx, productReq)
-		log.Printf(productReq.String())
-		log.Printf(productRes.String())
+		userId, err := primitive.ObjectIDFromHex(uid)
 		if err != nil{
-			log.Printf(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product data"})
+			log.Printf("Invalid user id: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user id"})
 			return
 		}
 
-		id, err := primitive.ObjectIDFromHex(productID)
+		var carts models.Cart
+
+		filter := bson.M{"user_id": userId}
+		err = cartCollection.FindOne(context, filter).Decode(&carts)
+
 		if err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get Product info"})
+			log.Printf("Failed to find cart: %v", err)
+			if err == mongo.ErrNoDocuments{
+				c.JSON(http.StatusOK, gin.H{"message": "Cart is empty"})
+				return
+			}
+			log.Printf("Error fetching cart: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cart"})
 			return
 		}
-
-		item := models.CartItem{
-			ProductID:  id,
-			Name: productRes.Name,
-			Price: float64(productRes.GetPrice()),
-			Quantity: int(productRes.GetQuantity()),
-			ImageUrl: productRes.ImageUrl,
-			Description: productRes.Description,
-		}
-
-
+		log.Printf("Sending cart data for user %s", uid)
 		c.JSON(http.StatusOK, gin.H{
-			"user_id": userID,
-			"products" : item,
+			"user_id": uid,
+			"products": carts.Items,
 		})
 	}
 }
@@ -380,6 +437,19 @@ func DeleteProductFromCart() gin.HandlerFunc{
 
 		c.JSON(http.StatusOK, gin.H{"message": "Delete product successfully"})
 	}
+}
+
+
+func (c *CartController) ClearCart(ctx context.Context, userID primitive.ObjectID) error {
+	// Implement the logic to clear the cart for the given userID
+	filter := bson.M{"user_id": userID}
+	update := bson.M{"$set": bson.M{"items": []models.CartItem{}}}
+
+	_, err := cartCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // func DeleteProductFromCart() gin.HandlerFunc{

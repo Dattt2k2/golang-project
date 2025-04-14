@@ -7,6 +7,7 @@ import (
 
 	// "github.com/Dattt2k2/golang-project/cart-service/database"
 	controllers "github.com/Dattt2k2/golang-project/cart-service/controller"
+	"github.com/Dattt2k2/golang-project/cart-service/kafka"
 	"github.com/Dattt2k2/golang-project/cart-service/routes"
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
 	"github.com/gin-gonic/gin"
@@ -57,6 +58,10 @@ func main(){
 	if port == ""{
 		port = "8083"
 	}
+
+	kafkaBrokers := []string{"kafka:9092"}
+	kafka.ConsumeOrderSuccess(kafkaBrokers, controllers.CartController{})
+
 
 	// controller.InitProductServiceConnection()
 	// controller.InitUserServiceConnection()
