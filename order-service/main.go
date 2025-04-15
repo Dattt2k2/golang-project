@@ -33,7 +33,7 @@ func main(){
 	service.CartServiceConnection()
 	service.ProductServiceConnection()
 
-	routes.OrderRotes(router)
+	routes.OrderRoutes(router)
 
 	router.Run(":" + port)
 
