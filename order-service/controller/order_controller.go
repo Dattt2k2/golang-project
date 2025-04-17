@@ -381,7 +381,9 @@ package controller
 
 import (
 	"context"
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Dattt2k2/golang-project/order-service/service"
@@ -391,12 +393,12 @@ import (
 
 
 type OrderController struct {
-	OrderController *service.OrderService
+	orderService *service.OrderService
 }
 
 func NewOrderController(orderService *service.OrderService)  *OrderController{
 	return &OrderController{
-		OrderController: orderService,
+		orderService: orderService,
 	}
 }
 
@@ -433,17 +435,24 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 			return
 		}
 
-        paymentMethod := c.Query("payment_method")
-        shippingAddress := c.Query("shipping_address")
-        if paymentMethod != "COD" && paymentMethod != "ONLINE" {
+        type OrderCartRequest struct{
+            PaymentMethod string `json:"payment_method"`
+            ShippingAddress string `json:"shipping_address"`
+        }
+
+        var requestBody OrderCartRequest
+        if err := c.ShouldBindJSON(&requestBody); err != nil{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+            return
+        }
+        if requestBody.PaymentMethod != "COD" && requestBody.PaymentMethod != "ONLINE" {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
             return
         }
-        if paymentMethod == "" {
-            paymentMethod = "COD"
+        if requestBody.PaymentMethod == "" {
+            requestBody.PaymentMethod = "COD"
         }
-
-        if shippingAddress == "" {
+        if requestBody.ShippingAddress == "" {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Shipping address is required"})
             return
         }
@@ -451,7 +460,7 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 		ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
 		defer cancel()
 
-		order, err := ctrl.OrderController.CreateOrderFromCart(ctx, UserID, paymentMethod, shippingAddress)
+		order, err := ctrl.orderService.CreateOrderFromCart(ctx, UserID, requestBody.PaymentMethod, requestBody.ShippingAddress)
 		if err != nil{
 			if err == service.ErrCartServiceUnavailable {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Cart service unavailable"})
@@ -486,6 +495,8 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
         UserID string           `json:"user_id" binding:"required"`
         Items  []ProdcutRequest `json:"items" binding:"required,dive"`
         Source string           `json:"source" binding:"required"`
+        PaymentMethod string           `json:"payment_method"`
+        ShippingAddress string           `json:"shipping_address"`
     }
 
     return func (c *gin.Context) {
@@ -500,17 +511,14 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
             return 
         }
 
-        paymentMethod := c.Query("payment_method")
-        shippingAddress := c.Query("shipping_address")
-        if paymentMethod != "COD" && paymentMethod != "ONLINE" {
+        if orderReq.PaymentMethod != "COD" && orderReq.PaymentMethod != "ONLINE" {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
-            return 
+            return
         }
-        if paymentMethod == "" {
-            paymentMethod = "COD"
+        if orderReq.PaymentMethod == "" {
+            orderReq.PaymentMethod = "COD" // Default to COD
         }
-
-        if shippingAddress == "" {
+        if orderReq.ShippingAddress == "" {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Shipping address is required"})
             return
         }
@@ -519,8 +527,8 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
             UserID: orderReq.UserID,
             Items:  make([]service.OrderItemRequest, len(orderReq.Items)),
             Source: orderReq.Source,
-            PaymentMethod: paymentMethod,
-            ShippingAddress: shippingAddress,
+            PaymentMethod: orderReq.PaymentMethod,
+            ShippingAddress: orderReq.ShippingAddress,
         }
 
         for i, item := range orderReq.Items {
@@ -535,7 +543,7 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
         ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
         defer cancel()
 
-        order, err := ctrl.OrderController.CreateOrderDirect(ctx, req)
+        order, err := ctrl.orderService.CreateOrderDirect(ctx, req)
         if err != nil{
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
             return
@@ -548,6 +556,125 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
             "payment_method": order.PaymentMethod,
             "shipping_address": order.ShippingAddress,
             "status": order.Status,
+        })
+    }
+}
+
+func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
+    return func(c *gin.Context){
+        CheckSellerRole(c)
+        if c.IsAborted(){
+            return
+        }
+
+        page, err := strconv.Atoi(c.Query("page"))
+        if err != nil{
+            log.Printf("Failed to parse page: %v", err)
+            page = 1
+        }
+
+        limit, err := strconv.Atoi(c.Query("limit"))
+        if err != nil{
+            log.Printf("Failed to parse limit: %v", err)
+            limit = 10
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+        defer cancel()
+
+        orders, total, pages, hasNext, hasPrev, err := ctrl.orderService.AdminGetOrders(ctx, page, limit)
+        if err != nil{
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get orders"})
+            return
+        }
+
+        if len(orders) == 0{
+            c.JSON(http.StatusOK, gin.H{
+                "data": []interface{}{},
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "pages": 0,
+                "has_next": false,
+                "has_prev": false,
+            })
+            return 
+        }
+
+        c.JSON(http.StatusOK, gin.H{
+            "data": orders,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": pages,
+            "has_next": hasNext,
+            "has_prev": hasPrev,
+        })
+    }
+}
+
+// GetUserOrders retrieves orders for a specific user with pagination
+func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
+    return func (c *gin.Context){
+        CheckUserRole(c)
+        if c.IsAborted(){
+            return
+        }
+
+        uid := c.GetHeader("user_id")
+        userID, err := primitive.ObjectIDFromHex(uid)
+        if err != nil{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
+            return
+        }
+
+        page := 1
+        limit := 10
+
+        pageStr := c.Query("page")
+        if pageStr != ""{
+            if p, err := strconv.Atoi(pageStr); err == nil{
+                page = p
+            }
+        }
+
+        limitStr := c.Query("limit")
+        if limitStr != ""{
+            if l, err := strconv.Atoi(limitStr); err == nil{
+                limit = l
+            }
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+        defer cancel()
+
+        orders, total, pages, hasNext, hasPrev, err := ctrl.orderService.GetUserOrders(ctx, userID, page, limit)
+        if err != nil{
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get orders"})
+            return 
+        }
+
+        if len(orders) == 0{
+            c.JSON(http.StatusOK, gin.H{
+                "data": []interface{}{},
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "pages": 0,
+                "has_next": false,
+                "has_prev": false,
+            })
+            return 
+        }
+
+        c.JSON(http.StatusOK, gin.H{
+            "data": orders,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": pages,
+            "has_next": hasNext,
+            "has_prev": hasPrev,
         })
     }
 }

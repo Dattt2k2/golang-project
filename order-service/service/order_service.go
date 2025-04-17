@@ -1,15 +1,15 @@
 package service
 
 import (
-    "context"
-    "log"
-    "time"
+	"context"
+	"log"
+	"time"
 
+	cartpb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
+	"github.com/Dattt2k2/golang-project/order-service/kafka"
+	"github.com/Dattt2k2/golang-project/order-service/models"
 	"github.com/Dattt2k2/golang-project/order-service/repositories"
-    "github.com/Dattt2k2/golang-project/order-service/kafka"
-    "github.com/Dattt2k2/golang-project/order-service/models"
-    cartpb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
-    "go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type OrderService struct {
@@ -76,7 +76,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
     }
     
     // Save order to database
-    _, err = s.orderRepo.CreateOrder(ctx, &newOrder)
+    _, err = s.orderRepo.CreateOrder(ctx, newOrder)
     if err != nil {
         return nil, err
     }
@@ -105,6 +105,8 @@ type OrderItemRequest struct {
     Price     float64 `json:"price"`
 }
 
+
+// CreateOrderDirect creates an order directly from the provided request
 func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectRequest) (*models.Order, error) {
     // Convert user ID
     userID, err := primitive.ObjectIDFromHex(req.UserID)
@@ -159,7 +161,7 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
     }
     
     // Save order to database
-    _, err = s.orderRepo.CreateOrder(ctx, &newOrder)
+    _, err = s.orderRepo.CreateOrder(ctx, newOrder)
     if err != nil {
         return nil, err
     }
@@ -173,7 +175,9 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
     return &newOrder, nil
 }
 
-func (s *OrderService) GetOrders(ctx context.Context, page, limit int) ([]models.Order, int64, int, bool, bool, error) {
+
+// AdminGetOrders retrieves all orders with pagination
+func (s *OrderService) AdminGetOrders(ctx context.Context, page, limit int) ([]models.Order, int64, int, bool, bool, error) {
     orders, total, err := s.orderRepo.FindOrders(ctx, page, limit)
     if err != nil {
         return nil, 0, 0, false, false, err
@@ -197,6 +201,32 @@ func (s *OrderService) GetOrders(ctx context.Context, page, limit int) ([]models
     return orders, total, pages, hasNext, hasPrev, nil
 }
 
+
+// GetUserOrders retrieves orders for a specific user with pagination
+func (s *OrderService) GetUserOrders(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.Order,int64, int, bool, bool, error){
+    orders, total, err := s.orderRepo.FindOrdersByUserID(ctx, userID, page, limit)
+    if err != nil{
+        return nil, 0, 0, false, false, err
+    }
+
+    pages := calculatePages(total, int64(limit))
+    hasNext := page < pages
+    hasPrev := page > 1
+
+    for i := range orders {
+        items, err := s.orderRepo.GetOrderItems(ctx, orders[i].ID)
+        if err != nil{
+            log.Printf("Warning: Failed to get items for order %s: %v", orders[i].ID.Hex(), err)
+            continue
+        }
+        orders[i].Items = items 
+    }
+
+    return orders, total, pages, hasNext, hasPrev, nil
+}
+
+
+// Calculate the number of pages based on total items and limit
 func calculatePages(total int64, limit int64) int {
     if total == 0 || limit == 0 {
         return 0
