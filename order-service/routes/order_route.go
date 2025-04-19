@@ -24,7 +24,7 @@ func OrderRoutes(incomming *gin.Engine){
 	authorized := incomming.Group("/")
 
 	authorized.POST("order/cart", orderController.OrderFromCart())
-	authorized.POST("order/direct/:id", orderController.OrderDirectly())
+	authorized.POST("order/direct", orderController.OrderDirectly())
 	authorized.GET("order/user", orderController.GetUserOrders())
 	authorized.GET("admin/orders", orderController.AdminGetOrders())
 }

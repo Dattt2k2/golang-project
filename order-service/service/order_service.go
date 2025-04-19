@@ -1,20 +1,22 @@
 package service
 
 import (
-	"context"
-	"log"
-	"time"
+    "context"
+    "log"
+    "time"
 
-	cartpb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
-	"github.com/Dattt2k2/golang-project/order-service/kafka"
-	"github.com/Dattt2k2/golang-project/order-service/models"
-	"github.com/Dattt2k2/golang-project/order-service/repositories"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+    cartpb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
+    productpb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
+    "github.com/Dattt2k2/golang-project/order-service/kafka"
+    "github.com/Dattt2k2/golang-project/order-service/models"
+    "github.com/Dattt2k2/golang-project/order-service/repositories"
+    "go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type OrderService struct {
     orderRepo   *repositories.OrderRepository
 }
+
 
 func NewOrderService(orderRepo *repositories.OrderRepository) *OrderService {
     return &OrderService{
@@ -24,8 +26,8 @@ func NewOrderService(orderRepo *repositories.OrderRepository) *OrderService {
 
 func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive.ObjectID, paymentMethod, shippingAddress string) (*models.Order, error) {
     // Get cart items using gRPC
-    client := CartServiceConnection()
-    if client == nil {
+    cartClient := CartServiceConnection()
+    if cartClient == nil {
         return nil, ErrCartServiceUnavailable
     }
     
@@ -33,12 +35,17 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
         UserId: userID.Hex(),
     }
     
-    resp, err := client.GetCartItems(ctx, req)
+    resp, err := cartClient.GetCartItems(ctx, req)
     if err != nil {
         log.Printf("Failed to get cart items: %v", err)
         return nil, err
     }
     
+    productClient := ProductServiceConnection()
+    if productClient == nil {
+        return nil, ErrProductServiceUnavailable
+    }
+
     // Convert cart items to order items
     var orderItems []models.OrderItem
     var totalPrice float64 = 0
@@ -47,6 +54,19 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
         productID, err := primitive.ObjectIDFromHex(item.ProductId)
         if err != nil {
             return nil, err
+        }
+
+        stockReq := &productpb.ProductRequest{
+            Id: productID.Hex(),
+        }
+
+        stockResp, err  := productClient.CheckStock(ctx, stockReq)
+        if err != nil{
+            return nil, NewServiceError("Failed to check stock")
+        }
+
+        if !stockResp.InStock || item.Quantity > int32(stockResp.AvailableQuantity){
+            return nil, NewServiceError("Product is out of stock")
         }
         
         orderItem := models.OrderItem{
@@ -57,7 +77,8 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
         }
         
         orderItems = append(orderItems, orderItem)
-        totalPrice += float64(item.Quantity) * float64(item.Price)
+        // totalPrice += float64(item.Quantity) * float64(item.Price)
+        totalPrice = calculateTotalPrice(orderItems)
     }
     
     // Create new order
@@ -114,6 +135,11 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
         return nil, err
     }
     
+    productClient := ProductServiceConnection()
+    if productClient == nil {
+        return nil, NewServiceError("Product service unavailable")
+    }
+
     // Convert items
     var orderItems []models.OrderItem
     var totalPrice float64 = 0
@@ -123,7 +149,20 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
         if err != nil {
             return nil, err
         }
-        
+
+        stockReq := &productpb.ProductRequest{
+            Id: productID.Hex(),
+        }
+
+        stockResp, err := productClient.CheckStock(ctx, stockReq)
+        if err != nil{
+            return nil, NewServiceError("Failed to check stock")
+        }
+
+        if !stockResp.InStock || item.Quantity > int(stockResp.AvailableQuantity){
+            return nil, NewServiceError("Product is out of stock")
+        }
+
         orderItem := models.OrderItem{
             ProductID: productID,
             Name:      item.Name,
@@ -132,7 +171,8 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
         }
         
         orderItems = append(orderItems, orderItem)
-        totalPrice += float64(item.Quantity) * item.Price
+        // totalPrice += float64(item.Quantity) * item.Price
+        totalPrice = calculateTotalPrice(orderItems)
     }
     
     // Set payment details and status
@@ -226,6 +266,15 @@ func (s *OrderService) GetUserOrders(ctx context.Context, userID primitive.Objec
 }
 
 
+func calculateTotalPrice(items []models.OrderItem) float64 {
+    var totalPrice float64
+    for _, item := range items {
+        totalPrice += float64(item.Quantity) * item.Price
+    }
+    return totalPrice
+}
+
+
 // Calculate the number of pages based on total items and limit
 func calculatePages(total int64, limit int64) int {
     if total == 0 || limit == 0 {
@@ -242,6 +291,7 @@ func calculatePages(total int64, limit int64) int {
 // Add error definitions
 var (
     ErrCartServiceUnavailable = NewServiceError("Cart service unavailable")
+    ErrProductServiceUnavailable = NewServiceError("Product service unavailable")
 )
 
 // ServiceError represents a service-level error

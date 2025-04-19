@@ -569,8 +569,8 @@ func SetupRouter(router *gin.Engine) {
         protected.POST("order/cart/", func(c *gin.Context){
             ForwardRequestToService(c, "http://order-service:8084/order/cart/", "POST", "application/json")
         })
-        protected.POST("order/direct/:id", func(c *gin.Context){
-            ForwardRequestToService(c, "http://order-service:8084/order/direct/" + c.Param("id"), "POST", "application/json")
+        protected.POST("order/direct", func(c *gin.Context){
+            ForwardRequestToService(c, "http://order-service:8084/order/direct/", "POST", "application/json")
         })
         protected.GET("order/user", func(c *gin.Context){
             ForwardRequestToService(c, "http://order-service:8084/order/user", "GET", "application/json")

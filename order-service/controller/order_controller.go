@@ -483,70 +483,110 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 	}
 }
 
+// func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
+//     type ProductRequest struct {
+//         ProductID string  `json:"product_id" binding:"required"`
+//         Name      string  `json:"name" binding:"required"`
+//         Quantity  int     `json:"quantity" binding:"required"`
+//         Price     float64 `json:"price" binding:"required"`
+//     }
+
+//     type OrderRequest struct {
+//         UserID string           `json:"user_id" binding:"required"`
+//         Items  []ProductRequest `json:"items" binding:"required,dive"`
+//         Source string           `json:"source" binding:"required"`
+//         PaymentMethod string           `json:"payment_method"`
+//         ShippingAddress string           `json:"shipping_address"`
+//     }
+
+//     return func (c *gin.Context) {
+//         CheckUserRole(c)
+//         if c.IsAborted(){
+//             return 
+//         }
+
+//         var orderReq OrderRequest
+//         if err := c.ShouldBindJSON(&orderReq); err != nil{
+//             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+//             return 
+//         }
+
+//         if orderReq.PaymentMethod != "COD" && orderReq.PaymentMethod != "ONLINE" {
+//             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
+//             return
+//         }
+//         if orderReq.PaymentMethod == "" {
+//             orderReq.PaymentMethod = "COD" // Default to COD
+//         }
+//         if orderReq.ShippingAddress == "" {
+//             c.JSON(http.StatusBadRequest, gin.H{"error": "Shipping address is required"})
+//             return
+//         }
+
+//         req := service.OrderDirectRequest{
+//             UserID: orderReq.UserID,
+//             Items:  make([]service.OrderItemRequest, len(orderReq.Items)),
+//             Source: orderReq.Source,
+//             PaymentMethod: orderReq.PaymentMethod,
+//             ShippingAddress: orderReq.ShippingAddress,
+//         }
+
+//         for i, item := range orderReq.Items {
+//             req.Items[i] = service.OrderItemRequest{
+//                 ProductID : item.ProductID,
+//                 Name: item.Name,
+//                 Quantity: item.Quantity,
+//                 Price: item.Price,
+//             }
+//         }
+
+//         ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+//         defer cancel()
+
+//         order, err := ctrl.orderService.CreateOrderDirect(ctx, req)
+//         if err != nil{
+//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
+//             return
+//         }
+
+//         c.JSON(http.StatusOK, gin.H{
+//             "message": "Order placed successfully",
+//             "order_id": order.ID.Hex(),
+//             "total_price": order.TotalPrice,
+//             "payment_method": order.PaymentMethod,
+//             "shipping_address": order.ShippingAddress,
+//             "status": order.Status,
+//         })
+//     }
+// }
+
 func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
-    type ProdcutRequest struct {
-        ProductID string  `json:"product_id" binding:"required"`
-        Name      string  `json:"name" binding:"required"`
-        Quantity  int     `json:"quantity" binding:"required"`
-        Price     float64 `json:"price" binding:"required"`
-    }
-
-    type OrderRequest struct {
-        UserID string           `json:"user_id" binding:"required"`
-        Items  []ProdcutRequest `json:"items" binding:"required,dive"`
-        Source string           `json:"source" binding:"required"`
-        PaymentMethod string           `json:"payment_method"`
-        ShippingAddress string           `json:"shipping_address"`
-    }
-
-    return func (c *gin.Context) {
+    return func (c *gin.Context){
         CheckUserRole(c)
         if c.IsAborted(){
-            return 
+            return
         }
 
-        var orderReq OrderRequest
+        userID := c.GetHeader("user_id")
+        if userID == ""{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
+            return
+        }
+
+        var orderReq service.OrderDirectRequest
         if err := c.ShouldBindJSON(&orderReq); err != nil{
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-            return 
-        }
-
-        if orderReq.PaymentMethod != "COD" && orderReq.PaymentMethod != "ONLINE" {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
-            return
-        }
-        if orderReq.PaymentMethod == "" {
-            orderReq.PaymentMethod = "COD" // Default to COD
-        }
-        if orderReq.ShippingAddress == "" {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Shipping address is required"})
             return
         }
 
-        req := service.OrderDirectRequest{
-            UserID: orderReq.UserID,
-            Items:  make([]service.OrderItemRequest, len(orderReq.Items)),
-            Source: orderReq.Source,
-            PaymentMethod: orderReq.PaymentMethod,
-            ShippingAddress: orderReq.ShippingAddress,
-        }
-
-        for i, item := range orderReq.Items {
-            req.Items[i] = service.OrderItemRequest{
-                ProductID : item.ProductID,
-                Name: item.Name,
-                Quantity: item.Quantity,
-                Price: item.Price,
-            }
-        }
-
+        orderReq.UserID = userID
         ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
         defer cancel()
 
-        order, err := ctrl.orderService.CreateOrderDirect(ctx, req)
+        order, err :=  ctrl.orderService.CreateOrderDirect(ctx, orderReq)
         if err != nil{
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
-            return
+            return 
         }
 
         c.JSON(http.StatusOK, gin.H{
@@ -559,7 +599,6 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
         })
     }
 }
-
 func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
     return func(c *gin.Context){
         CheckSellerRole(c)
@@ -678,5 +717,7 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
         })
     }
 }
+
+
 
 
