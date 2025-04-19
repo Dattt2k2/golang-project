@@ -8,6 +8,7 @@ import (
 	// database "github.com/Dattt2k2/golang-project/product-service/database"
 	"github.com/Dattt2k2/golang-project/auth-service/database"
 	controllers "github.com/Dattt2k2/golang-project/product-service/controller"
+	"github.com/Dattt2k2/golang-project/product-service/kafka"
 	"github.com/Dattt2k2/golang-project/product-service/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -99,6 +100,8 @@ func main(){
 	// 	log.Fatalf("Failed to serve gRPC server : %v", err)
 	// }
 
+	brokers := []string{"kafka:9092"}
+	go kafka.ConsumeOrderSuccess(brokers, controllers.ProductController{})
 
 	router := gin.New()
 	router.Use(gin.Logger())

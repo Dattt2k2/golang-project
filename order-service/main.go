@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/Dattt2k2/golang-project/order-service/kafka"
 	"github.com/Dattt2k2/golang-project/order-service/routes"
 	"github.com/Dattt2k2/golang-project/order-service/service"
 	"github.com/gin-gonic/gin"
@@ -32,6 +33,9 @@ func main(){
 
 	service.CartServiceConnection()
 	service.ProductServiceConnection()
+
+	brokers := []string{"kafka:9092"}
+	kafka.InitOrderSuccessProducer(brokers)
 
 	routes.OrderRoutes(router)
 

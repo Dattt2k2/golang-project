@@ -30,6 +30,10 @@ import (
 var productCollection *mongo.Collection = database.OpenCollection(database.Client, "product")
 var validate = validator.New()
 
+type ProductController struct {
+	ProductController *ProductController
+}
+
 func CheckUserRole(c *gin.Context) {
 	userRole := c.GetHeader("user_type")
 	if userRole != "SELLER" {
@@ -595,7 +599,7 @@ func GetAllProducts() gin.HandlerFunc {
 		findOptions := options.Find().
 			SetSkip(int64(skip)).
 			SetLimit(int64(limit)).
-			SetSort(bson.D{{"created_at", -1}})
+			SetSort(bson.D{{Key: "created_at", Value: -1}})
 
 		// Find products
 		var products []models.Product
@@ -909,4 +913,27 @@ func VerifyImageExists() gin.HandlerFunc {
         
         c.JSON(http.StatusOK, result)
     }
+}
+
+
+type StockUpdateItem struct {
+	ProductID string `json:"product_id"`
+	Quantity  int    `json:"quantity"`
+}
+func (s *ProductController) UpdateProductStock(ctx context.Context, items []StockUpdateItem) error{
+
+	for _, item := range items {
+		objID, err := primitive.ObjectIDFromHex(item.ProductID)
+		if err != nil{
+			return err 
+		}
+		filter := bson.M{"_id": objID}
+		update := bson.M{"$inc": bson.M{"quantity": -item.Quantity}}
+
+		_, err = productCollection.UpdateOne(ctx, filter, update)
+		if err != nil{
+			return err 
+		}
+	}
+	return nil
 }

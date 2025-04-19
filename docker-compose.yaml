@@ -50,6 +50,7 @@ services:
       - REDIS_URL=redis:6379
     depends_on:
       - mongodb
+      - kafka
     networks:
       - default
     volumes:
@@ -69,6 +70,7 @@ services:
       - ./cart-service/.env
     depends_on:
       - mongodb
+      - kafka
     networks:
       - default
     volumes:
@@ -87,6 +89,7 @@ services:
       - ./order-service/.env
     depends_on:
       - mongodb
+      - kafka
     networks:
       - default
     volumes:
@@ -159,7 +162,8 @@ services:
         cub kafka-ready -b kafka:9092 1 120 &&
         echo -e 'Creating Kafka topics...' &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic payment &&
-        echo -e 'Successfully created the following topics:'
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic order_success &&
+        echo -e 'Successfully created the following topics:' &&
         kafka-topics --list --bootstrap-server kafka:9092
       "
     networks:

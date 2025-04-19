@@ -210,7 +210,7 @@ func GetCartSeller() gin.HandlerFunc {
 		findOptions := options.Find().
 			SetSkip(int64(skip)).
 			SetLimit(int64(limit)).
-			SetSort(bson.D{{"created_at", -1}})
+			SetSort(bson.D{{Key:"created_at",Value: -1}})
 
 		cursor, err := cartCollection.Find(ctx, bson.M{}, findOptions)
 		if err != nil{
