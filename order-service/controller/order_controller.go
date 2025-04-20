@@ -436,8 +436,10 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 		}
 
         type OrderCartRequest struct{
+            Source string `json:"source"`
             PaymentMethod string `json:"payment_method"`
             ShippingAddress string `json:"shipping_address"`
+            SelectedProductIDs []string `json:"selected_product_ids"`
         }
 
         var requestBody OrderCartRequest
@@ -460,7 +462,7 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 		ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
 		defer cancel()
 
-		order, err := ctrl.orderService.CreateOrderFromCart(ctx, UserID, requestBody.PaymentMethod, requestBody.ShippingAddress)
+		order, err := ctrl.orderService.CreateOrderFromCart(ctx, UserID, requestBody.Source, requestBody.PaymentMethod, requestBody.ShippingAddress, requestBody.SelectedProductIDs)
 		if err != nil{
 			if err == service.ErrCartServiceUnavailable {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Cart service unavailable"})
@@ -483,83 +485,8 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 	}
 }
 
-// func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
-//     type ProductRequest struct {
-//         ProductID string  `json:"product_id" binding:"required"`
-//         Name      string  `json:"name" binding:"required"`
-//         Quantity  int     `json:"quantity" binding:"required"`
-//         Price     float64 `json:"price" binding:"required"`
-//     }
-
-//     type OrderRequest struct {
-//         UserID string           `json:"user_id" binding:"required"`
-//         Items  []ProductRequest `json:"items" binding:"required,dive"`
-//         Source string           `json:"source" binding:"required"`
-//         PaymentMethod string           `json:"payment_method"`
-//         ShippingAddress string           `json:"shipping_address"`
-//     }
-
-//     return func (c *gin.Context) {
-//         CheckUserRole(c)
-//         if c.IsAborted(){
-//             return 
-//         }
-
-//         var orderReq OrderRequest
-//         if err := c.ShouldBindJSON(&orderReq); err != nil{
-//             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-//             return 
-//         }
-
-//         if orderReq.PaymentMethod != "COD" && orderReq.PaymentMethod != "ONLINE" {
-//             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
-//             return
-//         }
-//         if orderReq.PaymentMethod == "" {
-//             orderReq.PaymentMethod = "COD" // Default to COD
-//         }
-//         if orderReq.ShippingAddress == "" {
-//             c.JSON(http.StatusBadRequest, gin.H{"error": "Shipping address is required"})
-//             return
-//         }
-
-//         req := service.OrderDirectRequest{
-//             UserID: orderReq.UserID,
-//             Items:  make([]service.OrderItemRequest, len(orderReq.Items)),
-//             Source: orderReq.Source,
-//             PaymentMethod: orderReq.PaymentMethod,
-//             ShippingAddress: orderReq.ShippingAddress,
-//         }
-
-//         for i, item := range orderReq.Items {
-//             req.Items[i] = service.OrderItemRequest{
-//                 ProductID : item.ProductID,
-//                 Name: item.Name,
-//                 Quantity: item.Quantity,
-//                 Price: item.Price,
-//             }
-//         }
-
-//         ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
-//         defer cancel()
-
-//         order, err := ctrl.orderService.CreateOrderDirect(ctx, req)
-//         if err != nil{
-//             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
-//             return
-//         }
-
-//         c.JSON(http.StatusOK, gin.H{
-//             "message": "Order placed successfully",
-//             "order_id": order.ID.Hex(),
-//             "total_price": order.TotalPrice,
-//             "payment_method": order.PaymentMethod,
-//             "shipping_address": order.ShippingAddress,
-//             "status": order.Status,
-//         })
-//     }
-// }
-
+// Order directly from product, using product ID and quantity
+// This function is used when user want to order directly from product page
 func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
     return func (c *gin.Context){
         CheckUserRole(c)
@@ -719,5 +646,59 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
 }
 
 
+// Cancel Order with ID
+func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
+    return func(c *gin.Context){
+        CheckUserRole(c)
+        if c.IsAborted(){
+            return 
+        }
+
+        orderIDStr := c.Param("order_id")
+        orderID, err := primitive.ObjectIDFromHex(orderIDStr)
+        if err != nil{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+            return 
+        }
+
+        userIDHeader := c.GetHeader("user_id")
+        if userIDHeader == ""{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+            return 
+        }
+        userID, err := primitive.ObjectIDFromHex(userIDHeader)
+        if err != nil{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+            return 
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+        defer cancel()
+
+        order, err := ctrl.orderService.GetOrderByID(ctx, orderID)
+        if err != nil{
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel order"})
+            return
+        }
+        if order.UserID != userID{
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission to cancel this order"})
+            return
+        }
+
+        if order.ShippingStatus == "SHIPPED"{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Order already shipped, cannot cancel"})
+            return
+        }
+
+        err = ctrl.orderService.CanceldOrder(ctx, orderID)
+        if err != nil{
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel order"})
+            return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"message": "Order cancelled successfully"})
+    }
+
+}
 
 

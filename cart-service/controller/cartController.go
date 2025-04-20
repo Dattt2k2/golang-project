@@ -338,7 +338,7 @@ func GetCart() gin.HandlerFunc{
 			return
 		}
 
-		uid := c.Param("id")
+		uid := c.GetHeader("user_id")
 		if uid == ""{
 			log.Printf("User id not found")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})

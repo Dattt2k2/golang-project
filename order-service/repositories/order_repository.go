@@ -389,7 +389,7 @@ func (r *OrderRepository) UpdateOrderStatus(ctx context.Context, orderID primiti
 }
 
 // FindOrderByID retrieves a specific order by ID
-func (r *OrderRepository) FindOrderByID(ctx context.Context, orderID primitive.ObjectID) (*models.Order, error) {
+func (r *OrderRepository) GetOrderByID(ctx context.Context, orderID primitive.ObjectID) (*models.Order, error) {
 	log.Printf("Repository - FindOrderByID: orderID=%s", orderID.Hex())
 
 	var order models.Order

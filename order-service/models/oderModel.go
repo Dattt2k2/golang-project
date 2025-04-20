@@ -23,6 +23,7 @@ type Order struct {
 	PaymentMethod	string					`bson:"payment_method" validate:"required"`
 	PaymentStatus	string					`bson:"payment_status" validate:"required"`
 	ShippingAddress	string					`bson:"shipping_address" validate:"required"`
+	ShippingStatus	string					`bson:"shipping_status"`
 	Created_at		time.Time				`bson:"created_at"`
 	Updated_at		time.Time				`bson:"updated_at"`
 }

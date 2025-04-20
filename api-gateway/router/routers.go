@@ -557,8 +557,8 @@ func SetupRouter(router *gin.Engine) {
         protected.GET("/cart/get", func(c *gin.Context) {
             ForwardRequestToService(c, "http://cart-service:8083/cart/get", "GET", "application/json")
         })
-        protected.GET("/cart/get/:id", func(c *gin.Context){
-            ForwardRequestToService(c, "http://cart-service:8083/cart/get/" + c.Param("id"), "GET", "application/json")
+        protected.GET("/cart/user/get/", func(c *gin.Context){
+            ForwardRequestToService(c, "http://cart-service:8083/cart/user/get/", "GET", "application/json")
         })
         protected.DELETE("/cart/delete/:id", func(c *gin.Context){
             ForwardRequestToService(c, "http://cart-service:8083/cart/delete/" + c.Param("id"), "DELETE", "application/json")
@@ -566,7 +566,7 @@ func SetupRouter(router *gin.Engine) {
 
 
         // Order routes
-        protected.POST("/order/cart/", func(c *gin.Context){
+        protected.POST("/order/cart", func(c *gin.Context){
             ForwardRequestToService(c, "http://order-service:8084/order/cart", "POST", "application/json")
         })
         protected.POST("/order/direct", func(c *gin.Context){
@@ -577,6 +577,9 @@ func SetupRouter(router *gin.Engine) {
         })
         protected.GET("/admin/orders", func(c *gin.Context){
             ForwardRequestToService(c, "http://order-service:8084/admin/orders", "GET", "application/json")
+        })
+        protected.POST("/user/order/cancel/:id", func(c *gin.Context){
+            ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/" + c.Param("id"), "POST", "application/json")
         })
     }
 }

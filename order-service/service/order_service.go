@@ -24,7 +24,7 @@ func NewOrderService(orderRepo *repositories.OrderRepository) *OrderService {
     }
 }
 
-func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive.ObjectID, paymentMethod, shippingAddress string) (*models.Order, error) {
+func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive.ObjectID,source, paymentMethod, shippingAddress string, selectedProductIDs []string) (*models.Order, error) {
     // Get cart items using gRPC
     cartClient := CartServiceConnection()
     if cartClient == nil {
@@ -46,11 +46,26 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
         return nil, ErrProductServiceUnavailable
     }
 
+    filteredItems := resp.Items 
+    if len(selectedProductIDs) > 0 {
+        idSet := make(map[string]struct{})
+        for _, id := range selectedProductIDs {
+            idSet[id] = struct{}{}
+        }
+        var temp []*cartpb.CartItem
+        for _, item := range resp.Items {
+            if _, ok := idSet[item.ProductId]; ok {
+                temp = append(temp, item)
+            }
+        }
+        filteredItems = temp
+    }
+
     // Convert cart items to order items
     var orderItems []models.OrderItem
     var totalPrice float64 = 0
     
-    for _, item := range resp.Items {
+    for _, item := range filteredItems {
         productID, err := primitive.ObjectIDFromHex(item.ProductId)
         if err != nil {
             return nil, err
@@ -286,6 +301,13 @@ func calculatePages(total int64, limit int64) int {
         pages++
     }
     return pages
+}
+
+func (s *OrderService) GetOrderByID(ctx context.Context, orderID primitive.ObjectID) (*models.Order, error) {
+    return s.orderRepo.GetOrderByID(ctx, orderID)
+}
+func (s *OrderService) CanceldOrder(ctx context.Context,  orderID primitive.ObjectID) error{
+    return s.orderRepo.UpdateOrderStatus(ctx, orderID, "CANCELLED")
 }
 
 // Add error definitions
