@@ -276,14 +276,14 @@ func GetUsers() gin.HandlerFunc {
 		// Các stages của pipeline
 		matchStage := bson.D{{Key: "$match", Value: bson.D{}}}
 		groupStage := bson.D{{Key: "$group", Value: bson.D{
-			{"_id", "null"},
+			{Key:"_id", Value: "null"},
 			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
-			{"data", bson.D{{"$push", "$$ROOT"}}},
+			{Key:"data", Value: bson.D{{Key: "$push",Value: "$$ROOT"}}},
 		}}}
 		projectStage := bson.D{{Key: "$project", Value: bson.D{
-			{"_id", 0},
-			{"total_count", 1},
-			{"user_items", bson.D{{"$slice", []interface{}{"$data", startIndex, recordPerPage}}}},
+			{Key:"_id", Value: 0},
+			{Key: "total_count",Value:  1},
+			{Key: "user_items",Value:  bson.D{{Key: "$slice",Value: []interface{}{"$data", startIndex, recordPerPage}}}},
 		}}}
 
 		// Thực hiện truy vấn aggregate

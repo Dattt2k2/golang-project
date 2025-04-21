@@ -80,29 +80,13 @@ func main(){
             log.Printf("- %s", file.Name())
         }
     }
-	// controller.InitUserServiceConnection()
 
-	// grpcPort := os.Getenv("gRPC_PORT")
-	// if grpcPort == ""{
-	// 	grpcPort = "8089"
-	// }
-	// lis, err := net.Listen("tcp", ":"+grpcPort)
-	// if err != nil{
-	// 	log.Fatalf("Failed to listen on port 8089: %v", err)
-	// }
-
-	// grpcServer := grpc.NewServer()
-
-	// pb.RegisterProductServiceServer(grpcServer, &pb.UnimplementedProductServiceServer{})
-
-	// log.Printf("gRPC server is running on port: %v", grpcPort)
-	// if err := grpcServer.Serve(lis); err != nil{
-	// 	log.Fatalf("Failed to serve gRPC server : %v", err)
-	// }
-
+	productController := routes.SetupOrderController()
 	brokers := []string{"kafka:9092"}
-	go kafka.ConsumeOrderSuccess(brokers, controllers.ProductController{})
-	go kafka.ConsumerOrderReturned(brokers, controllers.ProductController{})
+	// go kafka.ConsumeOrderSuccess(brokers, controllers.ProductController{})
+	// go kafka.ConsumerOrderReturned(brokers, controllers.ProductController{})
+	go kafka.ConsumeOrderSuccess(brokers, *productController)
+	go kafka.ConsumerOrderReturned(brokers, *productController)
 
 	router := gin.New()
 	router.Use(gin.Logger())
