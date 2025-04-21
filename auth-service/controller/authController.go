@@ -393,7 +393,7 @@ func Logout() gin.HandlerFunc {
 	}
 }
 
-func LogouAll() gin.HandlerFunc{
+func LogoutAll() gin.HandlerFunc{
 	return func (c *gin.Context){
 		userId := c.GetString("uid")
 
