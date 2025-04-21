@@ -578,8 +578,8 @@ func SetupRouter(router *gin.Engine) {
         protected.GET("/admin/orders", func(c *gin.Context){
             ForwardRequestToService(c, "http://order-service:8084/admin/orders", "GET", "application/json")
         })
-        protected.POST("/user/order/cancel/:id", func(c *gin.Context){
-            ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/" + c.Param("id"), "POST", "application/json")
+        protected.POST("/user/order/cancel/:order_id", func(c *gin.Context){
+            ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/" + c.Param("order_id"), "POST", "application/json")
         })
     }
 }

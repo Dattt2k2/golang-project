@@ -306,8 +306,28 @@ func calculatePages(total int64, limit int64) int {
 func (s *OrderService) GetOrderByID(ctx context.Context, orderID primitive.ObjectID) (*models.Order, error) {
     return s.orderRepo.GetOrderByID(ctx, orderID)
 }
-func (s *OrderService) CanceldOrder(ctx context.Context,  orderID primitive.ObjectID) error{
-    return s.orderRepo.UpdateOrderStatus(ctx, orderID, "CANCELLED")
+func (s *OrderService) CanceldOrder(ctx context.Context,  orderID primitive.ObjectID, userID primitive.ObjectID, role string) error{
+    order, err := s.orderRepo.GetOrderByID(ctx, orderID)
+    if err != nil{
+        return NewServiceError("Failed to get order")
+    }
+    if role == "USER" && order.UserID != userID{
+        return NewServiceError("You are not authorized to cancel this order")
+    }
+    if order.Status == "CANCELED"{
+    return NewServiceError("Order already canceled")
+    }
+    if order.Status == "DELIVERED" || order.Status == "DELIVERING"{
+        return NewServiceError("Order already delivered or delivering")
+    } 
+    err = s.orderRepo.UpdateOrderStatus(ctx, orderID, "CANCELED")
+    if err != nil{
+        return err 
+    }
+
+    order, _ = s.orderRepo.GetOrderByID(ctx, orderID)
+    _ = kafka.ProduceOrderSuccessEvent(ctx, *order)
+    return nil 
 }
 
 // Add error definitions

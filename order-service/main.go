@@ -12,10 +12,12 @@ import (
 )
 
 func main(){
-	err := godotenv.Load("github.com/Dattt2k2/golang-project/order-service/.env")
+	// err := godotenv.Load("github.com/Dattt2k2/golang-project/order-service/.env")
+	err := godotenv.Load(".env")
 	if err != nil{
 		log.Println("Warning: Error loading .env file")
 	}
+
 
 	mongodbURL := os.Getenv("MONGODB_URL")
 	if mongodbURL == ""{
@@ -34,8 +36,12 @@ func main(){
 	service.CartServiceConnection()
 	service.ProductServiceConnection()
 
+
+	// kafkaHost := os.Getenv("KAFKA_HOST")
 	brokers := []string{"kafka:9092"}
+	// brokers := kafkaHost
 	kafka.InitOrderSuccessProducer(brokers)
+	kafka.InitOrderReturnedProducer(brokers)
 
 	routes.OrderRoutes(router)
 

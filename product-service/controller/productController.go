@@ -920,20 +920,43 @@ type StockUpdateItem struct {
 	ProductID string `json:"product_id"`
 	Quantity  int    `json:"quantity"`
 }
-func (s *ProductController) UpdateProductStock(ctx context.Context, items []StockUpdateItem) error{
+// func (s *ProductController) UpdateProductStock(ctx context.Context, items []StockUpdateItem) error{
 
+// 	for _, item := range items {
+// 		objID, err := primitive.ObjectIDFromHex(item.ProductID)
+// 		if err != nil{
+// 			return err 
+// 		}
+// 		filter := bson.M{"_id": objID}
+// 		update := bson.M{"$inc": bson.M{"quantity": -item.Quantity}}
+
+// 		_, err = productCollection.UpdateOne(ctx, filter, update)
+// 		if err != nil{
+// 			return err 
+// 		}
+// 	}
+// 	return nil
+// }
+
+func (s *ProductController) UpdateProductStock(ctx context.Context, items []StockUpdateItem, isRestock bool) error {
 	for _, item := range items {
 		objID, err := primitive.ObjectIDFromHex(item.ProductID)
-		if err != nil{
+		if err != nil {
 			return err 
 		}
-		filter := bson.M{"_id": objID}
-		update := bson.M{"$inc": bson.M{"quantity": -item.Quantity}}
 
+		quantity := item.Quantity
+		if !isRestock {
+			quantity = -item.Quantity
+		}
+
+		filter := bson.M{"_id": objID}
+		update := bson.M{"$inc": bson.M{"quantity": quantity}}
 		_, err = productCollection.UpdateOne(ctx, filter, update)
-		if err != nil{
+		if err != nil {
 			return err 
 		}
 	}
 	return nil
+
 }

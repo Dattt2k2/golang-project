@@ -102,6 +102,7 @@ func main(){
 
 	brokers := []string{"kafka:9092"}
 	go kafka.ConsumeOrderSuccess(brokers, controllers.ProductController{})
+	go kafka.ConsumerOrderReturned(brokers, controllers.ProductController{})
 
 	router := gin.New()
 	router.Use(gin.Logger())

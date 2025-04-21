@@ -463,6 +463,16 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 		defer cancel()
 
 		order, err := ctrl.orderService.CreateOrderFromCart(ctx, UserID, requestBody.Source, requestBody.PaymentMethod, requestBody.ShippingAddress, requestBody.SelectedProductIDs)
+
+        if order.ShippingStatus == "SHIPPED" || order.Status == "SHIPPING"{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Can not cancel order"})
+            return 
+        }
+        if order.Status == "CANCELLED"{
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Order already cancelled"})
+            return 
+        }
+
 		if err != nil{
 			if err == service.ErrCartServiceUnavailable {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Cart service unavailable"})
@@ -648,55 +658,44 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
 
 // Cancel Order with ID
 func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
-    return func(c *gin.Context){
-        CheckUserRole(c)
-        if c.IsAborted(){
-            return 
+    return func (c *gin.Context) {
+        ctx, canel := context.WithTimeout(context.Background(), 10 * time.Second)
+        defer canel()
+        userRole := c.GetHeader("user_type")
+        if userRole != "USER" && userRole != "SELLER" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user type"})
+            return
         }
-
         orderIDStr := c.Param("order_id")
         orderID, err := primitive.ObjectIDFromHex(orderIDStr)
         if err != nil{
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID"})
+            return
+        }
+        var userID primitive.ObjectID
+        if userRole == "USER"{
+            userIdHeader := c.GetHeader("user_id")
+
+            if userIdHeader == ""{
+                c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
+                return 
+            }
+
+            userID, err = primitive.ObjectIDFromHex(userIdHeader)
+            if err != nil{
+                c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
+                return
+            }
+        }
+        
+
+        err = ctrl.orderService.CanceldOrder(ctx, orderID, userID, userRole)
+        if err != nil{
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
             return 
         }
-
-        userIDHeader := c.GetHeader("user_id")
-        if userIDHeader == ""{
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-            return 
-        }
-        userID, err := primitive.ObjectIDFromHex(userIDHeader)
-        if err != nil{
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-            return 
-        }
-
-        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
-        defer cancel()
-
-        order, err := ctrl.orderService.GetOrderByID(ctx, orderID)
-        if err != nil{
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel order"})
-            return
-        }
-        if order.UserID != userID{
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission to cancel this order"})
-            return
-        }
-
-        if order.ShippingStatus == "SHIPPED"{
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Order already shipped, cannot cancel"})
-            return
-        }
-
-        err = ctrl.orderService.CanceldOrder(ctx, orderID)
-        if err != nil{
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel order"})
-            return
-        }
-
-        c.JSON(http.StatusOK, gin.H{"message": "Order cancelled successfully"})
+        c.JSON(http.StatusOK, gin.H{
+            "message": "Order cancelled successfully"})
     }
 
 }
