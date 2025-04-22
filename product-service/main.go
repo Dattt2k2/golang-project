@@ -6,9 +6,11 @@ import (
 	"os"
 
 	// database "github.com/Dattt2k2/golang-project/product-service/database"
+	service "github.com/Dattt2k2/golang-project/product-service/service"
 	"github.com/Dattt2k2/golang-project/auth-service/database"
 	controllers "github.com/Dattt2k2/golang-project/product-service/controller"
 	"github.com/Dattt2k2/golang-project/product-service/kafka"
+	"github.com/Dattt2k2/golang-project/product-service/repository"
 	"github.com/Dattt2k2/golang-project/product-service/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -45,10 +47,12 @@ func main(){
 		if err != nil{
 			log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
 		}
-
+		repo := repository.NewProductRepository(database.OpenCollection(database.Client, "products"))
+		svc := service.NewProductService(repo)
+		productServer := controllers.NewProductServer(svc)
 		s:= grpc.NewServer()
 		
-		pb.RegisterProductServiceServer(s, &controllers.ProductServer{})
+		pb.RegisterProductServiceServer(s, productServer)
 
 		grpcReady <- true
 

@@ -4,73 +4,64 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 
-	// "github.com/Dattt2k2/golang-project/cart-service/database"
-	controllers "github.com/Dattt2k2/golang-project/cart-service/controller"
 	"github.com/Dattt2k2/golang-project/cart-service/kafka"
 	"github.com/Dattt2k2/golang-project/cart-service/routes"
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
-	// "go.mongodb.org/mongo-driver/mongo"
 )
 
+func main() {
+	// Khởi tạo router
+	router := gin.Default()
 
-func main(){
-	err := godotenv.Load("github.com/Dattt2k2/golang-project/cart-service/.env")
-    if err != nil {
-        log.Println("Warning: Error loading .env file:", err)
-    }
-	mongodbURL := os.Getenv("MONGODB_URL")
-	if mongodbURL == ""{
-		log.Fatalf("MONGODB_URL is not set on .env file yet")
+	// Thiết lập dependencies theo mô hình 3 layer
+	cartController, cartServer := routes.SetupCartDependencies()
+
+	// Thiết lập HTTP routes
+	routes.CartRoutes(router, cartController)
+
+	// Thiết lập gRPC server
+	grpcServer := grpc.NewServer()
+	pb.RegisterCartServiceServer(grpcServer, cartServer)
+
+	// Khởi động gRPC server
+	lis, err := net.Listen("tcp", ":8089")
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	controllers.InitProductServiceConnection()
-
-	grpcReady := make(chan bool)
-
-	go func(){
-		grpcPort := os.Getenv("GRPC_PORT")
-		if grpcPort == ""{
-			grpcPort = "8090"
-		}
-		lis, err := net.Listen("tcp", ":"+grpcPort)
-		if err != nil{
-			log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
-		}
-
-		s:= grpc.NewServer()
-
-		pb.RegisterCartServiceServer(s, &controllers.CartServer{})
-
-		grpcReady <- true
-
-		if err := s.Serve(lis); err != nil{
-			log.Fatalf("Failed to connect to gRPC Server: %v", err)
+	go func() {
+		log.Println("Starting gRPC server at :8089")
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("Failed to serve gRPC: %v", err)
 		}
 	}()
 
-	<-grpcReady
+	// Khởi động Kafka consumer
+	kafkaBrokers := []string{"kafka:9092"} // Hoặc đọc từ config
+	kafka.ConsumeOrderSuccess(kafkaBrokers, cartController)
 
-	port := os.Getenv("PORT")
-	if port == ""{
-		port = "8083"
-	}
+	// Xử lý tín hiệu để tắt server một cách graceful
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	kafkaBrokers := []string{"kafka:9092"}
-	kafka.ConsumeOrderSuccess(kafkaBrokers, controllers.CartController{})
+	// Khởi động HTTP server
+	go func() {
+		log.Println("Starting HTTP server at :8088")
+		if err := router.Run(":8088"); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
 
+	// Đợi tín hiệu để dừng server
+	<-quit
+	log.Println("Shutting down server...")
 
-	// controller.InitProductServiceConnection()
-	// controller.InitUserServiceConnection()
-
-	router := gin.New()
-	router.Use(gin.Logger())
-
-	routes.CartRoutes(router)
-
-	router.Run(":"+ port)
-	
+	// Dừng gRPC server
+	grpcServer.GracefulStop()
+	log.Println("Server exited")
 }

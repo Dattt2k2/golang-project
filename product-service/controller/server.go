@@ -101,6 +101,8 @@ type ProductServer struct {
 // 	}, nil
 // }
 
+
+
 func NewProductServer(service service.ProductService) *ProductServer {
 	return &ProductServer{
 		service: service,
@@ -151,6 +153,27 @@ func (s *ProductServer) GetProductInfo(ctx context.Context, req *pb.ProductReque
 		ImageUrl: product.ImagePath,
 		Quantity: int32(*product.Quantity),
 	}, nil 
+}
+
+func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest) (*pb.BasicProductResponse, error){
+	id := req.Id 
+	log.Printf("Product id: %v", id)
+	productID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid product ID format: %v", err)
+	}
+
+	product, err := s.service.GetProductByID(ctx, productID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
+	}
+	log.Printf("product id: %v", productID)
+	return &pb.BasicProductResponse{
+		Id: product.ID.Hex(),
+		Name: *product.Name,
+		Price: float32(product.Price),
+
+	}, nil
 }
 
 func (s *ProductServer) CheckStock(ctx context.Context, req *pb.ProductRequest) (*pb.StockResponse, error) {
