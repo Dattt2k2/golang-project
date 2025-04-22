@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/Dattt2k2/golang-project/product-service/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,6 +20,8 @@ type ProductRepository interface {
 	FindByName(ctx context.Context, name string) ([]models.Product, error)
 	FindAll(ctx context.Context, skip, limit int64) ([]models.Product, int64, error)
 	UpdateStock(ctx context.Context, id primitive.ObjectID, quantity int) error
+	IncrementSoldCount(ctx context.Context, productID primitive.ObjectID, quantity int) error
+	GetBestSellingProduct(ctx context.Context, limit int) ([]models.Product, error)
 }
 
 type productRepositoryImpl struct {
@@ -102,4 +105,35 @@ func (r *productRepositoryImpl) FindAll(ctx context.Context, skip, limit int64) 
 func (r *productRepositoryImpl) UpdateStock(ctx context.Context, id primitive.ObjectID, quantity int) error {
 	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$inc": bson.M{"quantity": quantity}})
 	return err 
+}
+
+
+func ( r *productRepositoryImpl) IncrementSoldCount(ctx context.Context, productID primitive.ObjectID, quantity int) error  {
+	filter :=  bson.M{"_id": productID}
+	update := bson.M{
+		"$inc": bson.M{"sold_count": quantity},
+		"$set": bson.M{"updated_at": time.Now()},
+	}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	return err 
+}
+
+func (s *productRepositoryImpl) GetBestSellingProduct(ctx context.Context, limit int) ([]models.Product, error) {
+	var products []models.Product
+
+	opts := options.Find(). 
+		SetSort(bson.D{{Key:"sold_count",Value: -1}}).
+		SetLimit(int64(limit))
+
+	cursor, err := s.collection.Find(ctx, bson.D{}, opts)
+	if err != nil {
+		return nil, err 
+	}
+	defer cursor.Close(ctx)
+
+	if err = cursor.All(ctx, &products); err != nil {
+		return nil, err 
+	}
+	return products, nil
 }

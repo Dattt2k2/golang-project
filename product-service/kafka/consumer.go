@@ -71,6 +71,12 @@ func ConsumeOrderSuccess(brokers []string, productCtrl controller.ProductControl
 				continue 
 			}
 
+			for _, item := range stockItems {
+				if err := productCtrl.IncrementSoldCount(context.Background(), item.ProductID, item.Quantity); err != nil {
+					log.Printf("Error incrementing sold count: %v", err)
+				}
+			}
+
 			log.Printf("Product stock updated successfully for user: %v", userID)
 		}
 	}()

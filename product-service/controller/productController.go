@@ -1157,3 +1157,30 @@ func (ctrl *ProductController) UpdateProductStock(ctx context.Context, items []S
 	return nil
 
 }
+
+func (ctrl *ProductController) GetBestSellingProducts() gin.HandlerFunc {
+	return func (c *gin.Context) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		limitStr := c.DefaultQuery("limit", "10")
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			limit = 10
+		}
+
+		products, err := ctrl.service.GetBestSellingProducts(ctx, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": products,
+			"count": len(products),
+		})
+	}
+}
+
+func (ctrl *ProductController) IncrementSoldCount(ctx context.Context, productID string, quantity int) error {
+	return ctrl.service.IncrementSoldCount(ctx, productID, quantity)
+}

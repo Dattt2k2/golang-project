@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/Dattt2k2/golang-project/product-service/models"
@@ -18,6 +19,8 @@ type ProductService interface {
 	GetProductByName(ctx context.Context, name string) ([]models.Product, error)
 	GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product,int64, int, bool, bool, error)
 	UpdateProductStock(ctx context.Context, id primitive.ObjectID, quantity int) error
+	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
+	GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error)
 }
 
 type productServiceImpl struct {
@@ -66,4 +69,21 @@ func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int
 
 func (s *productServiceImpl) UpdateProductStock(ctx context.Context, id primitive.ObjectID, quantity int) error {
 	return s.repo.UpdateStock(ctx, id, quantity)
+}
+
+func (s *productServiceImpl) IncrementSoldCount(ctx context.Context, productID string, quantity int) error {
+	productIDObj, err := primitive.ObjectIDFromHex(productID)
+	if err != nil {
+		return errors.New("invalid product ID")
+	}
+
+	return s.repo.IncrementSoldCount(ctx, productIDObj, quantity)
+}
+
+func (s *productServiceImpl) GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error) {
+	if limit <= 0 {
+		limit = 10 
+	}
+
+	return s.repo.GetBestSellingProduct(ctx, limit)
 }

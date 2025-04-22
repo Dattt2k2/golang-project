@@ -30,6 +30,8 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine) {
 	authorized.GET("/products/get", productController.GetAllProducts())
 	// search product
 	authorized.GET("/products/search", productController.GetProductByName())
+
+	authorized.GET("/best-selling", productController.GetBestSellingProducts())
 	// get product image
 	// authorized.GET("/products/images/:filename", productController.GetProductImage())
 	// authorized.GET("images/:filename", controller.GetProductImage)
