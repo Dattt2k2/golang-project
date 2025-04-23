@@ -29,7 +29,7 @@ func main() {
 	pb.RegisterCartServiceServer(grpcServer, cartServer)
 
 	// Khởi động gRPC server
-	lis, err := net.Listen("tcp", ":8089")
+	lis, err := net.Listen("tcp", ":8090")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
@@ -51,8 +51,8 @@ func main() {
 
 	// Khởi động HTTP server
 	go func() {
-		log.Println("Starting HTTP server at :8088")
-		if err := router.Run(":8088"); err != nil {
+		log.Println("Starting HTTP server at :8083")
+		if err := router.Run(":8083"); err != nil {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 	}()
