@@ -134,6 +134,13 @@ func ConsumerOrderReturned(brokers []string, productCtrl controller.ProductContr
 				continue 
 			}
 
+			for _, item := range stockItems {
+				if err := productCtrl.DecrementSoldCount(context.Background(), item.ProductID, item.Quantity); err != nil {
+					log.Printf("Error decrementing sold count: %v", err)
+				}
+
+			}
+
 			log.Printf("Product stock updated successfully for user: %v", userID)
 		}
 		

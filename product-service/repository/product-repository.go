@@ -22,6 +22,7 @@ type ProductRepository interface {
 	UpdateStock(ctx context.Context, id primitive.ObjectID, quantity int) error
 	IncrementSoldCount(ctx context.Context, productID primitive.ObjectID, quantity int) error
 	GetBestSellingProduct(ctx context.Context, limit int) ([]models.Product, error)
+	DecrementSoldCount(ctx context.Context, productID primitive.ObjectID, quantity int) error
 }
 
 type productRepositoryImpl struct {
@@ -136,4 +137,15 @@ func (s *productRepositoryImpl) GetBestSellingProduct(ctx context.Context, limit
 		return nil, err 
 	}
 	return products, nil
+}
+
+func (r *productRepositoryImpl) DecrementSoldCount(ctx context.Context, productID primitive.ObjectID, quantity int) error {
+	filter := bson.M{"_id": productID}
+	update := bson.M{
+		"$inc": bson.M{"sold_count": -quantity},
+		"$set": bson.M{"updated_at": time.Now()},
+	}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	return err
 }

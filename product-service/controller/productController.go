@@ -1184,3 +1184,7 @@ func (ctrl *ProductController) GetBestSellingProducts() gin.HandlerFunc {
 func (ctrl *ProductController) IncrementSoldCount(ctx context.Context, productID string, quantity int) error {
 	return ctrl.service.IncrementSoldCount(ctx, productID, quantity)
 }
+
+func (ctrl *ProductController) DecrementSoldCount(ctx context.Context, productID string, quantity int) error {
+	return ctrl.service.DecrementSoldCount(ctx, productID, quantity)
+}
