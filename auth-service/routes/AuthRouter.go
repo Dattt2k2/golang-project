@@ -1,12 +1,19 @@
 package routes
 
-import(
+import (
+	service "github.com/Dattt2k2/golang-project/auth-service/service"
 	controller "github.com/Dattt2k2/golang-project/auth-service/controller"
+	"github.com/Dattt2k2/golang-project/auth-service/repository"
 	"github.com/gin-gonic/gin"
 )
 
 func AuthRoutes(incomingRoutes *gin.Engine){
-	incomingRoutes.POST("users/register", controller.SignUp())
-	incomingRoutes.POST("users/login", controller.Login())
+	userRepo := repository.NewUserRepository()
+	authService := service.NewAuthService(userRepo)
+	authController := controller.NewAuthController(authService)
+
+
+	incomingRoutes.POST("users/register", authController.SignUp())
+	incomingRoutes.POST("users/login", authController.Login())
 }
 

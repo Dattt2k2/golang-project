@@ -32,6 +32,22 @@ type LoginResponse struct {
 	RefreshToken  string `json:"refresh_token"`
 }
 
+type SignUpResponse struct {
+    Message string `json:"message"`
+    User    interface{}   `json:"user"`
+    Token string `json:"token"`
+    RefreshToken string `json:"refresh_token"`
+}
+
+type LoginCredentials struct {
+    Email *string `json:"email" validate:"email,required"`
+    Password *string `json:"password" validate:"required,min=6"`
+}
+type ChangePasswordRequest struct {
+    OldPassword string `json:"old_password" validate:"required"`
+    NewPassword string `json:"new_password" validate:"required,min=6"`
+}
+
 
 
 

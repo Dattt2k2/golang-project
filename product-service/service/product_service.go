@@ -21,7 +21,7 @@ type ProductService interface {
 	DeleteProduct(ctx context.Context, id, userID primitive.ObjectID) error
 	GetProductByID(ctx context.Context, id primitive.ObjectID) (*models.Product, error)
 	GetProductByName(ctx context.Context, name string) ([]models.Product, error)
-	GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product,int64, int, bool, bool, error)
+	GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product, int64, int, bool, bool, bool, error)
 	UpdateProductStock(ctx context.Context, id primitive.ObjectID, quantity int) error
 	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error)
@@ -60,7 +60,7 @@ func (s *productServiceImpl) GetProductByName(ctx context.Context, name string) 
 	return s.repo.FindByName(ctx, name)
 }
 
-func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product,int64, int, bool, bool, error) {
+func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product, int64, int, bool, bool, bool, error) {
 	cacheKey := fmt.Sprintf("products:page=%d&limit=%d", page, limit)
 
 	if database.RedisClient != nil {
@@ -68,30 +68,57 @@ func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int
 		if err == nil {
 			var cachedResult struct {
 				Products []models.Product `json:"products"`
-				Total    int64           `json:"total"`
-				Pages    int             `json:"pages"`
-				HasNext  bool            `json:"has_next"`
-				HasPrev  bool            `json:"has_prev"`
+				Total    int64            `json:"total"`
+				Pages    int              `json:"pages"`
+				HasNext  bool             `json:"has_next"`
+				HasPrev  bool             `json:"has_prev"`
 			}
 
 			if err := json.Unmarshal([]byte(cachedData), &cachedResult); err == nil {
-				log.Printf("cache hit for products: page=%d, limit=%d", page, limit )
-				return cachedResult.Products, cachedResult.Total ,cachedResult.Pages,
-				cachedResult.HasNext, cachedResult.HasPrev, nil 
+				log.Printf("cache hit for products: page=%d, limit=%d", page, limit)
+				return cachedResult.Products, cachedResult.Total, cachedResult.Pages,
+					cachedResult.HasNext, cachedResult.HasPrev, true, nil
 			}
 		}
 	}
 
-	
-	skip := int64(page -1) *limit 
+	skip := int64(page-1) * limit
 	products, total, err := s.repo.FindAll(ctx, skip, int64(limit))
 	if err != nil {
-		return nil, 0, 0, false, false, err 
+		return nil, 0, 0, false, false, false, err
 	}
 	pages := int((total + int64(limit) - 1) / int64(limit))
-	hasNext := page < int64(pages) 
+	hasNext := page < int64(pages)
 	hasPrev := page > 1
-	return products, total, pages, hasNext, hasPrev, nil
+
+	// Save to cache
+	if database.RedisClient != nil {
+		cacheData := struct {
+			Products []models.Product `json:"products"`
+			Total    int64            `json:"total"`
+			Pages    int              `json:"pages"`
+			HasNext  bool             `json:"has_next"`
+			HasPrev  bool             `json:"has_prev"`
+		}{
+			Products: products,
+			Total:    total,
+			Pages:    pages,
+			HasNext:  hasNext,
+			HasPrev:  hasPrev,
+		}
+
+		cacheBytes, err := json.Marshal(cacheData)
+		if err == nil {
+			err = database.RedisClient.Set(ctx, cacheKey, string(cacheBytes), 10*time.Minute).Err()
+			if err != nil {
+				log.Printf("Error caching products: %v", err)
+			} else {
+				log.Printf("Successfully cached products with key: %s", cacheKey)
+			}
+		}
+	}
+
+	return products, total, pages, hasNext, hasPrev, false, nil
 }
 
 func (s *productServiceImpl) UpdateProductStock(ctx context.Context, id primitive.ObjectID, quantity int) error {
@@ -109,7 +136,7 @@ func (s *productServiceImpl) IncrementSoldCount(ctx context.Context, productID s
 
 func (s *productServiceImpl) GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error) {
 	if limit <= 0 {
-		limit = 10 
+		limit = 10
 	}
 
 	return s.repo.GetBestSellingProduct(ctx, limit)
@@ -122,5 +149,5 @@ func (s *productServiceImpl) DecrementSoldCount(ctx context.Context, productID s
 	}
 
 	return s.repo.DecrementSoldCount(ctx, productIDObj, quantity)
-	
+
 }

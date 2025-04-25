@@ -218,6 +218,12 @@ func isMobileRequest(userAgent string) bool {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Bỏ qua routes không cần auth
+		if c.FullPath() == "/auth/users/login" || c.FullPath() == "/auth/users/register" {
+			c.Next()
+			return
+		}
+
 		var tokenString string
 
 		// Try to get token from header
@@ -272,10 +278,23 @@ func AuthMiddleware() gin.HandlerFunc {
 							true,
 						)
 
-						// Continue with new token
+						// Cập nhật header Authorization nếu client sử dụng Bearer token
+						if authHeader != "" {
+							c.Request.Header.Set("Authorization", "Bearer "+newToken)
+						}
+
+						// Tiếp tục với token mới
 						tokenString = newToken
 						claims, msg = helper.ValidateToken(newToken)
-						log.Printf("[DEBUG] Token refreshed successfully")
+						
+						if msg != "" {
+							log.Printf("[DEBUG] Invalid TOken: %s", msg)
+							c.JSON(http.StatusUnauthorized, gin.H{"error": "Your session has expired, please log in again"})
+							c.Abort()
+							return
+						}
+						
+						log.Printf("[DEBUG] Token đã được refresh thành công cho user: %s", claims.Email)
 					} else {
 						log.Printf("[DEBUG] Failed to refresh token: %s", refreshMsg)
 						c.JSON(http.StatusUnauthorized, gin.H{"error": "Session expired, please login again"})

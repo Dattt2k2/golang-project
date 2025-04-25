@@ -464,15 +464,6 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 
 		order, err := ctrl.orderService.CreateOrderFromCart(ctx, UserID, requestBody.Source, requestBody.PaymentMethod, requestBody.ShippingAddress, requestBody.SelectedProductIDs)
 
-        if order.ShippingStatus == "SHIPPED" || order.Status == "SHIPPING"{
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Can not cancel order"})
-            return 
-        }
-        if order.Status == "CANCELLED"{
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Order already cancelled"})
-            return 
-        }
-
 		if err != nil{
 			if err == service.ErrCartServiceUnavailable {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Cart service unavailable"})
@@ -694,6 +685,7 @@ func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
             return 
         }
+
         c.JSON(http.StatusOK, gin.H{
             "message": "Order cancelled successfully"})
     }

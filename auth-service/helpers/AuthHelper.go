@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
@@ -103,25 +104,47 @@ func AddUserToBloomFilter(email, username, phone string) {
     }
 }
 
-func CheckUserType(c *gin.Context, role string) (err error){
-	userType := c.GetString("user_type")
-	err = nil
-	if userType != role{
-		err = errors.New("Unauthorized to acces the resource")
-		return err
+// func CheckUserType(c *gin.Context, role string) (err error){
+// 	userType := c.GetString("user_type")
+// 	err = nil
+// 	if userType != role{
+// 		err = errors.New("Unauthorized to acces the resource")
+// 		return err
+// 	}
+// 	return err
+// }
+
+func CheckUserType(c *gin.Context){
+	userType := c.GetHeader("user_type")
+	if userType != "SELLER"{
+		errors.New("Unauthorized to access the resource")
+		c.Abort()
+		return
 	}
-	return err
 }
 
-func MatchUserTypeToUid(c *gin.Context, userId string) (err error){
-	userType := c.GetString("user_type")
-	uid := c.GetString("uid")
-	err = nil
+// func MatchUserTypeToUid(c *gin.Context, userId string) (err error){
+// 	userType := c.GetString("user_type")
+// 	uid := c.GetString("uid")
+// 	err = nil
 
-	if userType == "USER" && uid != userId{
-		err = errors.New("Unauthorized to access the resource")
-		return err
+// 	if userType == "USER" && uid != userId{
+// 		err = errors.New("Unauthorized to access the resource")
+// 		return err
+// 	}
+// 	err = CheckUserType(c, userType)
+// 	return err
+// }
+
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	if err != nil  {
+		return "", err 
 	}
-	err = CheckUserType(c, userType)
-	return err
+	return string(bytes), nil
+}
+
+func VerifyPassword(password, hashedPassword string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	return err == nil
 }

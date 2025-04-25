@@ -170,7 +170,7 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 	if claims.ExpiresAt.Before(time.Now().UTC()) {
 		log.Printf("[DEBUG] Token expired")
 		msg = "token is expired"
-		RefreshToken(signedToken)
+		// RefreshToken(signedToken)
 		return
 	}
 

@@ -472,6 +472,7 @@ func SetupRouter(router *gin.Engine) {
                 User_type  string `json:"user_type"`
                 Uid   string `json:"user_id"`
                 Token string `json:"token"`
+                RefreshToken string `json:"refresh_token"`
             }
             if err := json.Unmarshal(responseBytes, &loginResponse); err != nil {
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse auth response"})
@@ -491,7 +492,18 @@ func SetupRouter(router *gin.Engine) {
             c.SetCookie(
                 "auth_token",
                 loginResponse.Token,
-                60*60*24*7,
+                60*60*24*7, // 7 ngày
+                "/",
+                "",
+                c.Request.TLS != nil, // secure nếu là HTTPS
+                true, // httpOnly
+            )
+            
+            // Lưu refresh_token vào cookie
+            c.SetCookie(
+                "refresh_token",
+                loginResponse.RefreshToken,
+                60*60*24*30, // 30 ngày
                 "/",
                 "",
                 c.Request.TLS != nil,

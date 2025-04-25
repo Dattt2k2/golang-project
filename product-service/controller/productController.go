@@ -1086,25 +1086,51 @@ func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
 }
 
 func (ctrl *ProductController) GetAllProducts() gin.HandlerFunc {
-    return func(c *gin.Context) {
-        page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-        limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        defer cancel()
-        products, total, pages, hasNext, hasPrev, err := ctrl.service.GetAllProducts(ctx, int64(page), int64(limit))
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-            return
-        }
-        c.JSON(http.StatusOK, gin.H{
-            "data":     products,
-            "total":    total,
-            "page":     page,
-            "pages":    pages,
-            "has_next": hasNext,
-            "has_prev": hasPrev,
-        })
-    }
+	return func(c *gin.Context) {
+		log.Printf("Starting GetAllProducts handler")
+
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Parse pagination parameters
+		page, err := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
+		if err != nil || page < 1 {
+			log.Printf("Invalid page parameter, using default: %v", err)
+			page = 1
+		}
+		
+		limit, err := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
+		if err != nil || limit < 1 {
+			log.Printf("Invalid limit parameter, using default: %v", err)
+			limit = 10
+		}
+
+		log.Printf("Pagination: page=%d, limit=%d", page, limit)
+
+		// Call service layer
+		products, total, pages, hasNext, hasPrev, cached, err := ctrl.service.GetAllProducts(ctx, page, limit)
+		if err != nil {
+			log.Printf("Error fetching products: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+			return
+		}
+
+		// Debug info
+		log.Printf("Found %d products (total: %d)", len(products), total)
+
+		response := gin.H{
+			"data":     products,
+			"total":    total,
+			"page":     page,
+			"pages":    pages,
+			"has_next": hasNext, 
+			"has_prev": hasPrev,
+			"cached":   cached,
+		}
+
+		log.Printf("Sending response with %d products (cached: %v)", len(products), cached)
+		c.JSON(http.StatusOK, response)
+	}
 }
 
 func (ctrl *ProductController) GetProductByName() gin.HandlerFunc {
