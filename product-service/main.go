@@ -7,7 +7,7 @@ import (
 
 	// database "github.com/Dattt2k2/golang-project/product-service/database"
 	service "github.com/Dattt2k2/golang-project/product-service/service"
-	"github.com/Dattt2k2/golang-project/auth-service/database"
+	"github.com/Dattt2k2/golang-project/product-service/database"
 	controllers "github.com/Dattt2k2/golang-project/product-service/controller"
 	"github.com/Dattt2k2/golang-project/product-service/kafka"
 	"github.com/Dattt2k2/golang-project/product-service/repository"

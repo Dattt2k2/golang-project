@@ -42,13 +42,14 @@ func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Prod
 	err := s.repo.Insert(ctx, product)
 	if err == nil {
 		go func() {
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			if err := helper.InvalidateProductCache(ctx, "products:*"); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
 			}
 		}()
 	}
-	return err 
+	return err
 }
 
 func (s *productServiceImpl) EditProduct(ctx context.Context, id primitive.ObjectID, update bson.M) error {
@@ -56,7 +57,8 @@ func (s *productServiceImpl) EditProduct(ctx context.Context, id primitive.Objec
 	err := s.repo.Update(ctx, id, update)
 	if err == nil {
 		go func() {
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			productKey := fmt.Sprintf("products:%s", id.Hex())
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
@@ -70,7 +72,8 @@ func (s *productServiceImpl) DeleteProduct(ctx context.Context, id, userID primi
 	err := s.repo.Delete(ctx, id, userID)
 	if err == nil {
 		go func() {
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			productKey := fmt.Sprintf("product:%s", id.Hex())
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
@@ -85,24 +88,25 @@ func (s *productServiceImpl) DeleteProduct(ctx context.Context, id, userID primi
 }
 
 func (s *productServiceImpl) GetProductByID(ctx context.Context, id primitive.ObjectID) (*models.Product, error) {
-	cacheKey := fmt.Sprintf("products:%s", id.Hex())
+	cacheKey := fmt.Sprintf("product:%s", id.Hex()) // Đổi thành "product:" để nhất quán
 
 	var product models.Product
 	found, err := helper.GetCachedProductData(ctx, cacheKey, &product)
 	if err == nil && found {
-		log.Printf(		"Cache hit for product: %s", id.Hex())
-		return &product, nil 
+		log.Printf("Cache hit for product: %s", id.Hex())
+		return &product, nil
 	}
 
 	productPtr, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	if productPtr != nil {
 		go func(p *models.Product) {
-			ctx := context.Background()
-			if err := helper.CacheProductData(ctx, cacheKey, p, 100); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := helper.CacheProductData(ctx, cacheKey, p, 30*time.Minute); err != nil { // Đổi TTL thành 30 phút
 				log.Printf("Error caching product data: %v", err)
 			} else {
 				log.Printf("Cached product data with key: %s", cacheKey)
@@ -126,15 +130,16 @@ func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int
 	skip := (page - 1) * limit
 	products, total, err := s.repo.FindAll(ctx, skip, limit)
 	if err != nil {
-		return nil, 0, 0, false, false, false, err 
+		return nil, 0, 0, false, false, false, err
 	}
 
-	pages := int((total + limit -1) /limit)
+	pages := int((total + limit - 1) / limit)
 	hasNext := page < int64(pages)
 	hasPrev := page > 1
-	
+
 	go func() {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 		if err := helper.CacheAllProducts(ctx, page, limit, products, total, pages, hasNext, hasPrev); err != nil {
 			log.Printf("Error caching all products: %v", err)
 		} else {
@@ -145,17 +150,18 @@ func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int
 }
 
 func (s *productServiceImpl) UpdateProductStock(ctx context.Context, id primitive.ObjectID, quantity int) error {
-	err :=  s.repo.UpdateStock(ctx, id, quantity)
+	err := s.repo.UpdateStock(ctx, id, quantity)
 	if err == nil {
 		go func() {
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			productKey := fmt.Sprintf("products:%s", id.Hex())
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
 			}
 		}()
 	}
-	return err 
+	return err
 }
 
 func (s *productServiceImpl) IncrementSoldCount(ctx context.Context, productID string, quantity int) error {
@@ -167,7 +173,8 @@ func (s *productServiceImpl) IncrementSoldCount(ctx context.Context, productID s
 	err = s.repo.IncrementSoldCount(ctx, productIDObj, quantity)
 	if err == nil {
 		go func() {
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			productKey := fmt.Sprintf("products:%s", productID)
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
@@ -177,7 +184,7 @@ func (s *productServiceImpl) IncrementSoldCount(ctx context.Context, productID s
 			}
 		}()
 	}
-	return err 
+	return err
 }
 
 func (s *productServiceImpl) GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error) {
@@ -190,17 +197,18 @@ func (s *productServiceImpl) GetBestSellingProducts(ctx context.Context, limit i
 	found, err := helper.GetCachedProductData(ctx, cacheKey, &products)
 	if err == nil && found {
 		log.Printf("Cache hit for best selling products: limit=%d", limit)
-		return products, nil 
+		return products, nil
 	}
 
 	products, err = s.repo.GetBestSellingProduct(ctx, limit)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	go func(prods []models.Product) {
-		ctx := context.Background()
-		if err := helper.CacheProductData(ctx, cacheKey, prods, 100); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := helper.CacheProductData(ctx, cacheKey, prods, 30*time.Minute); err != nil { // Tăng TTL lên 30 phút
 			log.Printf("Error caching best selling products: %v", err)
 		} else {
 			log.Printf("Cached best selling products with key: %s", cacheKey)
@@ -218,7 +226,8 @@ func (s *productServiceImpl) DecrementSoldCount(ctx context.Context, productID s
 	err = s.repo.DecrementSoldCount(ctx, productIDObj, quantity)
 	if err == nil {
 		go func() {
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			productKey := fmt.Sprintf("products:%s", productID)
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
@@ -228,5 +237,5 @@ func (s *productServiceImpl) DecrementSoldCount(ctx context.Context, productID s
 			}
 		}()
 	}
-	return err 
+	return err
 }

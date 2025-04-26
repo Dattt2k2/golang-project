@@ -1089,7 +1089,7 @@ func (ctrl *ProductController) GetAllProducts() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log.Printf("Starting GetAllProducts handler")
 
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		// Parse pagination parameters
