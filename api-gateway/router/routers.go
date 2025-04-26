@@ -545,6 +545,7 @@ func SetupRouter(router *gin.Engine) {
         // })
 
 
+
         // Product routes
         protected.GET("/products/get", func(c *gin.Context){
             ForwardRequestToService(c, "http://product-service:8082/products/get", "GET", "application/json")

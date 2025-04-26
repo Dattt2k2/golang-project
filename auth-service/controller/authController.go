@@ -618,6 +618,39 @@ func (ctrl *AuthController) ChangePassword() gin.HandlerFunc {
 }
 
 
+func (ctrl *AuthController) AdminChangePassword() gin.HandlerFunc {
+	return func (c *gin.Context) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		CheckSellerRole(c)
+		if c.IsAborted() {
+			return
+		}
+
+		var request models.AdminChangePassword
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return 
+		}
+
+		adminID := c.GetHeader("user_id")
+		if adminID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error":"Admin ID not found"})
+			return 
+		}
+
+		err := ctrl.authService.AdminChangePassword(ctx, adminID, request.UserID, request.NewPassword)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error":"Error changing password"})
+			return 
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
+	}
+}
+
+
 func (ctrl *AuthController) Logout() gin.HandlerFunc {
 	return func (c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

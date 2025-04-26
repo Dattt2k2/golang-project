@@ -19,6 +19,7 @@ func UserRoutes(incomingRoutes *gin.Engine){
 	incomingRoutes.POST("/users/logout", authController.Logout())
 	incomingRoutes.POST("/users/logout-all", authController.LogoutAll())
 	incomingRoutes.GET("/users/devices", authController.GetDevices())
+	incomingRoutes.POST("/admin/admin-change-password", authController.AdminChangePassword())
 }
 
 

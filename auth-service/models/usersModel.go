@@ -54,6 +54,11 @@ type ChangePasswordRequest struct {
 }
 
 
+type AdminChangePassword struct {
+    UserID string `json:"user_id" validate:"required"`
+    NewPassword string `json:"new_password" validate:"required,min=6"`
+}
+
 
 
 // type User struct{

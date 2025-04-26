@@ -18,6 +18,7 @@ type AuthService interface {
 	GetUser(ctx context.Context, id string) (*models.User, error)
 	GetUserType(ctx context.Context, userID string) (string, error)
 	ChangePassword(ctx context.Context, userID string, oldPassword, newPassword string) error
+	AdminChangePassword(ctx context.Context, adminID, targetUserID, newPassword string) error 
 	Logout(ctx context.Context, userID string, deviceId string) error 
 	LogoutAll(ctx context.Context, userID string) error 
 }
@@ -159,6 +160,33 @@ func (s *authServiceImpl) ChangePassword(ctx context.Context, userID string, old
 	}
 
 	return s.userRepo.UpdatePassword(ctx, userID, hashedNewPassword)
+}
+
+func (s *authServiceImpl) AdminChangePassword(ctx context.Context, adminID, targetUserID, newPassword string) error {
+	adminType, err := s.userRepo.GetUserType(ctx, adminID)
+	if err != nil {
+		return errors.New("admin not found")
+	}
+
+	if adminType != "SELLER" {
+		return errors.New("only seller can change password")
+	}
+
+	targetUser, err := s.userRepo.FindByID(ctx, targetUserID)
+	if err != nil {
+		return errors.New("target user not found")
+	}
+
+	if *targetUser.User_type != "USER" {
+		return errors.New("target user is not a seller")
+	}
+
+	hashedNewPassword, err := helpers.HashPassword(newPassword)
+	if err != nil {
+		return err 
+	}
+
+	return s.userRepo.UpdatePassword(ctx, targetUserID, hashedNewPassword)
 }
 
 func (s *authServiceImpl) Logout(ctx context.Context, userID string, deviceID string) error {
