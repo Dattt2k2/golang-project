@@ -4,16 +4,7 @@ go 1.23.0
 
 toolchain go1.23.8
 
-replace github.com/Dattt2k2/golang-project/auth-service => ../auth-service
-
-replace github.com/Dattt2k2/golang-project/cart-service => ../cart-service
-
-replace github.com/Dattt2k2/golang-project/order-service => ../order-service
-
-replace github.com/Dattt2k2/golang-project/product-service => ../product-service
-
 require (
-	github.com/Dattt2k2/golang-project/product-service v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/golang-jwt/jwt/v4 v4.5.2

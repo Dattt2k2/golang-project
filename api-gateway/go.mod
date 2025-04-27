@@ -1,17 +1,11 @@
 module github.com/Dattt2k2/golang-project/api-gateway
 
-go 1.23.7
+go 1.23.0
 
-replace github.com/Dattt2k2/golang-project/auth-service => ../auth-service
-
-replace github.com/Dattt2k2/golang-project/cart-service => ../cart-service
-
-replace github.com/Dattt2k2/golang-project/order-service => ../order-service
-
-replace github.com/Dattt2k2/golang-project/product-service => ../product-service
+toolchain go1.23.8
 
 require (
-	github.com/Dattt2k2/golang-project/auth-service v0.0.0-00010101000000-000000000000
+	github.com/Dattt2k2/golang-project/auth-service v0.0.0-20250427071916-52260c124f5f
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0

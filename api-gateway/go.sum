@@ -1,3 +1,5 @@
+github.com/Dattt2k2/golang-project/auth-service v0.0.0-20250427071916-52260c124f5f h1:bW1JLcmZzEKS1g04MTw3d/Ndry7SGr4+Qk9l+yAIH5Q=
+github.com/Dattt2k2/golang-project/auth-service v0.0.0-20250427071916-52260c124f5f/go.mod h1:IiMXbYof5gG7qgb/jUx7fI+acreYBAKNlJosdofW9NQ=
 github.com/bsm/ginkgo/v2 v2.12.0 h1:Ny8MWAHyOepLGlLKYmXG4IEkioBysk6GpaRTLC8zwWs=
 github.com/bsm/ginkgo/v2 v2.12.0/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
 github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=
