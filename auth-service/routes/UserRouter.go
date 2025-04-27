@@ -13,13 +13,13 @@ func UserRoutes(incomingRoutes *gin.Engine){
 	authService := service.NewAuthService(userRepo)
 	authController := controller.NewAuthController(authService)
 	// incomingRoutes.Use(middleware.Authenticate())
-	incomingRoutes.GET("/users", authController.GetUsers())
-	incomingRoutes.GET("/users//user_id", authController.GetUser())
+	incomingRoutes.GET("/admin/get-users", authController.GetUsers())
+	incomingRoutes.GET("/users/user_id", authController.GetUser())
 	incomingRoutes.POST("/users/change-password", authController.ChangePassword())
 	incomingRoutes.POST("/users/logout", authController.Logout())
 	incomingRoutes.POST("/users/logout-all", authController.LogoutAll())
 	incomingRoutes.GET("/users/devices", authController.GetDevices())
-	incomingRoutes.POST("/admin/admin-change-password", authController.AdminChangePassword())
+	incomingRoutes.POST("/admin/change-password", authController.AdminChangePassword())
 }
 
 

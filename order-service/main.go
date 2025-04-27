@@ -1,12 +1,13 @@
-package main
+package main 
 
 import (
 	"log"
 	"os"
 
-	"github.com/Dattt2k2/golang-project/order-service/kafka"
-	"github.com/Dattt2k2/golang-project/order-service/routes"
+
 	"github.com/Dattt2k2/golang-project/order-service/service"
+	"github.com/Dattt2k2/golang-project/order-service/routes"
+	"github.com/Dattt2k2/golang-project/order-service/kafka"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
