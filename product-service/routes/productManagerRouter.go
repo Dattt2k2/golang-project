@@ -9,15 +9,19 @@ import (
 	// "go.mongodb.org/mongo-driver/mongo"
 )
 
-func SetupOrderController() *controller.ProductController {
+// Hàm khởi tạo service riêng để dùng cho Kafka consumer hoặc các mục đích khác
+func NewProductService() service.ProductService {
 	productRepo := repository.NewProductRepository(database.OpenCollection(database.Client, "products"))
-	// Import the service package and create a service instance
-	productSvc := service.NewProductService(productRepo)
+	return service.NewProductService(productRepo)
+}
 
+func SetupProductController() *controller.ProductController {
+	productSvc := NewProductService()
 	return controller.NewProductController(productSvc)
 }
+
 func ProductManagerRoutes(incomingRoutes *gin.Engine) {
-	productController  := SetupOrderController()
+	productController := SetupProductController()
 	authorized := incomingRoutes.Group("/")
 
 	// add product to database

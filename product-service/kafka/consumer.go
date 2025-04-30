@@ -5,34 +5,41 @@ import (
 	"encoding/json"
 	"log"
 
-	controller "github.com/Dattt2k2/golang-project/product-service/controller"
+	"github.com/Dattt2k2/golang-project/product-service/models"
 	"github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
-	OrderSuccessTopic = "order_success"
+	OrderSuccessTopic  = "order_success"
 	OrderReturnedTopic = "order_returned"
 )
 
 type OrderSuccessEvent struct {
-	OrderID    string `json:"order_id"`
-	UserID    string `json:"user_id"`
+	OrderID    string          `json:"order_id"`
+	UserID     string          `json:"user_id"`
 	Items      []OrderItemInfo `json:"items"`
-	TotalPrice float64 `json:"total_price"`
+	TotalPrice float64         `json:"total_price"`
 }
 
 type OrderItemInfo struct {
-	ProductID string `json:"product_id"`
-	Quantity  int    `json:"quantity"`
+	ProductID string  `json:"product_id"`
+	Quantity  int     `json:"quantity"`
 	Price     float64 `json:"price"`
 }
 
-func ConsumeOrderSuccess(brokers []string, productCtrl controller.ProductController){
+type OrderReturnedEvent struct {
+	OrderID    string          `json:"order_id"`
+	UserID     string          `json:"user_id"`
+	Items      []OrderItemInfo `json:"items"`
+	TotalPrice float64         `json:"total_price"`
+}
+
+func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: brokers,
-		Topic:   OrderSuccessTopic,
-		GroupID: "product-service",
+		Brokers:  brokers,
+		Topic:    OrderSuccessTopic,
+		GroupID:  "product-service",
 		MinBytes: 10e3, // 10KB
 		MaxBytes: 10e6, // 10MB
 	})
@@ -40,39 +47,43 @@ func ConsumeOrderSuccess(brokers []string, productCtrl controller.ProductControl
 	go func() {
 		for {
 			message, err := reader.ReadMessage(context.Background())
-			if err != nil{
+			if err != nil {
 				log.Printf("Error reading message: %v", err)
 				continue
 			}
 
 			var event OrderSuccessEvent
-			if err := json.Unmarshal(message.Value, &event); err != nil{
+			if err := json.Unmarshal(message.Value, &event); err != nil {
 				log.Printf("Error unmarshalling message: %v", err)
 				continue
 			}
 
 			userID, err := primitive.ObjectIDFromHex(event.UserID)
-			if err != nil{
+			if err != nil {
 				log.Printf("Error converting user ID: %v", err)
-				continue 
+				continue
 			}
 
-			// Convert OrderItemInfo to controller.StockUpdateItem
-			stockItems := make([]controller.StockUpdateItem, len(event.Items))
+			stockItems := make([]models.StockUpdateItem, len(event.Items))
 			for i, item := range event.Items {
-				stockItems[i] = controller.StockUpdateItem{
+				stockItems[i] = models.StockUpdateItem{
 					ProductID: item.ProductID,
 					Quantity:  item.Quantity,
 				}
 			}
-			
-			if err := productCtrl.UpdateProductStock(context.Background(), stockItems, false); err != nil{
-				log.Printf("Error updating product stock: %v", err)
-				continue 
+			for _, item := range stockItems {
+				id, err := primitive.ObjectIDFromHex(item.ProductID)
+				if err != nil {
+					log.Printf("Invalid product ID: %v", item.ProductID)
+					continue
+				}
+				if err := updater.UpdateProductStock(context.Background(), id, item.Quantity); err != nil {
+					log.Printf("Error updating product stock: %v", err)
+				}
 			}
 
 			for _, item := range stockItems {
-				if err := productCtrl.IncrementSoldCount(context.Background(), item.ProductID, item.Quantity); err != nil {
+				if err := updater.IncrementSoldCount(context.Background(), item.ProductID, item.Quantity); err != nil {
 					log.Printf("Error incrementing sold count: %v", err)
 				}
 			}
@@ -84,66 +95,60 @@ func ConsumeOrderSuccess(brokers []string, productCtrl controller.ProductControl
 	log.Printf("Kafka consumer started for topic: %s", OrderSuccessTopic)
 }
 
-
-type OrderReturnedEvent struct {
-	OrderID    string `json:"order_id"`
-	UserID    string `json:"user_id"`
-	Items      []OrderItemInfo `json:"items"`
-	TotalPrice float64 `json:"total_price"`
-}
-
-func ConsumerOrderReturned(brokers []string, productCtrl controller.ProductController) {
-	reader := kafka.NewReader (kafka.ReaderConfig{
-		Brokers: brokers,
-		Topic:   OrderReturnedTopic,
-		GroupID: "product-service",
+func ConsumerOrderReturned(brokers []string, updater models.ProductStockUpdater) {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  brokers,
+		Topic:    OrderReturnedTopic,
+		GroupID:  "product-service",
 		MinBytes: 10e3, // 10KB
-		MaxBytes: 10e6, // 10MB	
+		MaxBytes: 10e6, // 10MB
 	})
 
 	go func() {
 		for {
 			message, err := reader.ReadMessage(context.Background())
-			if err != nil{
+			if err != nil {
 				log.Printf("Error reading message: %v", err)
 				continue
 			}
 			var event OrderReturnedEvent
-			if err := json.Unmarshal(message.Value, &event); err != nil{
+			if err := json.Unmarshal(message.Value, &event); err != nil {
 				log.Printf("Error unmarshalling message: %v", err)
 				continue
 			}
 
 			userID, err := primitive.ObjectIDFromHex(event.UserID)
-			if err != nil{
+			if err != nil {
 				log.Printf("Error converting user ID: %v", err)
-				continue 
+				continue
 			}
 
-			// Convert OrderItemInfo to controller.StockUpdateItem
-			stockItems := make([]controller.StockUpdateItem, len(event.Items))
+			stockItems := make([]models.StockUpdateItem, len(event.Items))
 			for i, item := range event.Items {
-				stockItems[i] = controller.StockUpdateItem{
+				stockItems[i] = models.StockUpdateItem{
 					ProductID: item.ProductID,
 					Quantity:  item.Quantity,
 				}
 			}
-			
-			if err := productCtrl.UpdateProductStock(context.Background(), stockItems, true); err != nil{
-				log.Printf("Error updating product stock: %v", err)
-				continue 
+			for _, item := range stockItems {
+				id, err := primitive.ObjectIDFromHex(item.ProductID)
+				if err != nil {
+					log.Printf("Invalid product ID: %v", item.ProductID)
+					continue
+				}
+				if err := updater.UpdateProductStock(context.Background(), id, item.Quantity); err != nil {
+					log.Printf("Error updating product stock: %v", err)
+				}
 			}
 
 			for _, item := range stockItems {
-				if err := productCtrl.DecrementSoldCount(context.Background(), item.ProductID, item.Quantity); err != nil {
+				if err := updater.DecrementSoldCount(context.Background(), item.ProductID, item.Quantity); err != nil {
 					log.Printf("Error decrementing sold count: %v", err)
 				}
-
 			}
 
 			log.Printf("Product stock updated successfully for user: %v", userID)
 		}
-		
 	}()
 	log.Printf("Kafka consumer started for topic: %s", OrderReturnedTopic)
 }

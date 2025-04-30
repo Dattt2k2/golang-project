@@ -6,6 +6,7 @@ import (
 
 	"github.com/Dattt2k2/golang-project/search-service/controller"
 	"github.com/Dattt2k2/golang-project/search-service/database"
+	"github.com/Dattt2k2/golang-project/search-service/kafka"
 	"github.com/Dattt2k2/golang-project/search-service/repository"
 	"github.com/Dattt2k2/golang-project/search-service/routes"
 	"github.com/Dattt2k2/golang-project/search-service/service"
@@ -25,6 +26,13 @@ func main() {
 
 	router := gin.Default()
 	routes.SearchRoutes(router, ctrl)
+
+	kafkaHost := os.Getenv("KAFKA_HOST")
+	if kafkaHost == "" {
+		kafkaHost = "kafka:9092"
+	}
+
+	go kafka.InitProductEventConsumer(repo, []string{kafkaHost})
 
 	port := os.Getenv("PORT")
 	if port == "" {

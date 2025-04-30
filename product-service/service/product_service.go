@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Dattt2k2/golang-project/product-service/helper"
+	"github.com/Dattt2k2/golang-project/product-service/kafka"
 	"github.com/Dattt2k2/golang-project/product-service/models"
 	"github.com/Dattt2k2/golang-project/product-service/repository"
 	"go.mongodb.org/mongo-driver/bson"
@@ -48,7 +49,12 @@ func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Prod
 				log.Printf("Error invalidating product cache: %v", err)
 			}
 		}()
+
+		go func(p models.Product) {
+			_ = kafka.ProduceProductEvent(context.Background(), "created", &p, p.ID.Hex())
+		}(product)
 	}
+	
 	return err
 }
 
@@ -64,6 +70,13 @@ func (s *productServiceImpl) EditProduct(ctx context.Context, id primitive.Objec
 				log.Printf("Error invalidating product cache: %v", err)
 			}
 		}()
+		
+		go func(id primitive.ObjectID) {
+			product, err := s.repo.FindByID(context.Background(), id)
+			if err == nil && product != nil {
+				_ = kafka.ProduceProductEvent(context.Background(), "updated", product, id.Hex())
+			}
+		} (id)
 	}
 	return err
 }
@@ -83,6 +96,10 @@ func (s *productServiceImpl) DeleteProduct(ctx context.Context, id, userID primi
 				log.Printf("Error invalidating product cache: %v", err)
 			}
 		}()
+
+		go func(id primitive.ObjectID) {
+			_ = kafka.ProduceProductEvent(context.Background(), "deleted", nil, id.Hex())
+		} (id)
 	}
 	return err
 }

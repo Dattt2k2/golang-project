@@ -85,12 +85,18 @@ func main(){
         }
     }
 
-	productController := routes.SetupOrderController()
-	brokers := []string{"kafka:9092"}
+	routes.SetupProductController()
+	productSvc := routes.NewProductService()
+	kafkaHost := os.Getenv("KAFKA_URL")
+	brokers := []string{kafkaHost}
+	if kafkaHost == ""{
+		brokers = []string{"localhost:9092"}
+	}
+	kafka.InitProductEventProducer(brokers)
 	// go kafka.ConsumeOrderSuccess(brokers, controllers.ProductController{})
 	// go kafka.ConsumerOrderReturned(brokers, controllers.ProductController{})
-	go kafka.ConsumeOrderSuccess(brokers, *productController)
-	go kafka.ConsumerOrderReturned(brokers, *productController)
+	go kafka.ConsumeOrderSuccess(brokers, productSvc)
+	go kafka.ConsumerOrderReturned(brokers, productSvc)
 
 	router := gin.New()
 	router.Use(gin.Logger())
