@@ -14,8 +14,7 @@ services:
     networks:
       - default
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      
 
   auth-service:
     build:
@@ -32,8 +31,7 @@ services:
     networks:
       - default
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      
 
   product-service:
     build:
@@ -54,8 +52,7 @@ services:
     networks:
       - default
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      
 
   cart-service:
     build:
@@ -74,8 +71,7 @@ services:
     networks:
       - default
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      
 
   order-service:
     build:
@@ -93,8 +89,7 @@ services:
     networks:
       - default
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      
 
   mongodb:
     image: mongo:latest
@@ -125,6 +120,34 @@ services:
     networks:
       - default
 
+  search-service:
+    build:
+      context: .
+      dockerfile: ./search-service/Dockerfile 
+      args:
+        - SERVICE_NAME=search-service
+    ports: 
+      - "8086:8086"
+    env_file:
+      - ./search-service/.env
+    depends_on:
+      - kafka
+      - product-service
+      - elasticsearch
+    networks:
+      - default
+    volumes:
+      
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      - dicovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    networks:
+      - default
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper
@@ -177,6 +200,17 @@ services:
     volumes:
       - redis_data:/data
     restart: always
+    networks:
+      - default
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+    depends_on:
+      - elasticsearch
     networks:
       - default
 
