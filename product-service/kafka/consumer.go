@@ -77,7 +77,7 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 					log.Printf("Invalid product ID: %v", item.ProductID)
 					continue
 				}
-				if err := updater.UpdateProductStock(context.Background(), id, item.Quantity); err != nil {
+				if err := updater.UpdateProductStock(context.Background(), id, -item.Quantity); err != nil {
 					log.Printf("Error updating product stock: %v", err)
 				}
 			}

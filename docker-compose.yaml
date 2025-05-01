@@ -120,7 +120,7 @@ services:
       context: .
       dockerfile: ./search-service/Dockerfile
     ports:
-      - "8086:8082"
+      - "8086:8086"
     env_file:
       - ./search-service/.env
     depends_on:

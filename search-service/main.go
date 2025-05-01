@@ -33,7 +33,7 @@ func main() {
 		brokers = []string{"localhost:9092"}
 	}
 
-	kafka.InitProductEventConsumer(repo, brokers)
+	go kafka.InitProductEventConsumer(svc, brokers)
 
 	port := os.Getenv("PORT")
 	if port == "" {

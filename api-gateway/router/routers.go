@@ -608,6 +608,15 @@ func SetupRouter(router *gin.Engine) {
         protected.POST("/user/order/cancel/:order_id", func(c *gin.Context){
             ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/" + c.Param("order_id"), "POST", "application/json")
         })
+
+
+        // Search routes
+        protected.GET("/search", func(c *gin.Context){
+            ForwardRequestToService(c, "http://search-service:8086/search?name=" + c.Query("name"), "GET", "application/json")
+        })
+        protected.GET("/advanced-search", func(c *gin.Context){
+            ForwardRequestToService(c, "http://search-service:8086/advanced-search?name=" + c.Query("name") + "&category=" + c.Query("category") + "&brand=" + c.Query("brand"), "GET", "application/json")
+        }) 
     }
 }
 
