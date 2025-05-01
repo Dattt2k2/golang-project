@@ -12,7 +12,7 @@ import (
 ) 
 
 type AuthService interface {
-	Register(ctx context.Context, email, password string) (*models.SignUpResponse, error)
+	Register(ctx context.Context, email, password, userType string) (*models.SignUpResponse, error)
 	Login(ctx context.Context, credential *models.LoginCredentials) (*models.LoginResponse, error)
 	GetAllUsers(ctx context.Context, page int, recordPage int) ([]interface{}, error)
 	GetUser(ctx context.Context, id string) (*models.User, error)
@@ -33,7 +33,7 @@ func NewAuthService(userRepo repository.UserRepository) AuthService {
 	}
 }
 
-func (s *authServiceImpl) Register (ctx context.Context, email, password string) (*models.SignUpResponse, error) {
+func (s *authServiceImpl) Register (ctx context.Context, email, password, userType string) (*models.SignUpResponse, error) {
 	if email == "" || password == "" {
 		return nil, errors.New("email and password are required")
 	}
@@ -51,9 +51,12 @@ func (s *authServiceImpl) Register (ctx context.Context, email, password string)
 		return nil, err 
 	}
 
+	if userType == "" {
+		userType = "USER"
+	}
+
 	defaultFirstName :="User"
 	defaultLastName := ""
-	defaultUserType := "USER"
 	defaultPhone := ""
 
 	user := &models.User{
@@ -62,14 +65,14 @@ func (s *authServiceImpl) Register (ctx context.Context, email, password string)
 		Password: &hashedPassword,
 		First_name: &defaultFirstName,
 		Last_name: &defaultLastName,
-		User_type: &defaultUserType,
+		User_type: &userType,
 		Phone: &defaultPhone,
 		Created_at: time.Now(),
 		Updated_at: time.Now(),
 	}
 	user.User_id = user.ID.Hex()
 
-	token, refreshToken, err := helpers.GenerateAllToken(email, defaultFirstName, defaultLastName, defaultUserType, user.User_id)
+	token, refreshToken, err := helpers.GenerateAllToken(email, defaultFirstName, defaultLastName, userType, user.User_id)
 	if err != nil {
 		return nil, err 
 	}

@@ -13,7 +13,6 @@ services:
       - ./api-gateway/.env
     networks:
       - default
-    volumes:
       
 
   auth-service:
@@ -30,7 +29,6 @@ services:
       - mongodb
     networks:
       - default
-    volumes:
       
 
   product-service:
@@ -51,7 +49,6 @@ services:
       - kafka
     networks:
       - default
-    volumes:
       
 
   cart-service:
@@ -70,7 +67,6 @@ services:
       - kafka
     networks:
       - default
-    volumes:
       
 
   order-service:
@@ -88,7 +84,6 @@ services:
       - kafka
     networks:
       - default
-    volumes:
       
 
   mongodb:
@@ -123,11 +118,9 @@ services:
   search-service:
     build:
       context: .
-      dockerfile: ./search-service/Dockerfile 
-      args:
-        - SERVICE_NAME=search-service
-    ports: 
-      - "8086:8086"
+      dockerfile: ./search-service/Dockerfile
+    ports:
+      - "8086:8082"
     env_file:
       - ./search-service/.env
     depends_on:
@@ -136,13 +129,12 @@ services:
       - elasticsearch
     networks:
       - default
-    volumes:
-      
 
+      
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     environment:
-      - dicovery.type=single-node
+      - discovery.type=single-node
       - xpack.security.enabled=false
     ports:
       - "9200:9200"

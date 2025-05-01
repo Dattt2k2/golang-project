@@ -473,7 +473,7 @@ func (ctrl *AuthController) SignUp() gin.HandlerFunc{
 			return
 		}
 
-		response, err := ctrl.authService.Register(ctx, *user.Email, *user.Password)
+		response, err := ctrl.authService.Register(ctx, *user.Email, *user.Password, *user.User_type)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return 

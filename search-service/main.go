@@ -27,12 +27,13 @@ func main() {
 	router := gin.Default()
 	routes.SearchRoutes(router, ctrl)
 
-	kafkaHost := os.Getenv("KAFKA_HOST")
-	if kafkaHost == "" {
-		kafkaHost = "kafka:9092"
+	kafkaHost := os.Getenv("KAFKA_URL")
+	brokers := []string{kafkaHost}
+	if kafkaHost == ""{
+		brokers = []string{"localhost:9092"}
 	}
 
-	go kafka.InitProductEventConsumer(repo, []string{kafkaHost})
+	kafka.InitProductEventConsumer(repo, brokers)
 
 	port := os.Getenv("PORT")
 	if port == "" {
