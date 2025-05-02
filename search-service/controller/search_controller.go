@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Dattt2k2/golang-project/search-service/service"
+	"github.com/Dattt2k2/golang-project/search-service/log"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,16 +24,19 @@ func (ctrl *SearchController) BasicSearch(query string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		query := c.Query("query")
 		if query == "" {
+			logger.Err("Missing query parameter", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing query parameter"})
 			return
 		}
 		
 		products, err := ctrl.service.BasicSearch(query)
 		if err != nil {
+			logger.Err("Failed to perform search", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to perform search"})
 			return
 		}
 		c.JSON(http.StatusOK, products)
+		logger.Logger.Infof("Search results for query '%s': %v", query, products)
 	}
 }
 
@@ -41,14 +45,17 @@ func (ctrl *SearchController) AdvancedSearch(query string, filters map[string]in
 	return func (c *gin.Context) {
 		query := c.Query("query")
 		if query == "" {
+			logger.Err("Missing query parameter", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing query parameter"})
 			return
 		}
 
 		if price := c.Query("price"); price != "" {
+			logger.Logger.Infof("Price filter applied: %s", price)
 			filters["price"] = map[string]interface{}{"lte": price}
 		}
 		if category := c.Query("category"); category != "" {
+			logger.Logger.Infof("Category filter applied: %s", category)
 			filters["category"] = category
 		}
 		
@@ -58,6 +65,8 @@ func (ctrl *SearchController) AdvancedSearch(query string, filters map[string]in
 			return
 		}
 		c.JSON(http.StatusOK, products)
+
+		logger.Logger.Infof("Search results for query '%s' with filters %v: %v", query, filters, products)
 	}
 }
 

@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	"log"
 	"time"
 
 	productpb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 	cartpb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
+	"github.com/Dattt2k2/golang-project/order-service/log"
 	"github.com/Dattt2k2/golang-project/order-service/kafka"
 	"github.com/Dattt2k2/golang-project/order-service/models"
 	"github.com/Dattt2k2/golang-project/order-service/repositories"
@@ -36,7 +36,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
 
 	resp, err := cartClient.GetCartItems(ctx, req)
 	if err != nil {
-		log.Printf("Failed to get cart items: %v", err)
+		logger.Err("Failed to get cart items", err)
 		return nil, err
 	}
 
@@ -119,7 +119,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
 
 	// Publish Kafka event
 	if err := kafka.ProduceOrderSuccessEvent(ctx, newOrder); err != nil {
-		log.Printf("Warning: Failed to produce order created event: %v", err)
+		logger.Err("Failed to produce order created event", err)
 		// Continue as the order was successfully created
 	}
 
@@ -222,7 +222,7 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 
 	// Publish Kafka event
 	if err := kafka.ProduceOrderSuccessEvent(ctx, newOrder); err != nil {
-		log.Printf("Warning: Failed to produce order created event: %v", err)
+		logger.Err("Failed to produce order created event", err)
 		// Continue as the order was successfully created
 	}
 
@@ -245,7 +245,7 @@ func (s *OrderService) AdminGetOrders(ctx context.Context, page, limit int) ([]m
 	for i := range orders {
 		items, err := s.orderRepo.GetOrderItems(ctx, orders[i].ID)
 		if err != nil {
-			log.Printf("Warning: Failed to get items for order %s: %v", orders[i].ID.Hex(), err)
+			logger.Err("Failed to get items for order", err, logger.Str("order_id", orders[i].ID.Hex()))
 			continue
 		}
 		orders[i].Items = items
@@ -268,7 +268,7 @@ func (s *OrderService) GetUserOrders(ctx context.Context, userID primitive.Objec
 	for i := range orders {
 		items, err := s.orderRepo.GetOrderItems(ctx, orders[i].ID)
 		if err != nil {
-			log.Printf("Warning: Failed to get items for order %s: %v", orders[i].ID.Hex(), err)
+			logger.Err("Failed to get items for order", err, logger.Str("order_id", orders[i].ID.Hex()))
 			continue
 		}
 		orders[i].Items = items

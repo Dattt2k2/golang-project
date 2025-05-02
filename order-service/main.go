@@ -8,11 +8,16 @@ import (
 	"github.com/Dattt2k2/golang-project/order-service/service"
 	"github.com/Dattt2k2/golang-project/order-service/routes"
 	"github.com/Dattt2k2/golang-project/order-service/kafka"
+	"github.com/Dattt2k2/golang-project/order-service/log"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
 func main(){
+
+	logger.InitLogger()
+	defer logger.Sync()
+
 	// err := godotenv.Load("github.com/Dattt2k2/golang-project/order-service/.env")
 	err := godotenv.Load(".env")
 	if err != nil{

@@ -1,10 +1,10 @@
 package database
 
 import (
-	"log"
 	"os"
 
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/Dattt2k2/golang-project/search-service/log"
 )
 
 var ES *elasticsearch.Client
@@ -20,7 +20,7 @@ func InitElasticsearch() {
 
 	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
-		log.Fatalf("Error creating Elasticsearch client: %s", err)
+		logger.Err("Error creating Elasticsearch client", err)
 	}
 
 	ES = client

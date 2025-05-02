@@ -381,11 +381,11 @@ package controller
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/Dattt2k2/golang-project/order-service/log"
 	"github.com/Dattt2k2/golang-project/order-service/service"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -405,6 +405,7 @@ func NewOrderController(orderService *service.OrderService)  *OrderController{
 func CheckUserRole(c *gin.Context){
 	userRole := c.GetHeader("user_type")
 	if userRole != "USER"{
+        logger.Err("Unauthorized access", nil, logger.Str("user_role", userRole))
 		c.JSON(http.StatusUnauthorized, gin.H{"error":"Your don't have permission"})
 		c.Abort()
 		return
@@ -415,6 +416,7 @@ func CheckUserRole(c *gin.Context){
 func CheckSellerRole(c *gin.Context){
     userRole := c.GetHeader("user_type")
     if userRole != "SELLER"{
+        logger.Err("Unauthorized access", nil, logger.Str("user_role", userRole))
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Your don't have permission"})
         c.Abort()
         return
@@ -431,6 +433,7 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 		uid := c.GetHeader("user_id")
 		UserID, err := primitive.ObjectIDFromHex(uid)
 		if err != nil{
+            logger.Err("Failed to parse userID", err, logger.Str("user_id", uid))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
 			return
 		}
@@ -444,10 +447,12 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 
         var requestBody OrderCartRequest
         if err := c.ShouldBindJSON(&requestBody); err != nil{
+            logger.Err("Failed to bind JSON", err, logger.Str("request_body", requestBody.Source))
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
             return
         }
         if requestBody.PaymentMethod != "COD" && requestBody.PaymentMethod != "ONLINE" {
+            logger.Err("Invalid payment method", nil, logger.Str("payment_method", requestBody.PaymentMethod))
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
             return
         }
@@ -455,6 +460,7 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
             requestBody.PaymentMethod = "COD"
         }
         if requestBody.ShippingAddress == "" {
+            logger.Err("Shipping address is nil", nil, logger.Str("shipping_address", requestBody.ShippingAddress))
             c.JSON(http.StatusBadRequest, gin.H{"error": "Shipping address is required"})
             return
         }
@@ -466,9 +472,11 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 
 		if err != nil{
 			if err == service.ErrCartServiceUnavailable {
+                logger.Err("Cart service unavailable", err, logger.Str("user_id", uid))
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Cart service unavailable"})
 				return
 			} else{
+                logger.Err("Failed to create order", err, logger.Str("user_id", uid))
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
 				return
 			}
@@ -482,6 +490,8 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
             "shipping_address": order.ShippingAddress,
             "status": order.Status,
 		})
+
+        logger.Info("Order placed successfully", logger.Str("order_id", order.ID.Hex()), logger.Str("user_id", uid), logger.Int("total_price", int(order.TotalPrice)))
 
 	}
 }
@@ -497,12 +507,14 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
 
         userID := c.GetHeader("user_id")
         if userID == ""{
+            logger.Err("Failed to get userID", nil, logger.Str("user_id", userID))
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
             return
         }
 
         var orderReq service.OrderDirectRequest
         if err := c.ShouldBindJSON(&orderReq); err != nil{
+            logger.Err("Failed to bind JSON", err, logger.Str("request_body", orderReq.Source))
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
             return
         }
@@ -513,6 +525,7 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
 
         order, err :=  ctrl.orderService.CreateOrderDirect(ctx, orderReq)
         if err != nil{
+            logger.Err("Failed to create order", err, logger.Str("user_id", userID))
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order"})
             return 
         }
@@ -525,6 +538,8 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
             "shipping_address": order.ShippingAddress,
             "status": order.Status,
         })
+
+        logger.Info("Order placed successfully", logger.Str("order_id", order.ID.Hex()), logger.Str("user_id", userID), logger.Int("total_price", int(order.TotalPrice)))
     }
 }
 func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
@@ -536,13 +551,13 @@ func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
 
         page, err := strconv.Atoi(c.Query("page"))
         if err != nil{
-            log.Printf("Failed to parse page: %v", err)
+            logger.Err("Failed to parse page", err, logger.Str("page", c.Query("page")))
             page = 1
         }
 
         limit, err := strconv.Atoi(c.Query("limit"))
         if err != nil{
-            log.Printf("Failed to parse limit: %v", err)
+            logger.Err("Failed to parse limit", err, logger.Str("limit", c.Query("limit")))
             limit = 10
         }
 
@@ -551,6 +566,7 @@ func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
 
         orders, total, pages, hasNext, hasPrev, err := ctrl.orderService.AdminGetOrders(ctx, page, limit)
         if err != nil{
+            logger.Err("Failed to get orders", err, logger.Str("page", strconv.Itoa(page)), logger.Str("limit", strconv.Itoa(limit)))
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get orders"})
             return
         }
@@ -577,6 +593,8 @@ func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
             "has_next": hasNext,
             "has_prev": hasPrev,
         })
+
+        logger.Info("Admin get orders successfully", logger.Str("page", strconv.Itoa(page)), logger.Str("limit", strconv.Itoa(limit)))
     }
 }
 
@@ -591,6 +609,7 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
         uid := c.GetHeader("user_id")
         userID, err := primitive.ObjectIDFromHex(uid)
         if err != nil{
+            logger.Err("Failed to parse userID", err, logger.Str("user_id", uid))
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
             return
         }
@@ -617,6 +636,7 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
 
         orders, total, pages, hasNext, hasPrev, err := ctrl.orderService.GetUserOrders(ctx, userID, page, limit)
         if err != nil{
+            logger.Err("Failed to get orders", err, logger.Str("user_id", uid), logger.Str("page", strconv.Itoa(page)), logger.Str("limit", strconv.Itoa(limit)))
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get orders"})
             return 
         }
@@ -643,6 +663,8 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
             "has_next": hasNext,
             "has_prev": hasPrev,
         })
+
+        logger.Info("Get user orders successfully", logger.Str("user_id", uid), logger.Str("page", strconv.Itoa(page)), logger.Str("limit", strconv.Itoa(limit)))
     }
 }
 
@@ -650,16 +672,18 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
 // Cancel Order with ID
 func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
     return func (c *gin.Context) {
-        ctx, canel := context.WithTimeout(context.Background(), 10 * time.Second)
-        defer canel()
+        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+        defer cancel()
         userRole := c.GetHeader("user_type")
         if userRole != "USER" && userRole != "SELLER" {
+            logger.Err("Unauthorized access", nil, logger.Str("user_role", userRole))
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user type"})
             return
         }
         orderIDStr := c.Param("order_id")
         orderID, err := primitive.ObjectIDFromHex(orderIDStr)
         if err != nil{
+            logger.Err("Failed to parse orderID", err, logger.Str("order_id", orderIDStr))
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid orderID"})
             return
         }
@@ -668,12 +692,14 @@ func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
             userIdHeader := c.GetHeader("user_id")
 
             if userIdHeader == ""{
+                logger.Err("Invalid User ID", nil, logger.Str("user_id", userIdHeader))
                 c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
                 return 
             }
 
             userID, err = primitive.ObjectIDFromHex(userIdHeader)
             if err != nil{
+                logger.Err("Failed to parse userID", err, logger.Str("user_id", userIdHeader))
                 c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
                 return
             }
@@ -682,12 +708,15 @@ func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
 
         err = ctrl.orderService.CanceldOrder(ctx, orderID, userID, userRole)
         if err != nil{
+            logger.Err("Failed to cancel order", err, logger.Str("order_id", orderIDStr), logger.Str("user_id", userID.Hex()))
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
             return 
         }
 
         c.JSON(http.StatusOK, gin.H{
             "message": "Order cancelled successfully"})
+
+        logger.Info("Order cancelled successfully", logger.Str("order_id", orderIDStr), logger.Str("user_id", userID.Hex()))
     }
 
 }

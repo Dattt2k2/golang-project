@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/Dattt2k2/golang-project/product-service/models"
+	"github.com/Dattt2k2/golang-project/product-service/log"
 	"github.com/segmentio/kafka-go"
 ) 
 
@@ -32,12 +32,12 @@ func InitProductEventProducer(brokers []string) {
 		Topic:    ProductEventTopic,
 		Balancer: &kafka.LeastBytes{},
 	}
-	log.Printf("Product event producer initialized")
+	logger.Logger.Infof("Product event producer initialized with brokers: %v", brokers)
 }
 
 func ProduceProductEvent(ctx context.Context, eventType string, product *models.Product, id string) error  {
 	if productEventWriter == nil {
-		log.Printf("Product event writer is not initialized")
+		logger.Err("Product event writer is not initialized", nil)
 		return fmt.Errorf("product event writer is not initialized")
 	}
 
@@ -49,7 +49,7 @@ func ProduceProductEvent(ctx context.Context, eventType string, product *models.
 
 	payload, err := json.Marshal(event)
 	if err != nil {
-		log.Printf("Failed to marshal product event: %v", err)
+		logger.Err("Failed to marshal product event", err)
 		return err 
 	}
 
@@ -59,17 +59,18 @@ func ProduceProductEvent(ctx context.Context, eventType string, product *models.
 	}
 
 	if err := productEventWriter.WriteMessages(ctx, message); err != nil {
-		log.Printf("Failed to write product event message: %v", err)
+		logger.Err("Failed to write product event message", err)
 		return err 
 	}
 
-	log.Printf("Product event produced: %v", event)
+	logger.Logger.Infof("Product event produced: %s", eventType)
 	return nil 
 }
 
 
 func CloseProductEventProducer() {
 	if productEventWriter != nil {
+		logger.Info("Closing product event writer")
 		productEventWriter.Close()
 	}
 }

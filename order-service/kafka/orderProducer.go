@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/Dattt2k2/golang-project/order-service/models"
+	"github.com/Dattt2k2/golang-project/order-service/log"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -42,12 +42,12 @@ func InitOrderSuccessProducer(brokers []string) {
 		Topic:   OrderSuccessTopic,
 		Balancer: &kafka.LeastBytes{},
 	}
-	log.Printf("Order success producer initialized with brokers: %v", brokers)
+	logger.Logger.Infof("Order success producer initialized with brokers: %v", brokers)
 }
 
 func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
 	if orderSuccessWriter == nil {
-		log.Printf("Order success producer not initialized")
+		logger.Info("Order success producer not initialized")
 		return fmt.Errorf("Order success producer not initialized")
 	}
 
@@ -68,7 +68,7 @@ func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
 
 	messagePayload, err := json.Marshal(orderEvent)
 	if err != nil{
-		log.Printf("Error marshalling order event: %v", err)
+		logger.Err("Error marshalling order event", err)
 		return err
 	}
 
@@ -78,11 +78,11 @@ func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
 	}
 
 	if err := orderSuccessWriter.WriteMessages(ctx, message); err != nil{
-		log.Printf("Failed to write message: %v", err)
+		logger.Err("Failed to write message", err)
 		return err
 	}
 
-	log.Printf("Order success event produced: %v", orderEvent)
+	logger.Logger.Infof("Order success event produced", orderEvent)
 	return nil
 }
 
@@ -103,12 +103,12 @@ func InitOrderReturnedProducer(brokers []string) {
 		Topic:   OrderReturnedTopic,
 		Balancer: &kafka.LeastBytes{},
 	}
-	log.Printf("Order returned producer initialized with brokers: %v", brokers)
+	logger.Logger.Infof("Order returned producer initialized with brokers: %v", brokers)
 }
 
 func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 	if orderReturnedWriter == nil {
-		log.Printf("Order returned producer not initialized")
+		logger.Err("Order returned producer not initialized", nil)
 		return fmt.Errorf("Order returned producer not initialized")
 	}
 
@@ -129,7 +129,7 @@ func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 
 	messagePayLoad, err := json.Marshal(orderEvent)
 	if err != nil{
-		log.Printf("Error marshalling order event: %v", err)
+		logger.Err("Error marshalling order event", err)
 		return err
 	}
 
@@ -139,11 +139,11 @@ func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 	}
 
 	if err := orderReturnedWriter.WriteMessages(ctx, message); err != nil{
-		log.Printf("Failed to write message: %v", err)
+		logger.Err("Failed to write message", err)
 		return err
 	}
 
-	log.Printf("Order returned event produced: %v", orderEvent)
+	logger.Logger.Infof("Order returned event produced", orderEvent)
 	return nil
 }
 

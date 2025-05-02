@@ -1,9 +1,9 @@
 package main
 
 import (
-	"log"
 	"os"
 
+	"github.com/Dattt2k2/golang-project/search-service/log"
 	"github.com/Dattt2k2/golang-project/search-service/controller"
 	"github.com/Dattt2k2/golang-project/search-service/database"
 	"github.com/Dattt2k2/golang-project/search-service/kafka"
@@ -16,6 +16,8 @@ import (
 
 
 func main() {
+
+	logger.InitLogger()
 	_ = godotenv.Load(".env")
 
 	database.InitElasticsearch()
@@ -40,6 +42,6 @@ func main() {
 		port = "8086"
 	}
 
-	log.Printf("Search service running on :%s", port)
+	logger.Logger.Info("Search service running on :%s", port)
 	router.Run(":" + port)
 }
