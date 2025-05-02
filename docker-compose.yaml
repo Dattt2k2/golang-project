@@ -13,7 +13,11 @@ services:
       - ./api-gateway/.env
     networks:
       - default
-      
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   auth-service:
     build:
@@ -29,7 +33,11 @@ services:
       - mongodb
     networks:
       - default
-      
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   product-service:
     build:
@@ -49,6 +57,11 @@ services:
       - kafka
     networks:
       - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
       
 
   cart-service:
@@ -67,7 +80,11 @@ services:
       - kafka
     networks:
       - default
-      
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"      
 
   order-service:
     build:
@@ -84,6 +101,11 @@ services:
       - kafka
     networks:
       - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
       
 
   mongodb:
@@ -129,13 +151,23 @@ services:
       - elasticsearch
     networks:
       - default
-
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
       
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
+    unlimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
     networks:
@@ -206,6 +238,20 @@ services:
     networks:
       - default
 
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.0
+    container_name: fielbeat 
+    user: root 
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro # Mount file config filebeat.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro # Mount thư mục chứa log của các container
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Mount Docker socket để Filebeat tự phát hiện container
+      - filebeatdata:/usr/share/filebeat/data # Lưu trạng thái của Filebeat
+    depends_on:
+      - elasticsearch
+    networks:
+      - default
+    command: filebeat -e -strict.perms=false 
 volumes:
   mongodb_data:
   redis_data:

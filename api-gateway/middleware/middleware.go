@@ -3,13 +3,13 @@ package middleware
 import (
 	// "encoding/json"
 	// "fmt"
-	"log"
 	"net/http"
 	"strings"
 
 	// "time"
 
 	helper "github.com/Dattt2k2/golang-project/api-gateway/helpers"
+	"github.com/Dattt2k2/golang-project/api-gateway/logger"
 	"github.com/google/uuid"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/redisdb"
@@ -234,7 +234,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			} else {
 				tokenString = authHeader
 			}
-			log.Printf("[DEBUG] Found token in Authorization header")
+			logger.Debug("Found token in Authorization header")
 		}
 
 		// If not in header, try cookie
@@ -242,15 +242,15 @@ func AuthMiddleware() gin.HandlerFunc {
 			var err error
 			tokenString, err = c.Cookie("auth_token")
 			if err == nil {
-				log.Printf("[DEBUG] Found token in cookie")
+				logger.Debug("Found token in cookie")
 			} else {
-				log.Printf("[DEBUG] No token in cookie: %v", err)
+				logger.DebugE("Failed to get token from cookie", err)
 			}
 		}
 
 		// If still no token, return error
 		if tokenString == "" {
-			log.Printf("[DEBUG] No token found")
+			logger.Debug("No token found in header or cookie")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
 			c.Abort()
 			return
@@ -259,7 +259,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Validate token
 		claims, msg := helper.ValidateToken(tokenString)
 		if msg != "" {
-			log.Printf("[DEBUG] Token validation failed: %s", msg)
+			logger.Debug("Token validation failed", logger.Str("error", msg))
 
 			// If token is expired but we have a refresh token, try to refresh
 			if msg == "token is expired" {
@@ -288,15 +288,15 @@ func AuthMiddleware() gin.HandlerFunc {
 						claims, msg = helper.ValidateToken(newToken)
 						
 						if msg != "" {
-							log.Printf("[DEBUG] Invalid TOken: %s", msg)
+							logger.Debug("Token validation failed after refresh", logger.Str("error", msg))
 							c.JSON(http.StatusUnauthorized, gin.H{"error": "Your session has expired, please log in again"})
 							c.Abort()
 							return
 						}
 						
-						log.Printf("[DEBUG] Token đã được refresh thành công cho user: %s", claims.Email)
+						logger.DebugE("Token refreshed successfully", nil, logger.Str("email", claims.Email))
 					} else {
-						log.Printf("[DEBUG] Failed to refresh token: %s", refreshMsg)
+						logger.DebugE("Failed to refresh token", nil, logger.Str("error", refreshMsg))
 						c.JSON(http.StatusUnauthorized, gin.H{"error": "Session expired, please login again"})
 						c.Abort()
 						return

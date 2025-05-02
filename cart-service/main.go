@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Dattt2k2/golang-project/cart-service/log"
 	"github.com/Dattt2k2/golang-project/cart-service/kafka"
 	"github.com/Dattt2k2/golang-project/cart-service/routes"
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
@@ -15,6 +16,9 @@ import (
 )
 
 func main() {
+
+	logger.InitLogger()
+	defer logger.Sync()
 	// Khởi tạo router
 	router := gin.Default()
 

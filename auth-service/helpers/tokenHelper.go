@@ -118,13 +118,13 @@ package helpers
 import (
 	// "context"
 	// "fmt"
-	"log"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
 	// database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
+	"github.com/Dattt2k2/golang-project/auth-service/logger"
 	"github.com/golang-jwt/jwt/v4"
 	// "go.mongodb.org/mongo-driver/bson"
 	// "go.mongodb.org/mongo-driver/bson/primitive"
@@ -151,13 +151,13 @@ func InitDotEnv() {
 	// Tải SECRET_KEY từ file .env
 	err := godotenv.Load("./auth-service/.env")
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		logger.Err("Error loading .env file", err)
 	}
 
 	// Lấy giá trị SECRET_KEY từ biến môi trường
 	SECRET_KEY = os.Getenv("SECRET_KEY")
 	if SECRET_KEY == "" {
-		log.Fatal("SECRET_KEY not found in .env")
+		logger.Err("SECRET_KEY is not set in .env file", nil)
 	}
 }
 
@@ -242,12 +242,10 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 	if strings.Contains(signedToken, "%"){
 		decodedToken, err := url.QueryUnescape(signedToken)
 		if err != nil{
-			log.Println("Error unescaping token: ", err)
+			logger.Err("Error unescaping token", err)
 		}else{
 			signedToken = decodedToken
-			log.Printf("Decoded token: %s... (length: %d)", 
-            signedToken[:min(10, len(signedToken))], len(signedToken))
-			
+			logger.Debug("Decoded token: ", logger.Str("token", signedToken))	
 		}
 	}
 
@@ -286,6 +284,7 @@ func RefreshToken(refreshToken string) (newAccessToken string, msg string) {
 	// Nếu refresh token hợp lệ, tạo lại access token mới
 	newAccessToken, _, err := GenerateAllToken(claims.Email, claims.FirstName, claims.LastName, claims.UserType, claims.Uid)
 	if err != nil {
+		logger.Err("Error generating new access token", err)
 		return "", "Error generating new access token"
 	}
 

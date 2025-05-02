@@ -7,6 +7,7 @@ import (
 	"time"
 
 	// "github.com/Dattt2k2/golang-project/auth-service/database"
+	"github.com/Dattt2k2/golang-project/api-gateway/logger"
 	"github.com/Dattt2k2/golang-project/auth-service/database"
 	"github.com/Dattt2k2/golang-project/auth-service/helpers"
 	"github.com/Dattt2k2/golang-project/auth-service/routes"
@@ -51,6 +52,9 @@ func main(){
 	if mongodbURL == ""{
 		log.Fatalf("MONGODB_URL is not set on .env file yet")
 	}
+
+	logger.InitLogger()
+	defer logger.Sync()
 
 	database.InitRedis()
 	defer database.RedisClient.Close()

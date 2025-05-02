@@ -1,0 +1,27 @@
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+      templates:
+        - condition:
+            contains:
+              docker.containner.state: running
+          config:
+            - type: container
+              paths: 
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+          
+processors:
+  - add docker_metadata: ~
+
+  - decode_json_fields:
+      fields: ["message"]
+      target: ""
+      overwrite_keys: true
+      add_error_key: true
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+
+logging.level: info 
+logging.to_files: false 

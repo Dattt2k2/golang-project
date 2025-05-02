@@ -3,12 +3,12 @@ package helpers
 import (
 	// "context"
 	// "fmt"
-	"log"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/Dattt2k2/golang-project/api-gateway/logger"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/joho/godotenv"
 )
@@ -31,13 +31,14 @@ func InitDotEnv() {
 	// Tải SECRET_KEY từ file .env
 	err := godotenv.Load("./api-gateway/.env")
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		logger.Err("Error loading .env file", err)
 	}
 
 	// Lấy giá trị SECRET_KEY từ biến môi trường
 	SECRET_KEY = os.Getenv("SECRET_KEY")
 	if SECRET_KEY == "" {
-		log.Fatal("SECRET_KEY not found in .env")
+		logger.Err("SECRET_KEY is not set in .env file", nil)
+
 	}
 }
 
@@ -119,29 +120,26 @@ func GenerateAllToken(email, firstname, lastname, userType, uid string) (string,
 func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 	// Check if token is empty
 	if signedToken == "" {
-		log.Println("[DEBUG] Empty token provided")
+		logger.Debug("Token is empty")
 		return nil, "token is empty"
 	}
-
-	// Add debug logging
-	log.Printf("[DEBUG] Validating token (length: %d)", len(signedToken))
-	log.Printf("[DEBUG] SECRET_KEY length: %d", len(SECRET_KEY))
 
 	// URL-decode if needed
 	if strings.Contains(signedToken, "%") {
 		decodedToken, err := url.QueryUnescape(signedToken)
 		if err != nil {
-			log.Println("[DEBUG] Error unescaping token: ", err)
+			logger.DebugE("Failed to decode token: %v", err)
 		} else {
 			signedToken = decodedToken
-			log.Printf("[DEBUG] Decoded token (length: %d)", len(signedToken))
+			logger.DebugE("Token decoded successfully", nil)
 		}
 	}
 
 	// Check if token has correct format
 	parts := strings.Split(signedToken, ".")
 	if len(parts) != 3 {
-		log.Printf("[DEBUG] Malformed token: has %d parts instead of 3", len(parts))
+		
+		logger.DebugE("Malformed token", nil)
 		return nil, "token contains an invalid number of segments"
 	}
 
@@ -155,26 +153,26 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 	)
 
 	if err != nil {
-		log.Printf("[DEBUG] JWT parse error: %v", err)
+		logger.DebugE("Failed to parse token", err)
 		msg = err.Error()
 		return
 	}
 
 	claims, ok := token.Claims.(*SignedDetails)
 	if !ok {
-		log.Printf("[DEBUG] Invalid claims type")
+		logger.Debug("Invalid claims type")
 		msg = "the token is invalid"
 		return
 	}
 
 	if claims.ExpiresAt.Before(time.Now().UTC()) {
-		log.Printf("[DEBUG] Token expired")
+		logger.Debug("Token is expired")
 		msg = "token is expired"
 		// RefreshToken(signedToken)
 		return
 	}
 
-	log.Printf("[DEBUG] Token valid for user: %s", claims.Email)
+	logger.DebugE("Token valid for user", nil, logger.Str("email", claims.Email), logger.Str("user_type", claims.UserType))
 	return claims, ""
 }
 

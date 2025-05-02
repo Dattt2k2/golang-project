@@ -2,9 +2,9 @@ package grpcClient
 
 import (
 	"context"
-	"log"
 	"sync"
 
+	"github.com/Dattt2k2/golang-project/api-gateway/logger"
 	authpb "github.com/Dattt2k2/golang-project/auth-service/gRPC/service"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -42,7 +42,7 @@ func InitGrpcClient(address string) error{
 	once.Do(func(){
 		conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil{
-			log.Printf("Failed to connnect to gRPC server: %v", err)
+			logger.Err("Failed to connect to gRPC server", err)
 			clientErr = err
 			return
 		}

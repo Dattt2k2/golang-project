@@ -3,10 +3,10 @@ package helpers
 import (
 	"context"
 	"errors"
-	"log"
 	"time"
 
 	database "github.com/Dattt2k2/golang-project/auth-service/database"
+	"github.com/Dattt2k2/golang-project/auth-service/logger"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -23,7 +23,7 @@ func SetUserBloomFilter(bf *BloomFilter){
 func CheckUsernameExists(username string) (bool, error){
 	exists, err := userBloom.Contains(username)
 	if err != nil{
-		log.Printf("Error checking username: %v", err)
+		logger.Err("Error checking username in BloomFilter", err)
 		return false, err
 	}
 
@@ -68,7 +68,7 @@ func CheckEmailExists(email string) (bool, error){
 	if userBloom != nil{
 		exists, err := userBloom.Contains(email)
 		if err != nil{
-			log.Printf("Error checking email in BloomFilter: %v", err)
+			logger.Err("Error checking email in BloomFilter", err)
 		} else if !exists{
 			return false, nil
 		}
@@ -79,7 +79,7 @@ func CheckEmailExists(email string) (bool, error){
 
 	count, err := userCollection.CountDocuments(ctx, bson.M{"email": email})
 	if err != nil{
-		log.Printf("Error checking email in MongoDB: %v", err)
+		logger.Err("Error checking email in MongoDB", err)
 		return false, err
 	}
 

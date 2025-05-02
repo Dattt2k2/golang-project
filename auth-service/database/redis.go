@@ -2,10 +2,10 @@ package database
 
 import (
 	"context"
-	"log"
 	"os"
 	"time"
 
+	"github.com/Dattt2k2/golang-project/api-gateway/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -27,16 +27,16 @@ func InitRedis(){
 	defer cancel()
 
 	if _, err := RedisClient.Ping(ctx).Result(); err != nil{
-		log.Printf("Failed to connect to Redis: %v", err)
+		logger.Err("Failed to connect to Redis", err)
 	} else {
-		log.Printf("Connected to Redis")
+		logger.Info("Connected to Redis")
 	}
 }
 
 func CloseRedis(){
 	if RedisClient != nil{
 		if err := RedisClient.Close(); err != nil{
-			log.Printf("Error closing Redis connection: %v", err)
+			logger.Err("Error closing Redis connection", err)
 		}
 	}
 }
