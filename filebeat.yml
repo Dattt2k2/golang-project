@@ -12,7 +12,7 @@ filebeat.autodiscover:
                 - /var/lib/docker/containers/${data.docker.container.id}/*.log
           
 processors:
-  - add docker_metadata: ~
+  - add_docker_metadata: ~
 
   - decode_json_fields:
       fields: ["message"]

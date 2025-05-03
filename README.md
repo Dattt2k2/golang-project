@@ -9,3 +9,4 @@
 ### Authorization and Authentication with JWT
 ### Using Docker for containerize 
 ### Using Bloom Filter for check existed email.
+### Kafka for message queue

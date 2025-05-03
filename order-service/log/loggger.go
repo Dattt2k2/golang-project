@@ -11,6 +11,7 @@ func InitLogger() {
 		panic(err)
 	}
 	baseLogger = l
+	Logger = l.Sugar()
 }
 
 func Info(msg string, fields ...zap.Field) {
@@ -41,7 +42,11 @@ func Sync() {
 	if baseLogger != nil {
 		_ = baseLogger.Sync()
 	}
+	if Logger != nil {
+		_ = Logger.Sync()
+	}
 }
+
 
 func Str(key, val string) zap.Field {
 	return zap.String(key, val)

@@ -18,6 +18,8 @@ import (
 func main() {
 
 	logger.InitLogger()
+	defer logger.Sync()
+	
 	_ = godotenv.Load(".env")
 
 	database.InitElasticsearch()

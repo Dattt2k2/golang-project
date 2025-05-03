@@ -12,6 +12,7 @@ import (
 	"github.com/Dattt2k2/golang-project/product-service/kafka"
 	"github.com/Dattt2k2/golang-project/product-service/repository"
 	"github.com/Dattt2k2/golang-project/product-service/routes"
+	"github.com/Dattt2k2/golang-project/product-service/log"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
@@ -23,6 +24,10 @@ import (
 
 
 func main(){
+
+	logger.InitLogger()
+	defer logger.Sync()
+
 	err := godotenv.Load("./product-service/.env")
     if err != nil {
         log.Println("Warning: Error loading .env file:", err)

@@ -162,7 +162,7 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-    unlimits:
+    ulimits:
       memlock:
         soft: -1
         hard: -1
@@ -252,9 +252,13 @@ services:
     networks:
       - default
     command: filebeat -e -strict.perms=false 
+
+
 volumes:
   mongodb_data:
   redis_data:
+  elasticsearch_data:
+  filebeatdata:
 
 networks:
   default:
