@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/Dattt2k2/golang-project/auth-service/logger"
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 	"github.com/Dattt2k2/golang-project/product-service/service"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -202,4 +203,25 @@ func (s *ProductServer) CheckStock(ctx context.Context, req *pb.ProductRequest) 
 		AvailableQuantity: int32(*product.Quantity),
 		Message: "Product is out of stock",
 	}, nil
+}
+
+// GetAllProduct for  re-indexes products in Elasticsearch 
+func (s *ProductServer) GetAllProducts(ctx context.Context, req *pb.Empty) (*pb.ProductList, error) {
+	products, err := s.service.GetAllProductForIndex(ctx)
+	if err != nil {
+		logger.Err("Failed to get products", err)
+		return nil, status.Errorf(codes.Internal, "Failed to get products: %v", err)
+	}
+
+	var pbProducts []*pb.Product 
+	for _, p := range products {
+		pbProducts = append(pbProducts, &pb.Product{
+			Id: p.ID.Hex(),
+			Name: *p.Name,
+			Price: float32(p.Price),
+			Description: *p.Description,
+			ImageUrl: p.ImagePath,
+		})
+	}
+	return &pb.ProductList{Products: pbProducts}, nil
 }

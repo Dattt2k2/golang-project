@@ -10,6 +10,7 @@ service ProductService {
     rpc GetProductInfo (ProductRequest) returns (ProductResponse);
     rpc CheckStock (ProductRequest) returns (StockResponse);
     rpc UpdateStock (UpdateStockRequest) returns (UpdateStockResponse);
+    rpc GetAllProducts (Empty) returns (ProductList);
 }
 
 // Messages for product information
@@ -64,4 +65,20 @@ message StockUpdateStatus {
     string product_id = 1;
     bool  updated = 2;
     string message = 3;
+}
+
+
+message Empty{}
+
+message Product{
+    string id = 1;
+    string name = 2;
+    float price = 3;
+    string category = 4;
+    string description = 5;
+    string image_url = 6;
+}
+
+message ProductList {
+    repeated Product products = 1;
 }

@@ -26,6 +26,7 @@ type ProductService interface {
 	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error)
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
+	GetAllProductForIndex(ctx context.Context) ([]models.Product, error)
 }
 
 type productServiceImpl struct {
@@ -255,4 +256,14 @@ func (s *productServiceImpl) DecrementSoldCount(ctx context.Context, productID s
 		}()
 	}
 	return err
+}
+
+
+
+func (s *productServiceImpl) GetAllProductForIndex(ctx context.Context) ([]models.Product, error) {
+	products, _ , err := s.repo.FindAll(ctx, 0, 0) // Lấy tất cả sản phẩm mà không phân trang
+	if err != nil {
+		return nil, err
+	}
+	return products, err 
 }

@@ -31,7 +31,7 @@ func (r *searchRepository) BasicSearch(query string) ([]models.Product, error) {
 		"query":map[string]interface{}{
 			"multi_match":map[string]interface{}{
 				"query": query,
-				"fields": []string{"name", "description", "category"},
+				"fields": []string{"name", "category"},
 			},
 		},
 	}
