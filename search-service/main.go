@@ -38,7 +38,7 @@ func main() {
 	
 	_ = godotenv.Load(".env")
 
-	database.InitElasticsearch()
+	
 
 	repo := repository.NewSearchRepository()
 	svc := service.NewSearchService(repo)
@@ -53,10 +53,15 @@ func main() {
 		brokers = []string{"localhost:9092"}
 	}
 
-	err := waitForElasticsearch("http://elasticsearch:9200", 5, 2*time.Second)
+
+	go kafka.InitProductEventConsumer(svc, brokers)
+
+	err := waitForElasticsearch("http://elasticsearch:9200", 10, 3*time.Second)
 	if err != nil {
 		logger.Err("Elasticsearch not available: %v", err)
 	}
+
+	database.InitElasticsearch()
 
 	err = svc.SyncProductFromProductService()
 	if err != nil {
@@ -64,8 +69,6 @@ func main() {
 	}else{
 		logger.Info("Successfully synced products from product service")
 	}
-
-	go kafka.InitProductEventConsumer(svc, brokers)
 
 	port := os.Getenv("PORT")
 	if port == "" {

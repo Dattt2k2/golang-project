@@ -221,6 +221,7 @@ func (s *ProductServer) GetAllProducts(ctx context.Context, req *pb.Empty) (*pb.
 			Price: float32(p.Price),
 			Description: *p.Description,
 			ImageUrl: p.ImagePath,
+			Category: *p.Category,
 		})
 	}
 	return &pb.ProductList{Products: pbProducts}, nil
