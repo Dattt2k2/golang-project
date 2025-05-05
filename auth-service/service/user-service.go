@@ -81,6 +81,11 @@ func (s *authServiceImpl) Register (ctx context.Context, email, password, userTy
 		return nil, err 
 	}
 
+	err = helpers.AddUserToBloomFilter(*user.Email, *user.Phone)
+	if err != nil {
+		return nil, err
+	}
+
 	return &models.SignUpResponse{
 		Message: "User registered successfully",
 		User:    result,

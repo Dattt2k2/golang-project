@@ -86,22 +86,19 @@ func CheckEmailExists(email string) (bool, error){
 	return count > 0, nil
 }
 
-func AddUserToBloomFilter(email, username, phone string) {
+func AddUserToBloomFilter(email, phone string) error {
     if userBloom == nil {
-        return
+        return nil  
     }
     
     if email != "" {
         userBloom.Add(email)
     }
     
-    if username != "" {
-        userBloom.Add(username)
-    }
-    
     if phone != "" {
         userBloom.Add(phone)
     }
+	return nil
 }
 
 // func CheckUserType(c *gin.Context, role string) (err error){

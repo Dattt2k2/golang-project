@@ -511,10 +511,12 @@ func SetupRouter(router *gin.Engine) {
 
 			// Gửi phản hồi trở lại client (bao gồm token)
 			c.JSON(resp.StatusCode, gin.H{
+				"message": "Login successful",
 				"email": loginResponse.Email,
 				"role":  loginResponse.User_type,
 				"uid":   loginResponse.Uid,
 				"token": loginResponse.Token,
+				"refresh_token": loginResponse.RefreshToken,
 			})
 		})
 	}
