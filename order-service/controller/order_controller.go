@@ -402,30 +402,30 @@ func NewOrderController(orderService *service.OrderService)  *OrderController{
 	}
 }
 
-func CheckUserRole(c *gin.Context){
-	userRole := c.GetHeader("user_type")
-	if userRole != "USER"{
-        logger.Err("Unauthorized access", nil, logger.Str("user_role", userRole))
-		c.JSON(http.StatusUnauthorized, gin.H{"error":"Your don't have permission"})
-		c.Abort()
-		return
-	}
-	c.Next()
-}
+// func CheckUserRole(c *gin.Context){
+// 	userRole := c.GetHeader("user_type")
+// 	if userRole != "USER"{
+//         logger.Err("Unauthorized access", nil, logger.Str("user_role", userRole))
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error":"Your don't have permission"})
+// 		c.Abort()
+// 		return
+// 	}
+// 	c.Next()
+// }
 
-func CheckSellerRole(c *gin.Context){
-    userRole := c.GetHeader("user_type")
-    if userRole != "SELLER"{
-        logger.Err("Unauthorized access", nil, logger.Str("user_role", userRole))
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Your don't have permission"})
-        c.Abort()
-        return
-    }
-}
+// func CheckSellerRole(c *gin.Context){
+//     userRole := c.GetHeader("user_type")
+//     if userRole != "SELLER"{
+//         logger.Err("Unauthorized access", nil, logger.Str("user_role", userRole))
+//         c.JSON(http.StatusUnauthorized, gin.H{"error": "Your don't have permission"})
+//         c.Abort()
+//         return
+//     }
+// }
 
 func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 	return func(c *gin.Context){
-		CheckUserRole(c)
+		// CheckUserRole(c)
 		if c.IsAborted(){
 			return
 		}
@@ -500,7 +500,7 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
 // This function is used when user want to order directly from product page
 func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
     return func (c *gin.Context){
-        CheckUserRole(c)
+        // CheckUserRole(c)
         if c.IsAborted(){
             return
         }
@@ -544,7 +544,7 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
 }
 func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
     return func(c *gin.Context){
-        CheckSellerRole(c)
+        // CheckSellerRole(c)
         if c.IsAborted(){
             return
         }
@@ -601,7 +601,7 @@ func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
 // GetUserOrders retrieves orders for a specific user with pagination
 func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
     return func (c *gin.Context){
-        CheckUserRole(c)
+        // CheckUserRole(c)
         if c.IsAborted(){
             return
         }

@@ -56,6 +56,17 @@ func CORSMiddleware() gin.HandlerFunc {
 }
 
 
+func RequireUserRole(role string) gin.HandlerFunc {
+	return func (c *gin.Context) {
+		userRole, exists := c.Get("role")
+		if !exists || userRole != role {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "You do not have permission"})
+			c.Abort()
+			return 
+		}
+	}
+}
+
 
 func DeviceInfoMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {

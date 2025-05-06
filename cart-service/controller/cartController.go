@@ -465,30 +465,30 @@ func NewCartController(cartService service.CartService) *CartController {
 	}
 }
 
-func CheckUserRole(c *gin.Context) {
-	userRole := c.GetHeader("user_type")
-	if userRole != "USER" {
-		logger.Err("Unauthorized access attempt", nil)
-		c.JSON(http.StatusUnauthorized, gin.H{"error" : "You don't have permission"})
-		c.Abort()
-		return
-	}
-}
+// func CheckUserRole(c *gin.Context) {
+// 	userRole := c.GetHeader("user_type")
+// 	if userRole != "USER" {
+// 		logger.Err("Unauthorized access attempt", nil)
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error" : "You don't have permission"})
+// 		c.Abort()
+// 		return
+// 	}
+// }
 
-func CheckSellerRole(c *gin.Context) {
-	sellerRole := c.GetHeader("user_type")
-	if sellerRole != "SELLER" {
-		logger.Err("Unauthorized access attempt", nil)
-		c.JSON(http.StatusUnauthorized, gin.H{"error" : "You don't have permission"})
-		c.Abort()
-		return
-	}
-}
+// func CheckSellerRole(c *gin.Context) {
+// 	sellerRole := c.GetHeader("user_type")
+// 	if sellerRole != "SELLER" {
+// 		logger.Err("Unauthorized access attempt", nil)
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error" : "You don't have permission"})
+// 		c.Abort()
+// 		return
+// 	}
+// }
 
 
 func (ctrl *CartController) AddToCart() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		CheckUserRole(c)
+		// CheckUserRole(c)
 		if c.IsAborted() {
 			return 
 		}
@@ -533,7 +533,7 @@ func (ctrl *CartController) AddToCart() gin.HandlerFunc {
 
 func (ctrl *CartController) GetCartSeller() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		CheckSellerRole(c)
+		// CheckSellerRole(c)
 		if c.IsAborted(){
 			return 
 		}
@@ -575,7 +575,7 @@ func (ctrl *CartController) GetCartSeller() gin.HandlerFunc {
 
 func (ctrl *CartController) GetCart() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		CheckUserRole(c)
+		// CheckUserRole(c)
 		if c.IsAborted() {
 			return 
 		}
@@ -617,7 +617,7 @@ func (ctrl *CartController) DeleteProductFromCart() gin.HandlerFunc {
 			return
 		}
 
-		CheckUserRole(c)
+		// CheckUserRole(c)
 		if c.IsAborted() {
 			return 
 		}
@@ -655,7 +655,7 @@ func (ctrl *CartController) ClearCart() gin.HandlerFunc {
 			return 
 		}
 
-		CheckUserRole(c)
+		// CheckUserRole(c)
 		if c.IsAborted() {
 			return 
 		}

@@ -18,6 +18,7 @@ import (
 	"github.com/Dattt2k2/golang-project/api-gateway/logger"
 	"github.com/Dattt2k2/golang-project/api-gateway/middleware"
 	"github.com/gin-gonic/gin"
+	// "google.golang.org/grpc/admin"
 	// "golang.org/x/text/transform"
 )
 
@@ -531,80 +532,98 @@ func SetupRouter(router *gin.Engine) {
 	protected := router.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
+		userGroup := protected.Group("/user")
+		userGroup.Use(middleware.RequireUserRole("USER"))
+		{
+			// Usre routes
+			protected.GET("/user/get", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://auth-service:8081/user", "GET", "application/json")
+			})
+			protected.POST("/users/change-password", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://auth-service:8081/users/change-password", "POST", "application/json")
+			})
+			protected.POST("/users/logout", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://auth-service:8081/users/logout", "GET", "application/json")
+			})
+			protected.POST("/users/logout-all", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://auth-service:8081/users/logout-all", "GET", "application/json")
+			})
 
-		// User routes
-		protected.GET("/user/get", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://auth-service:8081/user", "GET", "application/json")
-		})
-		protected.GET("/admin/get-users", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://auth-service:8081/admin/get-user", "GET", "application/json")
-		})
-		protected.POST("/users/change-password", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://auth-service:8081/users/change-password", "POST", "application/json")
-		})
-		protected.POST("/admin/change-password/", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://auth-service:8081/admin/change-password", "POST", "application/json")
-		})
-		protected.POST("/users/logout", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://auth-service:8081/users/logout", "GET", "application/json")
-		})
-		protected.POST("/users/logout-all", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://auth-service:8081/users/logout-all", "GET", "application/json")
-		})
+			// Cart routes
+			protected.POST("/cart/add/:id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://cart-service:8083/cart/add/"+c.Param("id"), "POST", "application/json")
+			})
+			protected.GET("/cart/get/", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://cart-service:8083/cart/user/get/", "GET", "application/json")
+			})
+			protected.DELETE("/cart/delete/:id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://cart-service:8083/cart/delete/"+c.Param("id"), "DELETE", "application/json")
+			})
+
+			// Order routes
+			protected.POST("/order/cart", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://order-service:8084/order/cart", "POST", "application/json")
+			})
+			protected.POST("/order/direct", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://order-service:8084/order/direct", "POST", "application/json")
+			})
+			protected.GET("/order", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://order-service:8084/order/user", "GET", "application/json")
+			})
+			protected.POST("/user/order/cancel/:order_id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/"+c.Param("order_id"), "POST", "application/json")
+			})
+		}
+		adminGroup := protected.Group("/admin")
+		adminGroup.Use(middleware.RequireUserRole("SELLER"))
+		{
+			// User routes
+			protected.GET("/admin/get-users", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://auth-service:8081/admin/get-user", "GET", "application/json")
+			})
+			
+			protected.POST("/admin/change-password/", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://auth-service:8081/admin/change-password", "POST", "application/json")
+			})
+
+			// Product routes
+			protected.POST("/products/add", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "multipart/form-data")
+			})
+			protected.DELETE("/products/delete/:id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://product-service:8082/products/delete/"+c.Param("id"), "DELETE", "application/json")
+			})
+			protected.PUT("/products/edit/:id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://product-service:8082/products/edit/"+c.Param("id"), "PUT", "multipart/form-data")
+			})
+			protected.GET("/products/images/:filename", func(ctx *gin.Context) {
+				ForwardRequestToService(ctx, "http://product-service:8082/images/"+ctx.Param("filename"), "GET", "image/png")
+			})
+
+			// Cart routes
+			protected.GET("/admin/orders", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://order-service:8084/admin/orders", "GET", "application/json")
+			})
+		}
 
 		// Product routes
-		protected.POST("/products/add", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "multipart/form-data")
-		})
 		protected.GET("/products/get", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://product-service:8082/products/get", "GET", "application/json")
-		})
-		protected.DELETE("/products/delete/:id", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://product-service:8082/products/delete/"+c.Param("id"), "DELETE", "application/json")
-		})
-		protected.PUT("/products/edit/:id", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://product-service:8082/products/edit/"+c.Param("id"), "PUT", "multipart/form-data")
 		})
 		protected.GET("/products/search", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://product-service:8082/products/search?name"+c.Query("name"), "GET", "application/json")
 		})
-		protected.GET("/products/images/:filename", func(ctx *gin.Context) {
-			ForwardRequestToService(ctx, "http://product-service:8082/images/"+ctx.Param("filename"), "GET", "image/png")
-		})
+
 
 		// Cart routes
 		protected.POST("/cart", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://cart-service:8083/cart", "POST", "application/json")
 		})
-		protected.POST("/cart/add/:id", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://cart-service:8083/cart/add/"+c.Param("id"), "POST", "application/json")
-		})
 		protected.GET("/cart/get", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://cart-service:8083/cart/get", "GET", "application/json")
 		})
-		protected.GET("/cart/user/get/", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://cart-service:8083/cart/user/get/", "GET", "application/json")
-		})
-		protected.DELETE("/cart/delete/:id", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://cart-service:8083/cart/delete/"+c.Param("id"), "DELETE", "application/json")
-		})
-
-		// Order routes
-		protected.POST("/order/cart", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://order-service:8084/order/cart", "POST", "application/json")
-		})
-		protected.POST("/order/direct", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://order-service:8084/order/direct", "POST", "application/json")
-		})
-		protected.GET("/order/user", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://order-service:8084/order/user", "GET", "application/json")
-		})
-		protected.GET("/admin/orders", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://order-service:8084/admin/orders", "GET", "application/json")
-		})
-		protected.POST("/user/order/cancel/:order_id", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/"+c.Param("order_id"), "POST", "application/json")
-		})
+				
+		
 
 		// Search routes
 		protected.GET("/search", func(c *gin.Context) {

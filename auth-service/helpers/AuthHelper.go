@@ -2,12 +2,10 @@ package helpers
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	database "github.com/Dattt2k2/golang-project/auth-service/database"
 	"github.com/Dattt2k2/golang-project/auth-service/logger"
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
@@ -111,14 +109,7 @@ func AddUserToBloomFilter(email, phone string) error {
 // 	return err
 // }
 
-func CheckUserType(c *gin.Context){
-	userType := c.GetHeader("user_type")
-	if userType != "SELLER"{
-		errors.New("Unauthorized to access the resource")
-		c.Abort()
-		return
-	}
-}
+
 
 // func MatchUserTypeToUid(c *gin.Context, userId string) (err error){
 // 	userType := c.GetString("user_type")

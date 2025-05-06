@@ -26,15 +26,15 @@ func NewProductController(service service.ProductService) *ProductController {
 	return &ProductController{service:service}
 }
 
-func CheckSellerRole(c *gin.Context) {
-	userRole := c.GetHeader("user_type")
-	if userRole != "SELLER" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
-		c.Abort()
-		return
-	}
-	c.Next()
-}
+// func CheckSellerRole(c *gin.Context) {
+// 	userRole := c.GetHeader("user_type")
+// 	if userRole != "SELLER" {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
+// 		c.Abort()
+// 		return
+// 	}
+// 	c.Next()
+// }
 
 func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
 	    // Get current working directory
@@ -86,7 +86,7 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc{
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		CheckSellerRole(c)
+		// CheckSellerRole(c)
 		if c.IsAborted(){
 			return
  		}
@@ -153,7 +153,7 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc{
 func (ctrl *ProductController) EditProduct() gin.HandlerFunc{
 	return func(c *gin.Context) {
 
-		CheckSellerRole(c)
+		// CheckSellerRole(c)
 		if c.IsAborted(){
 			return
 		}
@@ -224,7 +224,7 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc{
 
 func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		CheckSellerRole(c)
+		// CheckSellerRole(c)
 		if c.IsAborted(){
 			return 
 		}
