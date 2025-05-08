@@ -590,9 +590,7 @@ func SetupRouter(router *gin.Engine) {
 			protected.POST("/products/add", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "multipart/form-data")
 			})
-			protected.DELETE("/products/delete/:id", func(c *gin.Context) {
-				ForwardRequestToService(c, "http://product-service:8082/products/delete/"+c.Param("id"), "DELETE", "application/json")
-			})
+			
 			protected.PUT("/products/edit/:id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://product-service:8082/products/edit/"+c.Param("id"), "PUT", "multipart/form-data")
 			})
@@ -623,7 +621,9 @@ func SetupRouter(router *gin.Engine) {
 			ForwardRequestToService(c, "http://cart-service:8083/cart/get", "GET", "application/json")
 		})
 				
-		
+		protected.DELETE("/products/delete/:id", func(c *gin.Context) {
+			ForwardRequestToService(c, "http://product-service:8082/products/delete/"+c.Param("id"), "DELETE", "application/json")
+		})
 
 		// Search routes
 		protected.GET("/search", func(c *gin.Context) {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/Dattt2k2/golang-project/search-service/log"
 	"github.com/Dattt2k2/golang-project/search-service/database"
 	"github.com/Dattt2k2/golang-project/search-service/models"
 )
@@ -144,7 +145,22 @@ func (r *searchRepository) AdvancedSearch(query string, filters map[string]inter
 
 
 func (r *searchRepository) IndexProduct(product *models.Product) error {
+	// mapping := `{
+	// 	"mappings":{
+	// 		"properties":{
+	// 			"name": {"type": "text"},
+	// 			"description": {"type": "text"},
+	// 			"price": {"type": "float"},
+	// 			"category": {"type": "keyword"},
+	// 			"image_url": {"type": "keyword"} 
+	// 		}	
+	// 	}
+	// }`
+
 	data, _ := json.Marshal(product)
+
+	logger.Info("Indexing product :", logger.Str("data", string(data)))
+
 	_, err := database.ES.Index(
 		os.Getenv("ELASTICSEARCH_INDEX"),
 		bytes.NewReader(data),

@@ -62,7 +62,6 @@ func (s *searchService) SyncProductFromProductService() error {
 	}
 
 	logger.Info("Syncing products from product service to search service", logger.Int("total_products", len(resp.Products)))
-
 	for _, p := range resp.Products {
 		err := s.repo.IndexProduct(&models.Product{
 			ID:          p.Id,
@@ -75,6 +74,8 @@ func (s *searchService) SyncProductFromProductService() error {
 		if err != nil {
 			logger.Err("Failed to index product: %v", err)
 		}
+		logger.Info("Indexed product", logger.Str("product_id", p.Id), logger.Str("product_name", p.Name), logger.Str("category", p.Category))
 	}
+
 	return nil 
 }
