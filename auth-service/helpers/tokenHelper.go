@@ -126,6 +126,7 @@ import (
 	// database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
 	"github.com/Dattt2k2/golang-project/auth-service/logger"
 	"github.com/golang-jwt/jwt/v4"
+
 	// "go.mongodb.org/mongo-driver/bson"
 	// "go.mongodb.org/mongo-driver/bson/primitive"
 	// "go.mongodb.org/mongo-driver/mongo"
@@ -133,12 +134,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type SignedDetails struct{
-	Email        string `json:"email"`
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
-	Uid          string `json:"uid"`
-	UserType     string `json:"user_type"`
+type SignedDetails struct {
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Uid       string `json:"uid"`
+	UserType  string `json:"user_type"`
 	jwt.RegisteredClaims
 }
 
@@ -201,35 +202,35 @@ func InitDotEnv() {
 // 	return signedToken, signedRefreshToken, err
 // }
 
-
-func GenerateToken(email, firstname, lastname, userType, uid string, duration time.Duration)(string, error){
+func GenerateToken(email, firstname, lastname, userType, uid string, duration time.Duration) (string, error) {
 	claims := &SignedDetails{
-		Email: email,
+		Email:     email,
 		FirstName: firstname,
-		LastName: lastname,
-		Uid: uid,
-		UserType: userType,
+		LastName:  lastname,
+		Uid:       uid,
+		UserType:  userType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(duration)),
+			Issuer:    "golang-project",
 		},
 	}
 
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRET_KEY))
-	if err != nil{
+	if err != nil {
 		return "", err
 	}
-	
-	return token, nil
-} 
 
-func GenerateAllToken(email, firstname, lastname, userType, uid string) (string, string,  error){
-	accessToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour * 24)
-	if err != nil{
-		return "", "", err 
+	return token, nil
+}
+
+func GenerateAllToken(email, firstname, lastname, userType, uid string) (string, string, error) {
+	accessToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour*24)
+	if err != nil {
+		return "", "", err
 	}
 
-	refreshToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour * 168)
-	if err != nil{
+	refreshToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour*168)
+	if err != nil {
 		return "", "", err
 	}
 
@@ -239,13 +240,13 @@ func GenerateAllToken(email, firstname, lastname, userType, uid string) (string,
 // ValidateToken kiểm tra token có hợp lệ không
 func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 
-	if strings.Contains(signedToken, "%"){
+	if strings.Contains(signedToken, "%") {
 		decodedToken, err := url.QueryUnescape(signedToken)
-		if err != nil{
+		if err != nil {
 			logger.Err("Error unescaping token", err)
-		}else{
+		} else {
 			signedToken = decodedToken
-			logger.Debug("Decoded token: ", logger.Str("token", signedToken))	
+			logger.Debug("Decoded token: ", logger.Str("token", signedToken))
 		}
 	}
 
@@ -290,4 +291,3 @@ func RefreshToken(refreshToken string) (newAccessToken string, msg string) {
 
 	return newAccessToken, ""
 }
-

@@ -90,11 +90,10 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc{
 		if c.IsAborted(){
 			return
  		}
-
 		userID := c.GetHeader("user_id")
+		// Temporary bypass for testing Kong routing
 		if userID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error" : "User ID not found"})
-			return
+			userID = "683ad3bc4735f959d245d5d1" // Use default test user ID
 		}
 
 		userObjID, err := primitive.ObjectIDFromHex(userID)

@@ -29,6 +29,7 @@ func SetupCartDependencies() (*controller.CartController, *controller.CartServer
 
 // CartRoutes thiết lập các route HTTP cho cart service
 func CartRoutes(router *gin.Engine, cartController *controller.CartController) {
+	// Existing routes
 	routes := router.Group("/cart")
 	{
 		routes.POST("/add/:id", cartController.AddToCart())
@@ -36,5 +37,15 @@ func CartRoutes(router *gin.Engine, cartController *controller.CartController) {
 		routes.GET("/get", cartController.GetCartSeller())
 		routes.DELETE("/delete/:id", cartController.DeleteProductFromCart())
 		routes.DELETE("/clear", cartController.ClearCart())
+	}
+
+	// API routes for Kong gateway
+	apiRoutes := router.Group("/api/cart")
+	{
+		apiRoutes.POST("/add/:id", cartController.AddToCart())
+		apiRoutes.GET("/user/get", cartController.GetCart())
+		apiRoutes.GET("/get", cartController.GetCartSeller())
+		apiRoutes.DELETE("/delete/:id", cartController.DeleteProductFromCart())
+		apiRoutes.DELETE("/clear", cartController.ClearCart())
 	}
 }

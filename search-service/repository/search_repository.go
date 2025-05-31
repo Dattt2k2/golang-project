@@ -22,7 +22,8 @@ type SearchRepository interface {
 type searchRepository struct {}
 
 func NewSearchRepository() SearchRepository {
-	return &searchRepository{}
+	return &searchRepository{
+	}
 }
 
 
