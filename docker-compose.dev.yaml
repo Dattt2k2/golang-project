@@ -27,6 +27,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    command: ["air", "-c", ".air.toml"]
 
   auth-service:
     build:
@@ -49,6 +50,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"  
+    command: ["air", "-c", ".air.toml"]
   product-service:
     build:
       context: .
@@ -76,6 +78,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    command: ["air", "-c", ".air.toml"]
   cart-service:
     build:
       context: .
@@ -100,6 +103,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    command: ["air", "-c", ".air.toml"]
   order-service:
     build:
       context: .
@@ -123,6 +127,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    command: ["air", "-c", ".air.toml"]
   search-service:
     build:
       context: .
@@ -145,18 +150,20 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    command: ["air", "-c", ".air.toml"]
   email-service:
-  build:
-    context: ./email-service
-    dockerfile: Dockerfile.dev
-  env_file:
-    - ./email-service/.env
-  ports:
-    - "8087:8087"
-  volumes:
-    - ./email-service:/app 
-  networks:
-    - default
+    build:
+      context: ./email-service
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./email-service/.env
+    ports:
+      - "8087:8087"
+    volumes:
+      - ./email-service:/app 
+    networks:
+      - default
+    command: ["air", "-c", ".air.toml"]
 
   # Infrastructure services (same as production)
   mongodb:

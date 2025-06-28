@@ -118,21 +118,7 @@ func (bf *BloomFilter) Add(value string) error{
 }
 
 func (bf *BloomFilter) Contains(value string) (bool, error){
-	// ctx := context.Background()
 
-	// positions := bf.positions(value)
-
-	// for _, pos := range positions{
-	// 	bit, err := database.RedisClient.GetBit(ctx, bf.Name, int64(pos)).Result()
-	// 	if err != nil{
-	// 		return false, err
-	// 	}
-	// 	if bit == 0{
-	// 		return false, nil
-	// 	}
-	// }
-
-	// return true, nil
 
 	ctx := context.Background()
 	posistions := bf.positions(value)
