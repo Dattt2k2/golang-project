@@ -3,13 +3,14 @@ package main
 import (
 	"fmt"
 
-	"github.com/Dattt2k2/golang-project/api-gateway/grpc"
+	grpcClient "github.com/Dattt2k2/golang-project/api-gateway/grpc"
 	"github.com/Dattt2k2/golang-project/api-gateway/helpers"
 	"github.com/Dattt2k2/golang-project/api-gateway/logger"
 	"github.com/Dattt2k2/golang-project/api-gateway/middleware"
 	"github.com/Dattt2k2/golang-project/api-gateway/router"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/redisdb"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,6 +24,12 @@ func main() {
 
 	ginrouter := gin.Default()
 	ginrouter.Use(middleware.CORSMiddleware())
+	ginrouter.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 	// ginrouter.Use(middleware.Authenticate())
 	// ginrouter.Use(middleware.AuthMiddleware())
 

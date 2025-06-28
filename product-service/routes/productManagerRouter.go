@@ -17,7 +17,8 @@ func NewProductService() service.ProductService {
 
 func SetupProductController() *controller.ProductController {
 	productSvc := NewProductService()
-	return controller.NewProductController(productSvc)
+	s3Service := service.NewS3Service()
+	return controller.NewProductController(productSvc, *s3Service)
 }
 
 func ProductManagerRoutes(incomingRoutes *gin.Engine) {

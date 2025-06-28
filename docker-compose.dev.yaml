@@ -1,0 +1,306 @@
+version: "3.8"
+
+services:
+  # API Gateway - Custom Gateway thay thế Kong
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./api-gateway/Dockerfile.dev
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./api-gateway/.env
+    volumes:
+      - ./api-gateway:/app/api-gateway:cached
+      - ./go.mod:/app/go.mod:ro
+      - ./go.sum:/app/go.sum:ro
+    depends_on:
+      - auth-service
+      - product-service
+      - cart-service
+      - order-service
+      - search-service
+    networks:
+      - default    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./auth-service/Dockerfile.dev
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./auth-service/.env
+    volumes:
+      - ./auth-service:/app/auth-service:cached
+      - ./go.mod:/app/go.mod:ro
+      - ./go.sum:/app/go.sum:ro
+    depends_on:
+      - mongodb
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"  
+  product-service:
+    build:
+      context: .
+      dockerfile: ./product-service/Dockerfile.dev
+    ports:
+      - "8082:8082"
+      - "8089:8089"
+    env_file:
+      - ./product-service/.env
+    volumes:
+      - ./product-service:/app/product-service:cached
+      - ./module:/app/module:cached
+      - ./go.mod:/app/go.mod:ro
+      - ./go.sum:/app/go.sum:ro
+      # Mount uploads directory for file handling
+      - ./product-service/uploads:/app/product-service/uploads
+    depends_on:
+      - mongodb
+      - kafka
+      - redis
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  cart-service:
+    build:
+      context: .
+      dockerfile: ./cart-service/Dockerfile.dev
+    ports:
+      - "8083:8083"
+      - "8090:8090"
+    env_file:
+      - ./cart-service/.env
+    volumes:
+      - ./cart-service:/app/cart-service:cached
+      - ./module:/app/module:cached
+      - ./go.mod:/app/go.mod:ro
+      - ./go.sum:/app/go.sum:ro
+    depends_on:
+      - mongodb
+      - kafka
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  order-service:
+    build:
+      context: .
+      dockerfile: ./order-service/Dockerfile.dev
+    ports:
+      - "8084:8084"
+    env_file:
+      - ./order-service/.env
+    volumes:
+      - ./order-service:/app/order-service:cached
+      - ./module:/app/module:cached
+      - ./go.mod:/app/go.mod:ro
+      - ./go.sum:/app/go.sum:ro
+    depends_on:
+      - mongodb
+      - kafka
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  search-service:
+    build:
+      context: .
+      dockerfile: ./search-service/Dockerfile.dev
+    ports:
+      - "8086:8086"
+    env_file:
+      - ./search-service/.env
+    volumes:
+      - ./search-service:/app/search-service:cached
+      - ./go.mod:/app/go.mod:ro
+      - ./go.sum:/app/go.sum:ro
+    depends_on:
+      - kafka
+      - elasticsearch
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  email-service:
+  build:
+    context: ./email-service
+    dockerfile: Dockerfile.dev
+  env_file:
+    - ./email-service/.env
+  ports:
+    - "8087:8087"
+  volumes:
+    - ./email-service:/app 
+  networks:
+    - default
+
+  # Infrastructure services (same as production)
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - default
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    ports:
+      - "8085:8081"
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://mongodb:27017/
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass
+      - ME_CONFIG_MONGODB_NO_AUTH=true  
+    depends_on:
+      - mongodb
+    networks:
+      - default
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - default
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - default
+
+  kafka-setup:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-setup
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+        echo -e 'Waiting for Kafka to be ready...' &&
+        cub kafka-ready -b kafka:9092 1 120 &&
+        echo -e 'Creating Kafka topics...' &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic payment &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic order_success &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic product_events &&
+        echo -e 'Successfully created the following topics:' &&
+        kafka-topics --list --bootstrap-server kafka:9092
+      "
+    networks:
+      - default
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  # Optional: Add api-gateway for development if needed (without Kong)
+  # api-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: ./api-gateway/Dockerfile.dev
+  #   ports:
+  #     - "8080:8080"
+  #   env_file:
+  #     - ./api-gateway/.env
+  #   volumes:
+  #     - ./api-gateway:/app/api-gateway:cached
+  #     - ./go.mod:/app/go.mod:ro
+  #     - ./go.sum:/app/go.sum:ro
+  #   networks:
+  #     - default
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
+
+volumes:
+  mongodb_data:
+  redis_data:
+  elasticsearch_data:
+
+networks:
+  default:
+    driver: bridge

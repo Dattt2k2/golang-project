@@ -127,7 +127,7 @@ func (s *ProductServer) AddProduct(ctx context.Context, req *pb.ProductRequest) 
 
 	return &pb.BasicProductResponse{
 		Id: product.ID.String(),
-		Name: *product.Name,
+		Name: product.Name,
 		Price: float32(product.Price),
 	}, nil
 }
@@ -148,11 +148,11 @@ func (s *ProductServer) GetProductInfo(ctx context.Context, req *pb.ProductReque
 
 	return &pb.ProductResponse{
 		Id: product.ID.String(),
-		Name: *product.Name,
+		Name: product.Name,
 		Price: float32(product.Price),
-		Description: *product.Description,
+		Description: product.Description,
 		ImageUrl: product.ImagePath,
-		Quantity: int32(*product.Quantity),
+		Quantity: int32(product.Quantity),
 	}, nil 
 }
 
@@ -171,7 +171,7 @@ func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest
 	log.Printf("product id: %v", productID)
 	return &pb.BasicProductResponse{
 		Id: product.ID.Hex(),
-		Name: *product.Name,
+		Name: product.Name,
 		Price: float32(product.Price),
 
 	}, nil
@@ -190,17 +190,17 @@ func (s *ProductServer) CheckStock(ctx context.Context, req *pb.ProductRequest) 
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
 
-	if *product.Quantity > 0 {
+	if product.Quantity > 0 {
 		return &pb.StockResponse{
 			InStock: true,
-			AvailableQuantity: int32(*product.Quantity),
+			AvailableQuantity: int32(product.Quantity),
 			Message: "Product is in stock",
 		}, nil
 	}
 
 	return &pb.StockResponse{
 		InStock: false,
-		AvailableQuantity: int32(*product.Quantity),
+		AvailableQuantity: int32(product.Quantity),
 		Message: "Product is out of stock",
 	}, nil
 }
@@ -217,11 +217,11 @@ func (s *ProductServer) GetAllProducts(ctx context.Context, req *pb.Empty) (*pb.
 	for _, p := range products {
 		pbProducts = append(pbProducts, &pb.Product{
 			Id: p.ID.Hex(),
-			Name: *p.Name,
+			Name: p.Name,
 			Price: float32(p.Price),
-			Description: *p.Description,
+			Description: p.Description,
 			ImageUrl: p.ImagePath,
-			Category: *p.Category,
+			Category: p.Category,
 		})
 	}
 	return &pb.ProductList{Products: pbProducts}, nil

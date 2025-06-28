@@ -16,14 +16,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-) 
+)
 
 type ProductController struct {
-	service service.ProductService
+	service   service.ProductService
+	s3Service *service.S3Service
 }
 
-func NewProductController(service service.ProductService) *ProductController {
-	return &ProductController{service:service}
+func NewProductController(service service.ProductService, s3Service service.S3Service) *ProductController {
+	return &ProductController{
+		service:   service,
+		s3Service: &s3Service,
+	}
 }
 
 // func CheckSellerRole(c *gin.Context) {
@@ -37,69 +41,69 @@ func NewProductController(service service.ProductService) *ProductController {
 // }
 
 func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
-	    // Get current working directory
+	// Get current working directory
 	wd, err := os.Getwd()
 	if err != nil {
-	    return "", fmt.Errorf("Error getting working directory: %v", err)
+		return "", fmt.Errorf("Error getting working directory: %v", err)
 	}
 	log.Printf("Current working directory: %s", wd)
-	
+
 	// Create absolute paths
 	possibleDirs := []string{
-	    filepath.Join(wd, "uploads", "images"),
-        filepath.Join(wd, "product-service", "uploads", "images"),
-    }
-	
-    var saveDir string
-    for _, dir := range possibleDirs {
-        err := os.MkdirAll(dir, os.ModePerm)
-        if err == nil {
-            saveDir = dir
-            log.Printf("Successfully created directory: %s", saveDir)
-            break
-        }
-        log.Printf("Failed to create directory %s: %v", dir, err)
-    }
+		filepath.Join(wd, "uploads", "images"),
+		filepath.Join(wd, "product-service", "uploads", "images"),
+	}
 
-    if saveDir == "" {
-        return "", fmt.Errorf("Failed to create any image directory")
-    }
-	
-	    // Create a unique filename
-    imageFileName := fmt.Sprintf("%d-%s", time.Now().Unix(), file.Filename)
-    imagePath := filepath.Join(saveDir, imageFileName)
-	
-    log.Printf("Saving file to: %s", imagePath)
-	
-	    // Save the file
-    if err := c.SaveUploadedFile(file, imagePath); err != nil {
-        return "", fmt.Errorf("Failed to save image: %v", err)
-    }
-	
-    log.Printf("Successfully saved image to: %s", imagePath)
-	
-    // Return just the filename
-    return imageFileName, nil
+	var saveDir string
+	for _, dir := range possibleDirs {
+		err := os.MkdirAll(dir, os.ModePerm)
+		if err == nil {
+			saveDir = dir
+			log.Printf("Successfully created directory: %s", saveDir)
+			break
+		}
+		log.Printf("Failed to create directory %s: %v", dir, err)
+	}
+
+	if saveDir == "" {
+		return "", fmt.Errorf("Failed to create any image directory")
+	}
+
+	// Create a unique filename
+	imageFileName := fmt.Sprintf("%d-%s", time.Now().Unix(), file.Filename)
+	imagePath := filepath.Join(saveDir, imageFileName)
+
+	log.Printf("Saving file to: %s", imagePath)
+
+	// Save the file
+	if err := c.SaveUploadedFile(file, imagePath); err != nil {
+		return "", fmt.Errorf("Failed to save image: %v", err)
+	}
+
+	log.Printf("Successfully saved image to: %s", imagePath)
+
+	// Return just the filename
+	return imageFileName, nil
 }
 
-func (ctrl *ProductController) AddProduct() gin.HandlerFunc{
+func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		// CheckSellerRole(c)
-		if c.IsAborted(){
+		if c.IsAborted() {
 			return
- 		}
+		}
 
 		userID := c.GetHeader("user_id")
 		if userID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error" : "User ID not found"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
 			return
 		}
 
 		userObjID, err := primitive.ObjectIDFromHex(userID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error" : "Invalid user ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 			return
 		}
 
@@ -111,12 +115,12 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc{
 
 		quantity, err := strconv.Atoi(quantityStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error" : "Invalid quantity"})
-			return 
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
+			return
 		}
 		price, err := strconv.ParseFloat(priceStr, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error" : "Invalid price"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
 			return
 		}
 
@@ -133,28 +137,28 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc{
 		}
 
 		product := models.Product{
-			Name : &name,
-			Category: &category,
-			Description: &description,
-			Price: price,
-			Quantity: &quantity,
-			ImagePath: imagePath,
-			UserID: userObjID,
+			Name:        name,
+			Category:    category,
+			Description: description,
+			Price:       price,
+			Quantity:    quantity,
+			ImagePath:   imagePath,
+			UserID:      userObjID,
 		}
 
-		if err := ctrl.service.AddProduct(ctx, product); err != nil{
-			c.JSON(http.StatusInternalServerError, gin.H{"error" : "Failed to add product"})
+		if err := ctrl.service.AddProduct(ctx, product); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product"})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Product added successfully"})
 	}
 }
 
-func (ctrl *ProductController) EditProduct() gin.HandlerFunc{
+func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		// CheckSellerRole(c)
-		if c.IsAborted(){
+		if c.IsAborted() {
 			return
 		}
 
@@ -167,9 +171,9 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc{
 			return
 		}
 		productID, err := primitive.ObjectIDFromHex(id)
-		if err != nil{
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
-			return 
+			return
 		}
 
 		name := c.PostForm("name")
@@ -213,7 +217,7 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc{
 			update["image_path"] = imagePath
 		}
 
-		if err := ctrl.service.EditProduct(ctx, productID, update); err != nil{
+		if err := ctrl.service.EditProduct(ctx, productID, update); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
 			return
 		}
@@ -223,26 +227,26 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc{
 }
 
 func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
-	return func (c *gin.Context) {
+	return func(c *gin.Context) {
 		// CheckSellerRole(c)
-		if c.IsAborted(){
-			return 
+		if c.IsAborted() {
+			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		userID, err := primitive.ObjectIDFromHex(c.GetHeader("user_id"))
-		if err != nil{
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		}
 		id := c.Param("id")
 		if id == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error" : "Product ID not found"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID not found"})
 			return
 		}
 		productID, err := primitive.ObjectIDFromHex(id)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error" :"Invalid Product ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Product ID"})
 			return
 		}
 
@@ -267,7 +271,7 @@ func (ctrl *ProductController) GetAllProducts() gin.HandlerFunc {
 			log.Printf("Invalid page parameter, using default: %v", err)
 			page = 1
 		}
-		
+
 		limit, err := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
 		if err != nil || limit < 1 {
 			log.Printf("Invalid limit parameter, using default: %v", err)
@@ -292,7 +296,7 @@ func (ctrl *ProductController) GetAllProducts() gin.HandlerFunc {
 			"total":    total,
 			"page":     page,
 			"pages":    pages,
-			"has_next": hasNext, 
+			"has_next": hasNext,
 			"has_prev": hasPrev,
 			"cached":   cached,
 		}
@@ -303,25 +307,25 @@ func (ctrl *ProductController) GetAllProducts() gin.HandlerFunc {
 }
 
 func (ctrl *ProductController) GetProductByName() gin.HandlerFunc {
-    return func(c *gin.Context) {
-        name := c.Query("name")
-        if name == "" {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Name query parameter is required"})
-            return
-        }
-        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-        defer cancel()
-        products, err := ctrl.service.GetProductByName(ctx, name)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-            return
-        }
-        if len(products) == 0 {
-            c.JSON(http.StatusNotFound, gin.H{"message": "No product found"})
-            return
-        }
-        c.JSON(http.StatusOK, products)
-    }
+	return func(c *gin.Context) {
+		name := c.Query("name")
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Name query parameter is required"})
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		products, err := ctrl.service.GetProductByName(ctx, name)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if len(products) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"message": "No product found"})
+			return
+		}
+		c.JSON(http.StatusOK, products)
+	}
 }
 
 type StockUpdateItem struct {
@@ -354,7 +358,7 @@ func (ctrl *ProductController) UpdateProductStock(ctx context.Context, items []S
 }
 
 func (ctrl *ProductController) GetBestSellingProducts() gin.HandlerFunc {
-	return func (c *gin.Context) {
+	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		limitStr := c.DefaultQuery("limit", "10")
@@ -370,7 +374,7 @@ func (ctrl *ProductController) GetBestSellingProducts() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"data": products,
+			"data":  products,
 			"count": len(products),
 		})
 	}
@@ -382,4 +386,146 @@ func (ctrl *ProductController) IncrementSoldCount(ctx context.Context, productID
 
 func (ctrl *ProductController) DecrementSoldCount(ctx context.Context, productID string, quantity int) error {
 	return ctrl.service.DecrementSoldCount(ctx, productID, quantity)
+}
+
+// CreateProduct - Workflow 1: Tạo product với image_path có sẵn (từ presigned URL)
+func (pc *ProductController) CreateProduct(c *gin.Context) {
+	var req models.CreateProductRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request data",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Validate image_path if provided
+	if req.ImagePath != "" {
+		// Optional: Validate if URL is accessible or from your S3 bucket
+		log.Printf("Product will be created with image: %s", req.ImagePath)
+	}
+
+	// Convert request to model
+	product := models.Product{
+		ID:          primitive.NewObjectID(),
+		Name:        req.Name,
+		ImagePath:   req.ImagePath, // Có thể empty hoặc có URL
+		Category:    req.Category,
+		Description: req.Description,
+		Quantity:    req.Quantity,
+		Price:       req.Price,
+		SoldCount:   0,
+		Created_at:  time.Now(),
+		Updated_at:  time.Now(),
+		// UserID sẽ được set từ JWT token
+	}
+
+	// Save to database
+	err := pc.service.AddProduct(context.Background(), product)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to create product",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Product created successfully",
+	})
+}
+
+// CreateProductWithImage - Workflow 2: Tạo product và upload ảnh cùng lúc
+func (pc *ProductController) CreateProductWithImage(c *gin.Context) {
+	// Parse multipart form
+	err := c.Request.ParseMultipartForm(10 << 20) // 10MB max
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Failed to parse form data",
+		})
+		return
+	}
+
+	// Get product data from form
+	var req models.CreateProductWithImageRequest
+	req.Name = c.PostForm("name")
+	req.Category = c.PostForm("category")
+	req.Description = c.PostForm("description")
+
+	if req.Name == "" || req.Category == "" || req.Description == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing required fields: name, category, description",
+		})
+		return
+	}
+
+	// Parse numeric fields
+	quantity, err := strconv.Atoi(c.PostForm("quantity"))
+	if err != nil || quantity < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid quantity",
+		})
+		return
+	}
+	req.Quantity = quantity
+
+	price, err := strconv.ParseFloat(c.PostForm("price"), 64)
+	if err != nil || price <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid price",
+		})
+		return
+	}
+	req.Price = price
+
+	// Handle file upload
+	file, header, err := c.Request.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Image file is required",
+		})
+		return
+	}
+	defer file.Close()
+
+	// Upload image to S3
+	imageURL, err := pc.s3Service.UploadFile(file, header)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to upload image",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Create product with uploaded image URL
+	product := models.Product{
+		ID:          primitive.NewObjectID(),
+		Name:        req.Name,
+		ImagePath:   imageURL, // URL từ S3
+		Category:    req.Category,
+		Description: req.Description,
+		Quantity:    req.Quantity,
+		Price:       req.Price,
+		SoldCount:   0,
+		Created_at:  time.Now(),
+		Updated_at:  time.Now(),
+	}
+
+	// Save to database
+	err = pc.service.AddProduct(context.Background(), product)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to create product",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Product created successfully with image",
+	})
 }
