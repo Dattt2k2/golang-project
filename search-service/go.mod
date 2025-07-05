@@ -1,13 +1,10 @@
-module github.com/Dattt2k2/golang-project/search-service
+module search-service
 
-go 1.23.0
-
-toolchain go1.23.10
-
-replace github.com/Dattt2k2/golang-project/search-service => .
+go 1.24.4
 
 require (
 	github.com/Dattt2k2/golang-project v0.0.0-20250628100049-f9c5be5cbd05
+	github.com/Dattt2k2/golang-project/search-service v0.0.0-00010101000000-000000000000
 	github.com/elastic/go-elasticsearch/v8 v8.18.1
 	github.com/gin-gonic/gin v1.10.1
 	github.com/joho/godotenv v1.5.1
@@ -55,3 +52,5 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/Dattt2k2/golang-project/search-service => ../search-service
