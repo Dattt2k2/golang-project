@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/product-service/database"
-	"github.com/Dattt2k2/golang-project/product-service/models"
+	"product-service/database"
+	"product-service/models"
 	"github.com/redis/go-redis/v9"
 )
 

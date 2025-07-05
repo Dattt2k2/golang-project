@@ -7,10 +7,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/product-service/helper"
-	"github.com/Dattt2k2/golang-project/product-service/kafka"
-	"github.com/Dattt2k2/golang-project/product-service/models"
-	"github.com/Dattt2k2/golang-project/product-service/repository"
+	"product-service/helper"
+	"product-service/kafka"
+	"product-service/models"
+	"product-service/repository"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )

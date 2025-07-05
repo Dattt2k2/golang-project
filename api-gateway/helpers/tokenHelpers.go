@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/api-gateway/logger"
+	"api-gateway/logger"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/joho/godotenv"
 )

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/product-service/config"
+	"product-service/config"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"

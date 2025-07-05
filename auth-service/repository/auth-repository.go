@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"auth-service/database"
 	"auth-service/models"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -33,9 +35,13 @@ func NewUserRepository() UserRepository {
 func (r *userRepositoryImpl) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User 
 	err := r.collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	if err == mongo.ErrNoDocuments {
+		return nil, errors.New("user not found")
+	}
 	if err != nil {
 		return nil, err 
 	}
+	
 
 	return &user, nil
 }

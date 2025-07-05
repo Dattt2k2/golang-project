@@ -1,19 +1,20 @@
 package routes
 
 import (
-	service "auth-service/service"
 	controller "auth-service/controller"
 	"auth-service/repository"
+	service "auth-service/service"
+
 	"github.com/gin-gonic/gin"
 )
 
-func AuthRoutes(incomingRoutes *gin.Engine){
+func AuthRoutes(router *gin.Engine) {
 	userRepo := repository.NewUserRepository()
 	authService := service.NewAuthService(userRepo)
 	authController := controller.NewAuthController(authService)
 
+	authGroup := router.Group("/auth")
 
-	incomingRoutes.POST("users/register", authController.SignUp())
-	incomingRoutes.POST("users/login", authController.Login())
+	authGroup.POST("/users/register", authController.SignUp())
+	authGroup.POST("/users/login", authController.Login())
 }
-

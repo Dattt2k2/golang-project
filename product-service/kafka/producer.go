@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Dattt2k2/golang-project/product-service/models"
-	"github.com/Dattt2k2/golang-project/product-service/log"
+	"product-service/models"
+	"product-service/log"
 	"github.com/segmentio/kafka-go"
 ) 
 

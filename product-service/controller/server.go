@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 
-	"github.com/Dattt2k2/golang-project/auth-service/logger"
+	"product-service/log"
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
-	"github.com/Dattt2k2/golang-project/product-service/service"
+	"product-service/service"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

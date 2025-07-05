@@ -1,8 +1,6 @@
 module order-service
 
-go 1.23.0
-
-toolchain go1.23.10
+go 1.24.4
 
 require (
 	github.com/Dattt2k2/golang-project v0.0.0-20250531103400-e22e9eac2b37
@@ -54,3 +52,5 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/Dattt2k2/golang-project/order-service => ../order-service

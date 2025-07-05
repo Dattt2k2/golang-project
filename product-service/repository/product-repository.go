@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/product-service/models"
+	"product-service/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

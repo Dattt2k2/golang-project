@@ -15,15 +15,15 @@ import (
 	"time"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/middleware"
-	"github.com/Dattt2k2/golang-project/api-gateway/logger"
-	"github.com/Dattt2k2/golang-project/api-gateway/middleware"
+	"api-gateway/logger"
+	"api-gateway/middleware"
 	"github.com/gin-gonic/gin"
 	// "google.golang.org/grpc/admin"
 	// "golang.org/x/text/transform"
 )
 
 func ForwardImageRequest(c *gin.Context, serviceURL string) {
-	logger.InfoE("ForwardImageRequest starting for: %s",nil, logger.Str("serviceURL", serviceURL))
+	logger.InfoE("ForwardImageRequest starting for: %s", nil, logger.Str("serviceURL", serviceURL))
 
 	client := &http.Client{
 		Timeout: time.Second * 30,
@@ -31,28 +31,28 @@ func ForwardImageRequest(c *gin.Context, serviceURL string) {
 
 	req, err := http.NewRequest("GET", serviceURL, nil)
 	if err != nil {
-        logger.Err("Error creating request", err)
+		logger.Err("Error creating request", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
 		return
 	}
 
-    logger.InfoE("Sending request to: %s", nil, logger.Str("serviceURL", serviceURL))
+	logger.InfoE("Sending request to: %s", nil, logger.Str("serviceURL", serviceURL))
 	resp, err := client.Do(req)
 	if err != nil {
-        logger.Err("Error sending request", err)
+		logger.Err("Error sending request", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
 		return
 	}
 	defer resp.Body.Close()
 
-    logger.InfoE("Response status code: %d", nil, logger.Int("statusCode", resp.StatusCode))
+	logger.InfoE("Response status code: %d", nil, logger.Int("statusCode", resp.StatusCode))
 
 	if resp.StatusCode != http.StatusOK {
-        logger.Err("Error response from service",err , logger.Int("statusCode", resp.StatusCode))
+		logger.Err("Error response from service", err, logger.Int("statusCode", resp.StatusCode))
 
 		// Read the response body to log the error
 		errorBody, _ := io.ReadAll(resp.Body)
-        logger.Err("Error body: %s", err, logger.Str("errorBody", string(errorBody)))
+		logger.Err("Error body: %s", err, logger.Str("errorBody", string(errorBody)))
 
 		c.JSON(resp.StatusCode, gin.H{"error": "Image not found"})
 		return
@@ -77,13 +77,13 @@ func ForwardImageRequest(c *gin.Context, serviceURL string) {
 			contentType = "application/octet-stream"
 		}
 
-        logger.Err("No content type in response, using: %s", err, logger.Str("contentType", contentType))
+		logger.Err("No content type in response, using: %s", err, logger.Str("contentType", contentType))
 	} else {
-        logger.Info("Content type from response", logger.Str("contentType", contentType))
+		logger.Info("Content type from response", logger.Str("contentType", contentType))
 	}
 
 	// Create a new response body since we've consumed the original
-    logger.Info("Streaming image to client", logger.Str("contentType", contentType))
+	logger.Info("Streaming image to client", logger.Str("contentType", contentType))
 	c.Header("Content-Type", contentType)
 	c.Status(http.StatusOK)
 	io.Copy(c.Writer, resp.Body)
@@ -92,7 +92,7 @@ func ForwardImageRequest(c *gin.Context, serviceURL string) {
 func GetImage() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		filename := c.Param("filename")
-        logger.Info("API Gateway GetImage", logger.Str("filename", filename))
+		logger.Info("API Gateway GetImage", logger.Str("filename", filename))
 
 		// Try multiple service URLs
 		serviceURLs := []string{
@@ -109,22 +109,22 @@ func GetImage() gin.HandlerFunc {
 
 		// Try each URL
 		for _, serviceURL := range serviceURLs {
-            logger.Info("Trying URL", logger.Str("serviceURL", serviceURL))
+			logger.Info("Trying URL", logger.Str("serviceURL", serviceURL))
 
 			req, err := http.NewRequest("GET", serviceURL, nil)
 			if err != nil {
-                logger.Err("Error creating request", err, logger.Str("serviceURL", serviceURL))
+				logger.Err("Error creating request", err, logger.Str("serviceURL", serviceURL))
 				continue
 			}
 
 			resp, err = client.Do(req)
 			if err != nil {
-                logger.Err("Error accessing URL", err, logger.Str("serviceURL", serviceURL))
+				logger.Err("Error accessing URL", err, logger.Str("serviceURL", serviceURL))
 				continue
 			}
 
 			if resp.StatusCode == http.StatusOK {
-                logger.Info("Successfully found image", logger.Str("serviceURL", serviceURL))
+				logger.Info("Successfully found image", logger.Str("serviceURL", serviceURL))
 				break
 			}
 
@@ -132,7 +132,7 @@ func GetImage() gin.HandlerFunc {
 		}
 
 		if resp == nil || resp.StatusCode != http.StatusOK {
-            logger.Err("Failed to find image at any URL", err)
+			logger.Err("Failed to find image at any URL", err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
 			return
 		}
@@ -157,17 +157,17 @@ func GetImage() gin.HandlerFunc {
 		// Read the entire image into memory
 		imageData, err := io.ReadAll(resp.Body)
 		if err != nil {
-            logger.Err("Error reading image data", err)
+			logger.Err("Error reading image data", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read image"})
 			return
 		}
 
 		if len(imageData) == 0 {
-            logger.Err("Empty image data received", err)
+			logger.Err("Empty image data received", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Empty image data"})
 			return
 		}
-        logger.Info("Successfully read image data", logger.Int("length", len(imageData)))
+		logger.Info("Successfully read image data", logger.Int("length", len(imageData)))
 		c.Header("Content-Type", contentType)
 		c.Data(http.StatusOK, contentType, imageData)
 	}
@@ -200,7 +200,7 @@ func transformProductResponse(c *gin.Context, responseBody []byte) ([]byte, erro
 	return json.Marshal(response)
 }
 func ForwardRequestToService(c *gin.Context, serviceURL string, method string, contentType string) {
-    logger.InfoE("ForwardRequestToService starting for: %s", nil, logger.Str("serviceURL", serviceURL))
+	logger.InfoE("ForwardRequestToService starting for: %s", nil, logger.Str("serviceURL", serviceURL))
 
 	email, exist := c.Get("email")
 	if !exist {
@@ -231,7 +231,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 		req, err := http.NewRequest(method, reqURL.String(), nil)
 		if err != nil {
-            logger.Err("Error creating GET request", err)
+			logger.Err("Error creating GET request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
 			return
 		}
@@ -244,7 +244,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 		resp, err := client.Do(req)
 		if err != nil {
-            logger.Err("Error in GET request", err)
+			logger.Err("Error in GET request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
 			return
 		}
@@ -252,7 +252,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-            logger.Err("Error reading GET response", err)
+			logger.Err("Error reading GET response", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
 			return
 		}
@@ -270,7 +270,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 	if contentType == "multipart/form-data" {
 		err := c.Request.ParseMultipartForm(10 << 20)
 		if err != nil {
-            logger.Err("Error parsing multipart form", err)
+			logger.Err("Error parsing multipart form", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Error parsing multipart form"})
 			return
 		}
@@ -284,7 +284,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 			for _, value := range values {
 				err := writer.WriteField(key, value)
 				if err != nil {
-                    logger.Err("Error writing field", err, logger.Str("key", key))
+					logger.Err("Error writing field", err, logger.Str("key", key))
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
 					return
 				}
@@ -295,13 +295,13 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		if file, header, err := c.Request.FormFile("image"); err == nil {
 			part, err := writer.CreateFormFile("image", header.Filename)
 			if err != nil {
-                logger.Err("Error creating form file", err, logger.Str("filename", header.Filename))
+				logger.Err("Error creating form file", err, logger.Str("filename", header.Filename))
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
 				return
 			}
 
 			if _, err := io.Copy(part, file); err != nil {
-                logger.Err("Error copying file", err, logger.Str("filename", header.Filename))
+				logger.Err("Error copying file", err, logger.Str("filename", header.Filename))
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
 				return
 			}
@@ -314,7 +314,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		// Create new request
 		req, err := http.NewRequest(method, serviceURL, body)
 		if err != nil {
-            logger.Err("Error creating multipart request", err)
+			logger.Err("Error creating multipart request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
 			return
 		}
@@ -328,7 +328,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		// Send request
 		resp, err := client.Do(req)
 		if err != nil {
-            logger.Err("Error in multipart request", err)
+			logger.Err("Error in multipart request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
 			return
 		}
@@ -337,7 +337,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		// Read and forward response
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-            logger.Err("Error reading multipart response", err)
+			logger.Err("Error reading multipart response", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
 			return
 		}
@@ -353,7 +353,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 		req, err := http.NewRequest(method, serviceURL, bytes.NewBuffer(bodyBytes))
 		if err != nil {
-            logger.Err("Error creating request", err)
+			logger.Err("Error creating request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
 			return
 		}
@@ -365,7 +365,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-            logger.Err("Error in request", err)
+			logger.Err("Error in request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
 			return
 		}
@@ -385,48 +385,10 @@ func SetupRouter(router *gin.Engine) {
 	// Public routes - không cần auth
 	auth := router.Group("/auth/users")
 	{
-		// auth.POST("/register", func(c *gin.Context) {
-		//     bodyBytes, err := io.ReadAll(c.Request.Body)
-		//     if err != nil{
-		//         log.Printf("Error reading requets body: %v", err)
-		//         c.JSON(http.StatusBadRequest, gin.H{"error": "Error reading requets"})
-		//         return
-		//     }
 
-		//     log.Printf("Body bytes: %v", bodyBytes)
-		//     req, err := http.NewRequest("POST", "http://auth-service:8081/users/register", bytes.NewBuffer(bodyBytes))
-		//     if err != nil{
-		//         log.Println("Error creating new request:", err)
-		//         c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create new request"})
-		//         return
-		//     }
-		//     req.Header.Set("Content-Type", "application/json")
-		//     req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
-
-		//     client := &http.Client{
-		//         Timeout: 10 * time.Second,
-		//     }
-
-		//     resp, err := client.Do(req)
-		//     if err != nil {
-		// 		log.Println("Error reading request body:", err)
-		//         c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
-		//         return
-		//     }
-		//     respBody, err := io.ReadAll(resp.Body)
-		//     if err != nil{
-		//         log.Printf("Error reading response body: %v", err)
-		//         c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading request body"})
-		//         return
-		//     }
-		//     c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), respBody)
-		//     // defer resp.Body.Close()
-
-		//     // c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
-		// })
 		auth.POST("/register", func(c *gin.Context) {
 			bodyBytes, _ := io.ReadAll(c.Request.Body)
-			req, _ := http.NewRequest("POST", "http://auth-service:8081/users/register", bytes.NewReader(bodyBytes))
+			req, _ := http.NewRequest("POST", "http://auth-service:8081/auth/users/register", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
 			req.Header.Set("X-Device-Id", c.GetString("device_id"))
@@ -435,7 +397,7 @@ func SetupRouter(router *gin.Engine) {
 
 			resp, err := client.Do(req)
 			if err != nil {
-                logger.Err("Error creating new request", err)
+				logger.Err("Error creating new request", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
 				return
 			}
@@ -444,26 +406,141 @@ func SetupRouter(router *gin.Engine) {
 			c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 		})
 
+		// auth.POST("/login", func(c *gin.Context) {
+		// 	bodyBytes, _ := io.ReadAll(c.Request.Body)
+		// 	req, _ := http.NewRequest("POST", "http://auth-service:8081/auth/users/login", bytes.NewReader(bodyBytes))
+		// 	req.Header.Set("Content-Type", "application/json")
+		// 	req.Header.Set("X-Device-Id", c.GetString("device_id"))
+		// 	req.Header.Set("User-Agent", c.GetString("user_agent"))
+		// 	req.Header.Set("X-Platform", c.GetString("platform"))
+
+		// 	resp, err := client.Do(req)
+		// 	if err != nil {
+		// 		logger.Err("Error creating new request", err)
+		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
+		// 		return
+		// 	}
+		// 	logger.Info("Auth response:", logger.Int("statusCode", resp.StatusCode))
+		// 	defer resp.Body.Close()
+
+		// 	responseBytes, _ := io.ReadAll(resp.Body)
+		// 	logger.Info("Auth response body:", logger.Str("responseBody", string(responseBytes)))
+
+		// 	// Nếu status code không phải 200, forward trực tiếp response lỗi
+		// 	if resp.StatusCode != http.StatusOK {
+		// 		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), responseBytes)
+		// 		return
+		// 	}
+
+		// 	var loginResponse struct {
+		// 		Email        string `json:"email"`
+		// 		User_type    string `json:"user_type"`
+		// 		Uid          string `json:"user_id"`
+		// 		Token        string `json:"token"`
+		// 		RefreshToken string `json:"refresh_token"`
+		// 	}
+		// 	if err := json.Unmarshal(responseBytes, &loginResponse); err != nil {
+		// 		logger.Err("Failed to parse auth response", err, logger.Str("responseBody", string(responseBytes)))
+		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse auth response"})
+		// 		return
+		// 	}
+
+		// 	logger.Info("After unmarshalling:", logger.Str("email", loginResponse.Email), logger.Str("user_type", loginResponse.User_type), logger.Str("uid", loginResponse.Uid), logger.Str("token", loginResponse.Token))
+
+		// 	// Lưu thông tin vào context
+		// 	c.Set("email", loginResponse.Email)
+		// 	c.Set("role", loginResponse.User_type)
+		// 	c.Set("uid", loginResponse.Uid)
+
+		// 	a, _ := c.Get("email")
+		// 	logger.Info("Email from context:", logger.Str("email", a.(string)))
+
+		// 	c.SetCookie(
+		// 		"auth_token",
+		// 		loginResponse.Token,
+		// 		60*60*24*7, // 7 ngày
+		// 		"/",
+		// 		"",
+		// 		c.Request.TLS != nil, // secure nếu là HTTPS
+		// 		true,                 // httpOnly
+		// 	)
+
+		// 	// Lưu refresh_token vào cookie
+		// 	c.SetCookie(
+		// 		"refresh_token",
+		// 		loginResponse.RefreshToken,
+		// 		60*60*24*30, // 30 ngày
+		// 		"/",
+		// 		"",
+		// 		c.Request.TLS != nil,
+		// 		true,
+		// 	)
+
+		// 	logger.Info("Set auth_token and refresh_token cookies")
+
+		// 	// Gửi phản hồi trở lại client (bao gồm token)
+		// 	c.JSON(resp.StatusCode, gin.H{
+		// 		"message":       "Login successful",
+		// 		"email":         loginResponse.Email,
+		// 		"role":          loginResponse.User_type,
+		// 		"uid":           loginResponse.Uid,
+		// 		"token":         loginResponse.Token,
+		// 		"refresh_token": loginResponse.RefreshToken,
+		// 	})
+		// })
 		auth.POST("/login", func(c *gin.Context) {
-			bodyBytes, _ := io.ReadAll(c.Request.Body)
-			req, _ := http.NewRequest("POST", "http://auth-service:8081/users/login", bytes.NewReader(bodyBytes))
+			bodyBytes, err := io.ReadAll(c.Request.Body)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+				return
+			}
+
+			fmt.Println("[DEBUG] Body:", string(bodyBytes))
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+			req, err := http.NewRequest("POST", "http://auth-service:8081/auth/users/login", bytes.NewReader(bodyBytes))
+			fmt.Println("[DEBUG] Sending request to auth-service:8081/auth/users/login")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+				return
+			}
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-Device-Id", c.GetString("device_id"))
 			req.Header.Set("User-Agent", c.GetString("user_agent"))
 			req.Header.Set("X-Platform", c.GetString("platform"))
 
+			client := &http.Client{}
 			resp, err := client.Do(req)
 			if err != nil {
-                logger.Err("Error creating new request", err)
+				logger.Err("Error sending request to auth service", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
 				return
 			}
-            logger.Info("Auth response:", logger.Int("statusCode", resp.StatusCode))
 			defer resp.Body.Close()
 
 			responseBytes, _ := io.ReadAll(resp.Body)
+			logger.Info("Auth response:", logger.Int("statusCode", resp.StatusCode))
+			logger.Info("Auth response body:", logger.Str("responseBody", string(responseBytes)))
+			logger.Info("Auth response content-type:", logger.Str("contentType", resp.Header.Get("Content-Type")))
 
-            logger.Info("Auth response body:", logger.Str("responseBody", string(responseBytes)))
+			if resp.StatusCode != http.StatusOK {
+				c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), responseBytes)
+				return
+			}
+
+			// Check if response is empty
+			if len(responseBytes) == 0 {
+				logger.Err("Empty response from auth service", nil)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Empty response from auth service"})
+				return
+			}
+
+			// Check if response is JSON
+			if !json.Valid(responseBytes) {
+				logger.Err("Invalid JSON response from auth service", nil, logger.Str("responseBody", string(responseBytes)))
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid JSON response from auth service"})
+				return
+			}
 
 			var loginResponse struct {
 				Email        string `json:"email"`
@@ -473,59 +550,36 @@ func SetupRouter(router *gin.Engine) {
 				RefreshToken string `json:"refresh_token"`
 			}
 			if err := json.Unmarshal(responseBytes, &loginResponse); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse auth response"})
+				logger.Err("Failed to parse auth response", err, logger.Str("responseBody", string(responseBytes)))
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse auth response", "details": err.Error()})
 				return
 			}
 
-            logger.Info("After unmarshalling:", logger.Str("email", loginResponse.Email), logger.Str("user_type", loginResponse.User_type), logger.Str("uid", loginResponse.Uid), logger.Str("token", loginResponse.Token))
-
-			// Lưu thông tin vào context
 			c.Set("email", loginResponse.Email)
 			c.Set("role", loginResponse.User_type)
 			c.Set("uid", loginResponse.Uid)
 
-			a, _ := c.Get("email")
-            logger.Info("Email from context:", logger.Str("email", a.(string)))
+			c.SetCookie("auth_token", loginResponse.Token, 60*60*24*7, "/", "", c.Request.TLS != nil, true)
+			c.SetCookie("refresh_token", loginResponse.RefreshToken, 60*60*24*30, "/", "", c.Request.TLS != nil, true)
 
-			c.SetCookie(
-				"auth_token",
-				loginResponse.Token,
-				60*60*24*7, // 7 ngày
-				"/",
-				"",
-				c.Request.TLS != nil, // secure nếu là HTTPS
-				true,                 // httpOnly
-			)
+			logger.Info("Login successful", logger.Str("uid", loginResponse.Uid))
 
-			// Lưu refresh_token vào cookie
-			c.SetCookie(
-				"refresh_token",
-				loginResponse.RefreshToken,
-				60*60*24*30, // 30 ngày
-				"/",
-				"",
-				c.Request.TLS != nil,
-				true,
-			)
-
-            logger.Info("Set auth_token and refresh_token cookies")
-
-			// Gửi phản hồi trở lại client (bao gồm token)
-			c.JSON(resp.StatusCode, gin.H{
-				"message": "Login successful",
-				"email": loginResponse.Email,
-				"role":  loginResponse.User_type,
-				"uid":   loginResponse.Uid,
-				"token": loginResponse.Token,
+			c.JSON(http.StatusOK, gin.H{
+				"message":       "Login successful",
+				"email":         loginResponse.Email,
+				"role":          loginResponse.User_type,
+				"uid":           loginResponse.Uid,
+				"token":         loginResponse.Token,
 				"refresh_token": loginResponse.RefreshToken,
 			})
 		})
+
 	}
 	router.GET("/images/:filename", GetImage())
 	// In your SetupRouter function
 	router.GET("/static-images/:filename", func(c *gin.Context) {
 		filename := c.Param("filename")
-        logger.Info("Forwarding to static-images:", logger.Str("filename", filename))
+		logger.Info("Forwarding to static-images:", logger.Str("filename", filename))
 		ForwardImageRequest(c, "http://product-service:8082/static-images/"+filename)
 	})
 	// Protected routes - cần auth
@@ -581,7 +635,7 @@ func SetupRouter(router *gin.Engine) {
 			protected.GET("/admin/get-users", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/admin/get-user", "GET", "application/json")
 			})
-			
+
 			protected.POST("/admin/change-password/", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/admin/change-password", "POST", "application/json")
 			})
@@ -590,7 +644,7 @@ func SetupRouter(router *gin.Engine) {
 			protected.POST("/products/add", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "multipart/form-data")
 			})
-			
+
 			protected.PUT("/products/edit/:id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://product-service:8082/products/edit/"+c.Param("id"), "PUT", "multipart/form-data")
 			})
@@ -612,7 +666,6 @@ func SetupRouter(router *gin.Engine) {
 			ForwardRequestToService(c, "http://product-service:8082/products/search?name"+c.Query("name"), "GET", "application/json")
 		})
 
-
 		// Cart routes
 		protected.POST("/cart", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://cart-service:8083/cart", "POST", "application/json")
@@ -620,7 +673,7 @@ func SetupRouter(router *gin.Engine) {
 		protected.GET("/cart/get", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://cart-service:8083/cart/get", "GET", "application/json")
 		})
-				
+
 		protected.DELETE("/products/delete/:id", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://product-service:8082/products/delete/"+c.Param("id"), "DELETE", "application/json")
 		})

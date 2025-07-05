@@ -8,8 +8,8 @@ import (
 
 	// "time"
 
-	helper "github.com/Dattt2k2/golang-project/api-gateway/helpers"
-	"github.com/Dattt2k2/golang-project/api-gateway/logger"
+	helper "api-gateway/helpers"
+	"api-gateway/logger"
 	"github.com/google/uuid"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/redisdb"

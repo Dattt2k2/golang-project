@@ -1,10 +1,10 @@
 module cart-service
 
-go 1.23.0
-
+go 1.24.4
 
 require (
-	github.com/Dattt2k2/golang-project v0.0.0-20250628110319-a0c9e908cb09
+	github.com/Dattt2k2/golang-project/module/gRPC-Product v0.0.0-20250705095646-436ee84e8069
+	github.com/Dattt2k2/golang-project/module/gRPC-cart v0.0.0-20250705095646-436ee84e8069
 	github.com/gin-gonic/gin v1.10.1
 	github.com/joho/godotenv v1.5.1
 	github.com/segmentio/kafka-go v0.4.48
@@ -52,3 +52,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/Dattt2k2/golang-project/cart-service => ../cart-service

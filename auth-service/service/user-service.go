@@ -97,17 +97,17 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 
 func (s *authServiceImpl) Login(ctx context.Context, credential *models.LoginCredentials) (*models.LoginResponse, error) {
 	foundUser, err := s.userRepo.FindByEmail(ctx, *credential.Email)
-	if err != nil {
-		return nil, errors.New("Email or password is incorrect")
+	if err != nil  || foundUser == nil {
+		return nil, errors.New("invalid email or password")
 	}
 
 	if !helpers.VerifyPassword(*credential.Password, *foundUser.Password) {
-		return nil, errors.New("Email or password is incorrect")
+		return nil, errors.New("email or password is incorrect")
 	}
 
 	token, refreshToken, err := helpers.GenerateAllToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
 	if err != nil {
-		return nil, errors.New("Error generating token")
+		return nil, errors.New("error generating token")
 	}
 
 	loginResponse := &models.LoginResponse{

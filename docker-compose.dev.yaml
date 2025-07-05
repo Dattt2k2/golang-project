@@ -12,8 +12,8 @@ services:
       - ./api-gateway/.env
     volumes:
       - ./api-gateway:/app/api-gateway:cached
-      - ./go.mod:/app/go.mod:ro
-      - ./go.sum:/app/go.sum:ro
+ # - ./go.mod:/app/go.mod:ro
+      # - ./go.sum:/app/go.sum:ro
     depends_on:
       - auth-service
       - product-service
@@ -34,13 +34,13 @@ services:
       context: .
       dockerfile: ./auth-service/Dockerfile.dev
     ports:
-      - "8081:8081"
+      - "8099:8081"
     env_file:
       - ./auth-service/.env
     volumes:
       - ./auth-service:/app/auth-service:cached
-      - ./go.mod:/app/go.mod:ro
-      - ./go.sum:/app/go.sum:ro
+ # - ./go.mod:/app/go.mod:ro
+      # - ./go.sum:/app/go.sum:ro
     depends_on:
       - mongodb
     networks:
@@ -63,8 +63,8 @@ services:
     volumes:
       - ./product-service:/app/product-service:cached
       - ./module:/app/module:cached
-      - ./go.mod:/app/go.mod:ro
-      - ./go.sum:/app/go.sum:ro
+ # - ./go.mod:/app/go.mod:ro
+      # - ./go.sum:/app/go.sum:ro
       # Mount uploads directory for file handling
       - ./product-service/uploads:/app/product-service/uploads
     depends_on:
@@ -91,8 +91,8 @@ services:
     volumes:
       - ./cart-service:/app/cart-service:cached
       - ./module:/app/module:cached
-      - ./go.mod:/app/go.mod:ro
-      - ./go.sum:/app/go.sum:ro
+      # - ./go.mod:/app/go.mod:ro
+      # - ./go.sum:/app/go.sum:ro
     depends_on:
       - mongodb
       - kafka
@@ -115,8 +115,8 @@ services:
     volumes:
       - ./order-service:/app/order-service:cached
       - ./module:/app/module:cached
-      - ./go.mod:/app/go.mod:ro
-      - ./go.sum:/app/go.sum:ro
+ # - ./go.mod:/app/go.mod:ro
+      # - ./go.sum:/app/go.sum:ro
     depends_on:
       - mongodb
       - kafka
@@ -138,8 +138,8 @@ services:
       - ./search-service/.env
     volumes:
       - ./search-service:/app/search-service:cached
-      - ./go.mod:/app/go.mod:ro
-      - ./go.sum:/app/go.sum:ro
+ # - ./go.mod:/app/go.mod:ro
+      # - ./go.sum:/app/go.sum:ro
     depends_on:
       - kafka
       - elasticsearch
@@ -161,8 +161,8 @@ services:
       - "8087:8087"
     volumes:
       - ./email-service:/app/email-service:cached
-      - ./go.mod:/app/go.mod:ro
-      - ./go.sum:/app/go.sum:ro
+ # - ./go.mod:/app/go.mod:ro
+      # - ./go.sum:/app/go.sum:ro
     networks:
       - default
     command: ["air", "-c", ".air.toml"]

@@ -1,10 +1,10 @@
 package routes
 
 import (
-	controller "github.com/Dattt2k2/golang-project/product-service/controller"
-	"github.com/Dattt2k2/golang-project/product-service/database"
-	"github.com/Dattt2k2/golang-project/product-service/repository"
-	"github.com/Dattt2k2/golang-project/product-service/service"
+	controller "product-service/controller"
+	"product-service/database"
+	"product-service/repository"
+	"product-service/service"
 	"github.com/gin-gonic/gin"
 	// "go.mongodb.org/mongo-driver/mongo"
 )

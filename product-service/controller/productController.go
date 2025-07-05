@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/product-service/models"
-	"github.com/Dattt2k2/golang-project/product-service/service"
+	"product-service/models"
+	"product-service/service"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

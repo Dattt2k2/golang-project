@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"github.com/Dattt2k2/golang-project/product-service/controller"
+	"product-service/controller"
 	"github.com/gin-gonic/gin"
 )
 
