@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	logger "email-service/log"
+	logger "email-service/logger"
 	"encoding/json"
 	"os"
 

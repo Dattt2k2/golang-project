@@ -16,11 +16,10 @@ import (
 
 func main() {
 	// redisdb.InitRedis()
-
-	helpers.InitDotEnv()
-
 	logger.InitLogger()
 	defer logger.Sync()
+
+	helpers.InitDotEnv()
 
 	ginrouter := gin.Default()
 	ginrouter.Use(middleware.CORSMiddleware())

@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/net/context"
 
-	database "github.com/Dattt2k2/golang-project/auth-service/database"
+	database "auth-service/database"
 	"github.com/redis/go-redis/v9"
 )
 

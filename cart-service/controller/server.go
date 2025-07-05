@@ -4,12 +4,12 @@
 // 	// "context"
 // 	// "log"
 
-// 	// "github.com/Dattt2k2/golang-project/cart-service/models"
+// 	// "cart-service/models"
 // 	"context"
 // 	"log"
 
-// 	"github.com/Dattt2k2/golang-project/cart-service/models"
-// 	pb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
+// 	"cart-service/models"
+// 	pb "module/gRPC-cart/service"
 // 	"go.mongodb.org/mongo-driver/bson"
 // 	"go.mongodb.org/mongo-driver/bson/primitive"
 // 	"google.golang.org/grpc/codes"
@@ -86,7 +86,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/Dattt2k2/golang-project/cart-service/service"
+	"cart-service/service"
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

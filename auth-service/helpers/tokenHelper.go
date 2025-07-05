@@ -7,7 +7,7 @@
 // 	"os"
 // 	"time"
 
-// 	database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
+// 	database "database/databaseConnection.gp"
 // 	"github.com/golang-jwt/jwt/v4"
 // 	"go.mongodb.org/mongo-driver/bson"
 // 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -123,8 +123,8 @@ import (
 	"strings"
 	"time"
 
-	// database "github.com/Dattt2k2/golang-project/database/databaseConnection.gp"
-	"github.com/Dattt2k2/golang-project/auth-service/logger"
+	// database "database/databaseConnection.gp"
+	"auth-service/logger"
 	"github.com/golang-jwt/jwt/v4"
 	// "go.mongodb.org/mongo-driver/bson"
 	// "go.mongodb.org/mongo-driver/bson/primitive"

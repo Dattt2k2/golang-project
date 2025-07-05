@@ -47,7 +47,7 @@
 
 // func SignUp() gin.HandlerFunc {
 // 	return func(c *gin.Context) {
-// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+// 		var ctx, cancel = context.WithTimeout(c.Request.Context(), 100*time.Second)
 // 		defer cancel()
 
 // 		var user models.User
@@ -115,7 +115,7 @@
 
 // // func SignUp() gin.HandlerFunc {
 // // 	return func(c *gin.Context) {
-// // 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+// // 		var ctx, cancel = context.WithTimeout(c.Request.Context(), 100*time.Second)
 // // 		defer cancel()
 
 // // 		var user models.User
@@ -190,7 +190,7 @@
 
 // func Login() gin.HandlerFunc {
 // 	return func(c *gin.Context) {
-// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+// 		var ctx, cancel = context.WithTimeout(c.Request.Context(), 100*time.Second)
 // 		defer cancel()
 
 // 		var user models.User
@@ -252,7 +252,7 @@
 // 			return
 // 		}
 
-// 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// 		ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
 // 		defer cancel()
 
 // 		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
@@ -307,7 +307,7 @@
 // 			return
 // 		}
 
-// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+// 		var ctx, cancel = context.WithTimeout(c.Request.Context(), 100*time.Second)
 // 		var user models.User
 // 		err := userCollection.FindOne(ctx, bson.M{"user_id":userId}).Decode(&user)
 // 		defer cancel()
@@ -326,7 +326,7 @@
 // // 			c.JSON(http.StatusBadRequest, gin.H{"error": "User Id not found"})
 // // 		}
 
-// // 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// // 		ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
 // // 		defer cancel()
 
 // // 		var user models.User
@@ -347,7 +347,7 @@
 //         return "", errors.New("Failed to get uid")
 //     }
 
-//     ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+//     ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
 //     defer cancel()
 
 //     var result struct {
@@ -431,10 +431,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/auth-service/helpers"
-	"github.com/Dattt2k2/golang-project/auth-service/logger"
-	"github.com/Dattt2k2/golang-project/auth-service/models"
-	"github.com/Dattt2k2/golang-project/auth-service/service"
+	"auth-service/helpers"
+	"auth-service/logger"
+	"auth-service/models"
+	"auth-service/service"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator"
 ) 
@@ -453,7 +453,7 @@ func NewAuthController(authService service.AuthService) *AuthController {
 
 func (ctrl *AuthController) SignUp() gin.HandlerFunc{
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		var user models.User 
@@ -483,6 +483,10 @@ func (ctrl *AuthController) SignUp() gin.HandlerFunc{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return 
 		}
+		err = SendOTPHander(*user.Email, "send_otp.html" )
+		if err != nil {
+			logger.Error("Error sending OTP", logger.ErrField(err))
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "User created successfully",
@@ -490,13 +494,12 @@ func (ctrl *AuthController) SignUp() gin.HandlerFunc{
 			"access_token": response.Token,
 			"refresh_token": response.RefreshToken,
 		})
-		logger.Info("User created successfully", logger.Str("email", *user.Email))
 	}
 }
 
 func (ctrl *AuthController) Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		var credential models.LoginCredentials
@@ -547,7 +550,7 @@ func CheckSellerRole(c *gin.Context){
 
 func (ctrl *AuthController) GetUsers() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		CheckSellerRole(c)
@@ -581,7 +584,7 @@ func (ctrl *AuthController) GetUsers() gin.HandlerFunc {
 
 func (ctrl *AuthController) GetUser() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		userId := c.Param("user_id")
@@ -606,7 +609,7 @@ func (ctrl *AuthController) GetUser() gin.HandlerFunc {
 
 func (ctrl *AuthController) ChangePassword() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		var request models.ChangePasswordRequest
@@ -639,7 +642,7 @@ func (ctrl *AuthController) ChangePassword() gin.HandlerFunc {
 
 func (ctrl *AuthController) AdminChangePassword() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		CheckSellerRole(c)
@@ -676,7 +679,7 @@ func (ctrl *AuthController) AdminChangePassword() gin.HandlerFunc {
 
 func (ctrl *AuthController) Logout() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		userID := c.GetHeader("user_id")
@@ -702,7 +705,7 @@ func (ctrl *AuthController) Logout() gin.HandlerFunc {
 
 func (ctrl *AuthController) LogoutAll() gin.HandlerFunc {
 	return func (c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		userID := c.GetHeader("user_id")

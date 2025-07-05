@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/auth-service/logger"
+	"auth-service/logger"
 	"github.com/redis/go-redis/v9"
 )
 

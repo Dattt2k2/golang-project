@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/auth-service/database"
-	"github.com/Dattt2k2/golang-project/auth-service/models"
+	"auth-service/database"
+	"auth-service/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

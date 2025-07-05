@@ -88,7 +88,7 @@ func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, 
 
 func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 		// CheckSellerRole(c)
 		if c.IsAborted() {
@@ -162,7 +162,7 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		id := c.Param("id")
@@ -232,7 +232,7 @@ func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
 		if c.IsAborted() {
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		userID, err := primitive.ObjectIDFromHex(c.GetHeader("user_id"))
@@ -262,7 +262,7 @@ func (ctrl *ProductController) GetAllProducts() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log.Printf("Starting GetAllProducts handler")
 
-		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		var ctx, cancel = context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
 		// Parse pagination parameters
@@ -313,7 +313,7 @@ func (ctrl *ProductController) GetProductByName() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Name query parameter is required"})
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 		products, err := ctrl.service.GetProductByName(ctx, name)
 		if err != nil {
@@ -359,7 +359,7 @@ func (ctrl *ProductController) UpdateProductStock(ctx context.Context, items []S
 
 func (ctrl *ProductController) GetBestSellingProducts() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 		limitStr := c.DefaultQuery("limit", "10")
 		limit, err := strconv.Atoi(limitStr)
@@ -422,7 +422,7 @@ func (pc *ProductController) CreateProduct(c *gin.Context) {
 	}
 
 	// Save to database
-	err := pc.service.AddProduct(context.Background(), product)
+	err := pc.service.AddProduct(c.Request.Context(), product)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to create product",
@@ -515,7 +515,7 @@ func (pc *ProductController) CreateProductWithImage(c *gin.Context) {
 	}
 
 	// Save to database
-	err = pc.service.AddProduct(context.Background(), product)
+	err = pc.service.AddProduct(c.Request.Context(), product)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to create product",

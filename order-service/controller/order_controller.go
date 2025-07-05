@@ -68,7 +68,7 @@
 //             c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Cart service unavailable"})
 //             return
 //         }
-// 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 // 		defer cancel()
 
 // 		req:= &cartpb.CartRequest{
@@ -186,7 +186,7 @@
 //         }
 
 //         // Create the order
-//         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+//         ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 //         defer cancel()
 
 //         paymentMethod := c.Query("payment_method")
@@ -267,7 +267,7 @@
 
 // func GetOrder() gin.HandlerFunc{
 //     return func (c *gin.Context){
-//         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+//         ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 //         defer cancel()
 
 //         CheckUserRole(c)
@@ -465,7 +465,7 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc{
             return
         }
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10 * time.Second)
 		defer cancel()
 
 		order, err := ctrl.orderService.CreateOrderFromCart(ctx, UserID, requestBody.Source, requestBody.PaymentMethod, requestBody.ShippingAddress, requestBody.SelectedProductIDs)
@@ -520,7 +520,7 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc{
         }
 
         orderReq.UserID = userID
-        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+        ctx, cancel := context.WithTimeout(c.Request.Context(), 10 * time.Second)
         defer cancel()
 
         order, err :=  ctrl.orderService.CreateOrderDirect(ctx, orderReq)
@@ -561,7 +561,7 @@ func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc{
             limit = 10
         }
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+        ctx, cancel := context.WithTimeout(c.Request.Context(), 10 * time.Second)
         defer cancel()
 
         orders, total, pages, hasNext, hasPrev, err := ctrl.orderService.AdminGetOrders(ctx, page, limit)
@@ -631,7 +631,7 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
             }
         }
 
-        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+        ctx, cancel := context.WithTimeout(c.Request.Context(), 10 * time.Second)
         defer cancel()
 
         orders, total, pages, hasNext, hasPrev, err := ctrl.orderService.GetUserOrders(ctx, userID, page, limit)
@@ -672,7 +672,7 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc{
 // Cancel Order with ID
 func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
     return func (c *gin.Context) {
-        ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+        ctx, cancel := context.WithTimeout(c.Request.Context(), 10 * time.Second)
         defer cancel()
         userRole := c.GetHeader("user_type")
         if userRole != "USER" && userRole != "SELLER" {

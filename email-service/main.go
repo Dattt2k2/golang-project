@@ -1,11 +1,14 @@
 package main
 
 import (
-	"log"
+	"email-service/logger"
 	"email-service/service"
+	"log"
 )
 
 func main() {
+	logger.InitLogger()
+	defer logger.Sync()
 	emailService := service.NewEmailService()
 
 	err := service.StartKafkaConsumer(emailService)

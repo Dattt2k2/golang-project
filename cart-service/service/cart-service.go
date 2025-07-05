@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/cart-service/models"
-	"github.com/Dattt2k2/golang-project/cart-service/repository"
+	"cart-service/models"
+	"cart-service/repository"
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc"

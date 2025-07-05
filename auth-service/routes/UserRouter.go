@@ -1,11 +1,11 @@
 package routes
 
 import (
-	controller "github.com/Dattt2k2/golang-project/auth-service/controller"
-	service "github.com/Dattt2k2/golang-project/auth-service/service"
+	controller "auth-service/controller"
+	service "auth-service/service"
 
-	// "github.com/Dattt2k2/golang-project/auth-service/middleware"
-	"github.com/Dattt2k2/golang-project/auth-service/repository"
+	// "auth-service/middleware"
+	"auth-service/repository"
 	"github.com/gin-gonic/gin"
 )
 

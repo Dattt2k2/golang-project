@@ -19,6 +19,7 @@ type User struct {
     Created_at     time.Time          `json:"created_at,omitempty"`
     Updated_at     time.Time          `json:"updated_at,omitempty"`
     User_id        string             `json:"user_id,omitempty"`
+    IsVerify       bool               `bson:"is_verify" json:"is_verify"`
 }
 
 type SignUpCredentials struct {
@@ -45,8 +46,8 @@ type SignUpResponse struct {
 }
 
 type LoginCredentials struct {
-    Email *string `json:"email" validate:"email,required"`
-    Password *string `json:"password" validate:"required,min=6"`
+    Email *string `json:"email" binding:"email,required"`
+    Password *string `json:"password" binding:"required,min=6"`
 }
 type ChangePasswordRequest struct {
     OldPassword string `json:"old_password" validate:"required"`

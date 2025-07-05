@@ -11,9 +11,9 @@
 // 	"strconv"
 // 	"time"
 
-// 	"github.com/Dattt2k2/golang-project/cart-service/database"
-// 	"github.com/Dattt2k2/golang-project/cart-service/models"
-// 	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
+// 	"cart-service/database"
+// 	"cart-service/models"
+// 	pb "module/gRPC-Product/service"
 // 	"github.com/gin-gonic/gin"
 // 	"go.mongodb.org/mongo-driver/bson"
 // 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -62,7 +62,7 @@
 
 // func AddToCart() gin.HandlerFunc{
 // 	return func(c *gin.Context){
-// 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 // 		defer cancel()
 
 // 		CheckUserRole(c)
@@ -156,7 +156,7 @@
 
 // func GetCartSeller() gin.HandlerFunc {
 // 	return func(c *gin.Context){
-// 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 // 		defer cancel()
 
 // 		CheckSellerRole(c)
@@ -266,7 +266,7 @@
 
 // // func  GetCart() gin.HandlerFunc{
 // // 	return func(c *gin.Context){
-// // 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+// // 		ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
 // // 		defer cancel()
 
 // // 		userID := c.GetHeader("user_id")
@@ -322,7 +322,7 @@
 
 // func GetCart() gin.HandlerFunc{
 // 	return func(c *gin.Context){
-// 		context, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// 		context, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 // 		defer cancel()
 
 // 		CheckUserRole(c)
@@ -369,7 +369,7 @@
 
 // func DeleteProductFromCart() gin.HandlerFunc{
 // 	return func(c *gin.Context){
-// 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+// 		var ctx, cancel = context.WithTimeout(c.Request.Context(), 100*time.Second)
 // 		defer cancel()
 
 // 		userID := c.GetHeader("user_id")
@@ -450,8 +450,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Dattt2k2/golang-project/cart-service/service"
-	"github.com/Dattt2k2/golang-project/cart-service/log"
+	"cart-service/log"
+	"cart-service/service"
 	"github.com/gin-gonic/gin"
 )
 

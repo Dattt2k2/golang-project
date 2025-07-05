@@ -1,0 +1,18 @@
+# Air configuration for email-service
+root = "."
+
+[build]
+  cmd = "go build -o main ./main.go"
+  bin = "./main"
+  include_ext = [".go", ".env"]
+  exclude_dir = ["tmp", "vendor"]
+  delay = 1000
+
+[color]
+  main = "yellow"
+  watcher = "cyan"
+  build = "green"
+  runner = "magenta"
+
+[log]
+  time = true

@@ -3,9 +3,9 @@ package routes
 import (
 	"log"
 
-	"github.com/Dattt2k2/golang-project/cart-service/controller"
-	"github.com/Dattt2k2/golang-project/cart-service/repository"
-	"github.com/Dattt2k2/golang-project/cart-service/service"
+	"cart-service/controller"
+	"cart-service/repository"
+	"cart-service/service"
 	"github.com/gin-gonic/gin"
 )
 

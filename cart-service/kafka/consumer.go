@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log"
 
-	controller "github.com/Dattt2k2/golang-project/cart-service/controller"
+	controller "cart-service/controller"
 	"github.com/segmentio/kafka-go"
 )
 

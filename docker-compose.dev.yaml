@@ -153,14 +153,16 @@ services:
     command: ["air", "-c", ".air.toml"]
   email-service:
     build:
-      context: ./email-service
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: ./email-service/Dockerfile.dev
     env_file:
       - ./email-service/.env
     ports:
       - "8087:8087"
     volumes:
-      - ./email-service:/app 
+      - ./email-service:/app/email-service:cached
+      - ./go.mod:/app/go.mod:ro
+      - ./go.sum:/app/go.sum:ro
     networks:
       - default
     command: ["air", "-c", ".air.toml"]
@@ -234,7 +236,8 @@ services:
       - default
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    # image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.4.3
     container_name: kafka
     ports:
       - "9092:9092"

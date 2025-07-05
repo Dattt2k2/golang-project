@@ -1,9 +1,11 @@
 FROM golang:1.24-alpine
 
-WORKDIR /app
+WORKDIR /app/email-service
 
 RUN go install github.com/air-verse/air@latest
 
 COPY . .
 
+
+WORKDIR /app/email-service
 CMD ["air"]

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/auth-service/database"
+	"auth-service/database"
 )
 
 

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/auth-service/helpers"
-	"github.com/Dattt2k2/golang-project/auth-service/models"
-	"github.com/Dattt2k2/golang-project/auth-service/repository"
+	"auth-service/helpers"
+	"auth-service/models"
+	"auth-service/repository"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-) 
+)
 
 type AuthService interface {
 	Register(ctx context.Context, email, password, userType string) (*models.SignUpResponse, error)
@@ -18,9 +18,9 @@ type AuthService interface {
 	GetUser(ctx context.Context, id string) (*models.User, error)
 	GetUserType(ctx context.Context, userID string) (string, error)
 	ChangePassword(ctx context.Context, userID string, oldPassword, newPassword string) error
-	AdminChangePassword(ctx context.Context, adminID, targetUserID, newPassword string) error 
-	Logout(ctx context.Context, userID string, deviceId string) error 
-	LogoutAll(ctx context.Context, userID string) error 
+	AdminChangePassword(ctx context.Context, adminID, targetUserID, newPassword string) error
+	Logout(ctx context.Context, userID string, deviceId string) error
+	LogoutAll(ctx context.Context, userID string) error
 }
 
 type authServiceImpl struct {
@@ -33,14 +33,14 @@ func NewAuthService(userRepo repository.UserRepository) AuthService {
 	}
 }
 
-func (s *authServiceImpl) Register (ctx context.Context, email, password, userType string) (*models.SignUpResponse, error) {
+func (s *authServiceImpl) Register(ctx context.Context, email, password, userType string) (*models.SignUpResponse, error) {
 	if email == "" || password == "" {
 		return nil, errors.New("email and password are required")
 	}
 
 	emailExists, err := helpers.CheckEmailExists(email)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 	if emailExists {
 		return nil, errors.New("email already exists")
@@ -48,37 +48,38 @@ func (s *authServiceImpl) Register (ctx context.Context, email, password, userTy
 
 	hashedPassword, err := helpers.HashPassword(password)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	if userType == "" {
 		userType = "USER"
 	}
 
-	defaultFirstName :="User"
+	defaultFirstName := "User"
 	defaultLastName := ""
 	defaultPhone := ""
 
 	user := &models.User{
-		ID: primitive.NewObjectID(),
-		Email: &email,
-		Password: &hashedPassword,
+		ID:         primitive.NewObjectID(),
+		Email:      &email,
+		Password:   &hashedPassword,
 		First_name: &defaultFirstName,
-		Last_name: &defaultLastName,
-		User_type: &userType,
-		Phone: &defaultPhone,
+		Last_name:  &defaultLastName,
+		User_type:  &userType,
+		Phone:      &defaultPhone,
 		Created_at: time.Now(),
 		Updated_at: time.Now(),
+		IsVerify:   true,
 	}
 	user.User_id = user.ID.Hex()
 
 	token, refreshToken, err := helpers.GenerateAllToken(email, defaultFirstName, defaultLastName, userType, user.User_id)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 	result, err := s.userRepo.Create(ctx, user)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	err = helpers.AddUserToBloomFilter(*user.Email, *user.Phone)
@@ -87,11 +88,11 @@ func (s *authServiceImpl) Register (ctx context.Context, email, password, userTy
 	}
 
 	return &models.SignUpResponse{
-		Message: "User registered successfully",
-		User:    result,
-		Token:   token,
+		Message:      "User registered successfully",
+		User:         result,
+		Token:        token,
 		RefreshToken: refreshToken,
-	}, nil 
+	}, nil
 }
 
 func (s *authServiceImpl) Login(ctx context.Context, credential *models.LoginCredentials) (*models.LoginResponse, error) {
@@ -104,18 +105,18 @@ func (s *authServiceImpl) Login(ctx context.Context, credential *models.LoginCre
 		return nil, errors.New("Email or password is incorrect")
 	}
 
-	token, refreshToken, err := helpers.GenerateAllToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id) 
+	token, refreshToken, err := helpers.GenerateAllToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
 	if err != nil {
 		return nil, errors.New("Error generating token")
 	}
 
-	loginResponse := &models.LoginResponse {
-		Email: *foundUser.Email,
-		First_name: *foundUser.First_name,
-		Last_name: *foundUser.Last_name,
-		User_type: *foundUser.User_type,
-		User_id: foundUser.User_id,
-		Token: token,
+	loginResponse := &models.LoginResponse{
+		Email:        *foundUser.Email,
+		First_name:   *foundUser.First_name,
+		Last_name:    *foundUser.Last_name,
+		User_type:    *foundUser.User_type,
+		User_id:      foundUser.User_id,
+		Token:        token,
 		RefreshToken: refreshToken,
 	}
 
@@ -124,16 +125,16 @@ func (s *authServiceImpl) Login(ctx context.Context, credential *models.LoginCre
 
 func (s *authServiceImpl) GetAllUsers(ctx context.Context, page int, recordPerPage int) ([]interface{}, error) {
 	if page < 1 {
-		page = 1 
+		page = 1
 	}
 	if recordPerPage < 1 {
-		recordPerPage = 10 
+		recordPerPage = 10
 	}
 
 	startIndex := (page - 1) * recordPerPage
 	users, err := s.userRepo.GetAllUsers(ctx, startIndex, recordPerPage)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	// Convert []primitive.M to []interface{}
@@ -141,14 +142,14 @@ func (s *authServiceImpl) GetAllUsers(ctx context.Context, page int, recordPerPa
 	for i, v := range users {
 		result[i] = v
 	}
-	return result, nil 
+	return result, nil
 }
 
 func (s *authServiceImpl) GetUser(ctx context.Context, id string) (*models.User, error) {
 	return s.userRepo.FindByID(ctx, id)
 }
 
-func (s *authServiceImpl) GetUserType(ctx context.Context, userID string) (string ,error) {
+func (s *authServiceImpl) GetUserType(ctx context.Context, userID string) (string, error) {
 	return s.userRepo.GetUserType(ctx, userID)
 }
 
@@ -164,7 +165,7 @@ func (s *authServiceImpl) ChangePassword(ctx context.Context, userID string, old
 
 	hashedNewPassword, err := helpers.HashPassword(newPassword)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	return s.userRepo.UpdatePassword(ctx, userID, hashedNewPassword)
@@ -191,22 +192,16 @@ func (s *authServiceImpl) AdminChangePassword(ctx context.Context, adminID, targ
 
 	hashedNewPassword, err := helpers.HashPassword(newPassword)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	return s.userRepo.UpdatePassword(ctx, targetUserID, hashedNewPassword)
 }
 
 func (s *authServiceImpl) Logout(ctx context.Context, userID string, deviceID string) error {
-	return helpers.InvalidateRefreshToken(userID, deviceID) 
+	return helpers.InvalidateRefreshToken(userID, deviceID)
 }
 
 func (s *authServiceImpl) LogoutAll(ctx context.Context, userID string) error {
 	return helpers.InvalidateAllUserRefreshToken(userID)
 }
-
-
-
-
-
-
