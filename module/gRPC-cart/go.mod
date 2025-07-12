@@ -1,6 +1,6 @@
 module github.com/Dattt2k2/golang-project/module/gRPC-cart
 
-go 1.23.0
+go 1.24.4
 
 // toolchain go1.23.10
 

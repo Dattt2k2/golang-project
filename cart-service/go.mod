@@ -53,4 +53,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/Dattt2k2/golang-project/cart-service => ../cart-service
+replace github.com/Dattt2k2/golang-project/module/gRPC-Product => ../module/gRPC-Product
+
+replace github.com/Dattt2k2/golang-project/module/gRPC-cart => ../module/gRPC-cart

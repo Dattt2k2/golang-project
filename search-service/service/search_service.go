@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 
-	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
+	pb "module/gRPC-Product/service"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/Dattt2k2/golang-project/search-service/log"
-	"github.com/Dattt2k2/golang-project/search-service/models"
-	"github.com/Dattt2k2/golang-project/search-service/repository"
+	"search-service/log"
+	"search-service/models"
+	"search-service/repository"
 )
 
 type SearchService interface {

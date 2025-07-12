@@ -1,8 +1,6 @@
 module github.com/Dattt2k2/golang-project/module/gRPC-Product
 
-go 1.23.0
-
-toolchain go1.23.10
+go 1.24.4
 
 require (
 	google.golang.org/grpc v1.73.0
@@ -15,3 +13,5 @@ require (
 	golang.org/x/text v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
 )
+
+replace github.com/Dattt2k2/golang-project/module/gRPC-Product => ../module/gRPC-Product

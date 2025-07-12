@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"product-service/log"
-	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
+	pb "module/gRPC-Product/service"
 	"product-service/service"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc/codes"

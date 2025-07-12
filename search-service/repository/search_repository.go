@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/Dattt2k2/golang-project/search-service/log"
-	"github.com/Dattt2k2/golang-project/search-service/database"
-	"github.com/Dattt2k2/golang-project/search-service/models"
+	"search-service/log"
+	"search-service/database"
+	"search-service/models"
 )
 
 type SearchRepository interface {

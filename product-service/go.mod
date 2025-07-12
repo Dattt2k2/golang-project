@@ -3,8 +3,8 @@ module product-service
 go 1.24.4
 
 require (
-	github.com/Dattt2k2/golang-project v0.0.0-20250628100049-f9c5be5cbd05
-	github.com/Dattt2k2/golang-project/auth-service v0.0.0-00010101000000-000000000000
+	// github.com/Dattt2k2/golang-project v0.0.0-20250628100049-f9c5be5cbd05
+	// github.com/Dattt2k2/golang-project/auth-service v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/gin-gonic/gin v1.10.1
 	github.com/joho/godotenv v1.5.1
@@ -15,6 +15,8 @@ require (
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.73.0
 )
+
+require module/gRPC-Product v0.0.0-00010101000000-000000000000
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect
@@ -62,4 +64,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/Dattt2k2/golang-project/product-service => ../product-service
+replace github.com/Dattt2k2/golang-project/module/gRPC-Product => ../module/gRPC-Product
+
+replace github.com/Dattt2k2/golang-project/module/gRPC-cart => ../module/gRPC-cart
+
+replace module/gRPC-Product => ../module/gRPC-Product

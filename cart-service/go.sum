@@ -1,7 +1,3 @@
-github.com/Dattt2k2/golang-project/module/gRPC-Product v0.0.0-20250705095646-436ee84e8069 h1:zLk17WLPnNLpMv0ikhz/Ce3U+EBeuWvggmnMdeuQiZo=
-github.com/Dattt2k2/golang-project/module/gRPC-Product v0.0.0-20250705095646-436ee84e8069/go.mod h1:LcYEgbimGIZPGDtBbHNikJ4IP04vnVgX+p1d8l5yka8=
-github.com/Dattt2k2/golang-project/module/gRPC-cart v0.0.0-20250705095646-436ee84e8069 h1:RrkB++TVfW6pNt+jiYIU74xmqxi7EKvbpKK1XGvXqgk=
-github.com/Dattt2k2/golang-project/module/gRPC-cart v0.0.0-20250705095646-436ee84e8069/go.mod h1:Gr3Q0/K3JwUBb600prYGi7/0QbhnVQKN81KRf8DegMg=
 github.com/bytedance/sonic v1.11.6 h1:oUp34TzMlL+OY1OUWxHqsdkgC/Zfc85zGqw9siXjrc0=
 github.com/bytedance/sonic v1.11.6/go.mod h1:LysEHSvpvDySVdC2f87zGWf6CIKJcAvqab1ZaiQtds4=
 github.com/bytedance/sonic/loader v0.1.1 h1:c+e5Pt1k/cy5wMveRDyk2X4B9hF4g7an8N3zCYjJFNM=

@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"github.com/Dattt2k2/golang-project/search-service/controller"
+	"search-service/controller"
 	"github.com/gin-gonic/gin"
 )
 

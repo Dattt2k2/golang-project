@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/Dattt2k2/golang-project/search-service/log"
+	"search-service/log"
 )
 
 var ES *elasticsearch.Client

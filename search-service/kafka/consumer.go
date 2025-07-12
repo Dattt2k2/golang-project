@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/Dattt2k2/golang-project/search-service/models"
-	"github.com/Dattt2k2/golang-project/search-service/service"
+	"search-service/models"
+	"search-service/service"
 	"github.com/segmentio/kafka-go"
 )
 

@@ -3,8 +3,8 @@ package controller
 import (
 	"net/http"
 
-	"github.com/Dattt2k2/golang-project/search-service/service"
-	"github.com/Dattt2k2/golang-project/search-service/log"
+	"search-service/service"
+	"search-service/log"
 	"github.com/gin-gonic/gin"
 )
 

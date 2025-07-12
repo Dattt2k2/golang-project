@@ -1,11 +1,13 @@
 FROM golang:1.24-alpine
 
-WORKDIR /app/search-service
+WORKDIR /app
 
-RUN go install github.com/air-verse/air@latest
-
+# Copy toàn bộ project (chứa product-service và module/gRPC-Product)
 COPY . .
 
+# Cài air (hot reload)
+RUN go install github.com/air-verse/air@latest
 
-WORKDIR /app/search-service
+WORKDIR /app/product-service
+
 CMD ["air"]

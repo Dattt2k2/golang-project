@@ -5,6 +5,7 @@ import (
 
 	"product-service/models"
 	"product-service/service"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -146,3 +147,5 @@ func (ctrl *UploadController) CreateProductWithImage(c *gin.Context) {
 		"next_step": "Use the image_url to create product via POST /products",
 	})
 }
+
+
