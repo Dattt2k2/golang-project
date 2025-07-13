@@ -20,6 +20,7 @@ type UserRepository interface {
 	GetAllUsers(ctx context.Context, startIndex int, recordPerPage int) ([]bson.M, error)
 	UpdatePassword(ctx context.Context, userID string, hashedPass string) error 
 	GetUserType(ctx context.Context, userID string) (string, error)
+	UpdateVerificationStatus(ctx context.Context, userID string, isVerified bool) error
 }
 
 type userRepositoryImpl struct {
@@ -118,4 +119,18 @@ func (r *userRepositoryImpl) GetUserType(ctx context.Context, userID string) (st
 	}
 
 	return result.UserType, nil
+}
+
+func (r *userRepositoryImpl) UpdateVerificationStatus(ctx context.Context, email string, isVerified bool) error {
+	filter := bson.M{"email": email}
+	update := bson.M{
+		"$set": bson.M{
+			"is_verify": isVerified,
+			"updated_at": time.Now(),
+		},
+	}
+
+	opts := options.Update()
+	_, err := r.collection.UpdateOne(ctx, filter, update, opts)
+	return err
 }

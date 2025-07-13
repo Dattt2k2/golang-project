@@ -1,11 +1,11 @@
 package helpers
 
 import (
+	"auth-service/database"
 	"context"
+	"errors"
 	"math/rand"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 func generateOTP(length int) string {
@@ -19,17 +19,38 @@ func generateOTP(length int) string {
 	return string(otp)
 }
 
-func GenerateAndStoreOTP(rdb *redis.Client, email string, expire time.Duration) (string, error) {
+// Hàm này sẽ được gọi từ service, không cần truyền rdb
+func GenerateOTP(email string) (string, error) {
+	return GenerateAndStoreOTP(email, 5*time.Minute)
+}
+
+func GenerateAndStoreOTP(email string, expire time.Duration) (string, error) {
 	otp := generateOTP(6)
 	ctx := context.Background()
-	err := rdb.Set(ctx, email, otp, expire).Err()
+	err := database.RedisClient.Set(ctx, "otp:"+email, otp, expire).Err()
 	if err != nil {
 		return "", err
 	}
 	return otp, nil
 }
 
-func GetOTP(rdb *redis.Client, email string) (string, error) {
+func GetOTP(email string) (string, error) {
 	ctx := context.Background()
-	return rdb.Get(ctx, email).Result()
+	return database.RedisClient.Get(ctx, "otp:"+email).Result()
+}
+
+func ResendOTP(email string) (string, error) {
+	ctx := context.Background()
+	resendKey := "resend_otp:" + email
+	count, _ := database.RedisClient.Get(ctx, resendKey).Int()
+	if count >= 5 {
+		return "", errors.New("too many OTP resend requests, please try again later")
+	}
+	database.RedisClient.Incr(ctx, resendKey)
+	database.RedisClient.Expire(ctx, resendKey, 10*time.Minute)
+	otp, err := GenerateAndStoreOTP(email, 5*time.Minute)
+	if err != nil {
+		return "", err
+	}
+	return otp, nil
 }

@@ -4,9 +4,12 @@ import (
 	"email-service/logger"
 	"email-service/service"
 	"log"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	godotenv.Load("./email-service/.env")
 	logger.InitLogger()
 	defer logger.Sync()
 	emailService := service.NewEmailService()

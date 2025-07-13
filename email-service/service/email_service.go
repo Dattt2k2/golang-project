@@ -2,43 +2,61 @@ package service
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/smtp"
 	"os"
+
+	"email-service/logger"
 )
 
 type EmailService struct {
-	Host string
-	Port string 
+	Host     string
+	Port     string
 	Username string
 	Password string
-	From string
+	From     string
 }
 
 func NewEmailService() *EmailService {
 	return &EmailService{
-		Host: os.Getenv("SMTP_HOST"),
-		Port: os.Getenv("SMTP_PORT"),
+		Host:     os.Getenv("SMTP_HOST"),
+		Port:     os.Getenv("SMTP_PORT"),
 		Username: os.Getenv("SMTP_USER"),
 		Password: os.Getenv("SMTP_PASS"),
-		From: os.Getenv("FROM_EMAIL"),
+		From:     os.Getenv("FROM_EMAIL"),
 	}
 }
 
+func (s *EmailService) SendEmail(to, subject, templatePath string, data interface{}) error {
 
-func (s *EmailService) SendEmail (to, subject, templatePath string, data interface{}) error {
+	logger.Info("Sending email", logger.Str("templatePath", templatePath), logger.Str("data", fmt.Sprintf("%v", data)))
 	tmpl, err := template.ParseFiles(templatePath)
 	if err != nil {
-		return err 
+		return err
 	}
 
-	var body bytes.Buffer 
-	if err := tmpl.Execute(&body, data); err != nil {
-		return err 
+	var dataMap map[string]interface{}
+	switch v := data.(type) {
+	case map[string]interface{}:
+		dataMap = v
+	case map[string]string:
+		dataMap = make(map[string]interface{})
+		for k, val := range v {
+			dataMap[k] = val
+		}
+	default:
+		b, _ := json.Marshal(data)
+		_ = json.Unmarshal(b, &dataMap)
 	}
 
-	addr := fmt.Sprint("%s:%s", s.Host, s.Port)
+	var body bytes.Buffer
+	if err := tmpl.Execute(&body, dataMap); err != nil {
+		return err
+	}
+
+	addr := fmt.Sprintf("%s:%s", s.Host, s.Port)
 	auth := smtp.PlainAuth("", s.Username, s.Password, s.Host)
 	msg := []byte("To: " + to + "\r\n" +
 		"Subject: " + subject + "\r\n" +
@@ -46,5 +64,9 @@ func (s *EmailService) SendEmail (to, subject, templatePath string, data interfa
 		"Content-Type: text/html; charset=UTF-8\r\n" +
 		"\r\n" +
 		body.String() + "\r\n")
-	return smtp.SendMail(addr, auth, s.From, []string{to}, msg)
+	if err := smtp.SendMail(addr, auth, s.From, []string{to}, msg); err != nil {
+		return err
+	}
+	logger.Info("Email sent successfully")
+	return nil
 }

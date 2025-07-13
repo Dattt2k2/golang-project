@@ -522,6 +522,7 @@ services:
         echo -e 'Creating Kafka topics...' &&        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic payment &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic order_success &&
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic product_events &&
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic email_events &&
         echo -e 'Successfully created the following topics:' &&
         kafka-topics --list --bootstrap-server kafka:9092
       "

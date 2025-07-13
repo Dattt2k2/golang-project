@@ -8,17 +8,17 @@ import (
 )
 
 type EmailMessage struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Template string                 `json:"template"` 
-	Data    map[string]interface{} `json:"body"`
+	To       string                 `json:"to"`
+	Subject  string                 `json:"subject"`
+	Template string                 `json:"template"`
+	Data     map[string]interface{} `json:"data"`
 }
 
 func NewKafkaWriter(broker, topic string) *kafka.Writer {
 	return &kafka.Writer{
-		Addr:      kafka.TCP(broker),
-		Topic:     topic,
-		Balancer:  &kafka.LeastBytes{},
+		Addr:     kafka.TCP(broker),
+		Topic:    topic,
+		Balancer: &kafka.LeastBytes{},
 	}
 }
 

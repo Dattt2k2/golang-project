@@ -34,14 +34,14 @@ type LoginResponse struct {
 	User_type    string  `json:"user_type"`
 	Password     *string `json:"password"`
 	User_id      string  `json:"user_id"`
-	Token        string  `json:"token"`
+	Token        string  `json:"access_token"`
 	RefreshToken string  `json:"refresh_token"`
 }
 
 type SignUpResponse struct {
 	Message      string      `json:"message"`
 	User         interface{} `json:"user"`
-	Token        string      `json:"token"`
+	Token        string      `json:"access_token"`
 	RefreshToken string      `json:"refresh_token"`
 }
 
@@ -57,6 +57,15 @@ type ChangePasswordRequest struct {
 type AdminChangePassword struct {
 	UserID      string `json:"user_id" validate:"required"`
 	NewPassword string `json:"new_password" validate:"required,min=6"`
+}
+
+type VerifyOTPRequest struct {
+	Email   string `json:"email" binding:"required,email"`
+	OTPCode string `json:"otp_code" binding:"required"`
+}
+
+type ResendOTPRequest struct {
+	Email string `json:"email" binding:"required,email"`
 }
 
 // type User struct{

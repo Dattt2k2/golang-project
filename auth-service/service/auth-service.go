@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"auth-service/helpers"
+	"auth-service/kafka"
 	"auth-service/models"
 	"auth-service/repository"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -21,6 +23,10 @@ type AuthService interface {
 	AdminChangePassword(ctx context.Context, adminID, targetUserID, newPassword string) error
 	Logout(ctx context.Context, userID string, deviceId string) error
 	LogoutAll(ctx context.Context, userID string) error
+	RefreshToken(ctx context.Context, refreshToken string) (string, error)
+	VerifyOTP(ctx context.Context, email, otpCode string) error
+	SendOTP(ctx context.Context, email string) (string, error)
+	ResendOTP(ctx context.Context, email string) (string, error)
 }
 
 type authServiceImpl struct {
@@ -69,7 +75,7 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 		Phone:      &defaultPhone,
 		Created_at: time.Now(),
 		Updated_at: time.Now(),
-		IsVerify:   true,
+		IsVerify:   false,
 	}
 	user.User_id = user.ID.Hex()
 
@@ -87,6 +93,28 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 		return nil, err
 	}
 
+	// Generate OTP
+	otp, err := helpers.GenerateAndStoreOTP(*user.Email, 5*time.Minute)
+	if err != nil {
+		return nil, errors.New("failed to generate OTP")
+	}
+
+	msg := kafka.EmailMessage{
+		To:       *user.Email,
+		Subject:  "Welcome to Our Service",
+		Template: "./template/otp_send.html",
+		Data: map[string]interface{}{
+			"FirstName": *user.First_name,
+			"LastName":  *user.Last_name,
+			"Email":     *user.Email,
+			"OTP":       otp,
+		},
+	}
+
+	err = kafka.SendEmailMessage(kafka.NewKafkaWriter("kafka:9092", "email_topic"), msg)
+	if err != nil {
+		return nil, errors.New("failed to send otp")
+	}
 	return &models.SignUpResponse{
 		Message:      "User registered successfully",
 		User:         result,
@@ -97,8 +125,12 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 
 func (s *authServiceImpl) Login(ctx context.Context, credential *models.LoginCredentials) (*models.LoginResponse, error) {
 	foundUser, err := s.userRepo.FindByEmail(ctx, *credential.Email)
-	if err != nil  || foundUser == nil {
+	if err != nil || foundUser == nil {
 		return nil, errors.New("invalid email or password")
+	}
+
+	if !helpers.CheckIsVerify(foundUser) {
+		return nil, errors.New("user is not verified")
 	}
 
 	if !helpers.VerifyPassword(*credential.Password, *foundUser.Password) {
@@ -204,4 +236,84 @@ func (s *authServiceImpl) Logout(ctx context.Context, userID string, deviceID st
 
 func (s *authServiceImpl) LogoutAll(ctx context.Context, userID string) error {
 	return helpers.InvalidateAllUserRefreshToken(userID)
+}
+
+func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string) (string, error) {
+
+	claims, msg := helpers.ValidateToken(refreshToken)
+	if msg != "" {
+		if claims != nil && helpers.IsExpiredRefreshToken(claims.Uid, refreshToken) {
+			return "", errors.New("refresh token is expired and cannot be used to generate a new access token")
+		}
+		return "", errors.New(msg)
+	}
+
+	accessToken, err := helpers.GenerateToken(claims.Email, claims.FirstName, claims.LastName, claims.UserType, claims.Uid, time.Hour*24)
+	if err != nil {
+		return "", errors.New("error generating new access token")
+	}
+	return accessToken, nil
+}
+
+func (s *authServiceImpl) VerifyOTP(ctx context.Context, email, otpCode string) error {
+	otp, err := helpers.GetOTP(email)
+	if err != nil {
+		return errors.New("failed to retrieve OTP code")
+	}
+
+	if otp != otpCode {
+		return errors.New("invalid OTP code")
+	}
+
+	err = s.userRepo.UpdateVerificationStatus(ctx, email, true)
+	if err != nil {
+		return errors.New("failed to update user verification status")
+	}
+	return nil
+}
+
+func (s *authServiceImpl) SendOTP(ctx context.Context, email string) (string, error) {
+	otp, err := helpers.GenerateAndStoreOTP(email, 5*time.Minute)
+	if err != nil {
+		return "", errors.New("failed to generate OTP")
+	}
+	msg := kafka.EmailMessage{
+		To:       email,
+		Subject:  "Your OTP Code",
+		Template: "./template/otp_send.html",
+		Data: map[string]interface{}{
+			"Email": email,
+			"OTP":   otp,
+		},
+	}
+	err = kafka.SendEmailMessage(kafka.NewKafkaWriter("kafka:9092", "email_topic"), msg)
+	if err != nil {
+		return "", errors.New("failed to send OTP email")
+	}
+
+	return otp, nil
+}
+
+func (s *authServiceImpl) ResendOTP(ctx context.Context, email string) (string, error) {
+	otp, err := helpers.ResendOTP(email)
+	if err != nil {
+		return "", errors.Join()
+	}
+
+	msg := kafka.EmailMessage{
+		To:       email,
+		Subject:  "Resend OTP",
+		Template: "./template/otp_send.html",
+		Data: map[string]interface{}{
+			"Email": email,
+			"OTP":   otp,
+		},
+	}
+
+	err = kafka.SendEmailMessage(kafka.NewKafkaWriter("kafka:9092", "email_topic"), msg)
+	if err != nil {
+		return "", errors.New("failed to send OTP email")
+	}
+
+	return otp, nil
 }

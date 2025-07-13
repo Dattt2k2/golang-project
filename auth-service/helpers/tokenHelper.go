@@ -1,137 +1,43 @@
-// package helpers
-
-// import (
-// 	"context"
-// 	"fmt"
-// 	"log"
-// 	"os"
-// 	"time"
-
-// 	database "database/databaseConnection.gp"
-// 	"github.com/golang-jwt/jwt/v4"
-// 	"go.mongodb.org/mongo-driver/bson"
-// 	"go.mongodb.org/mongo-driver/bson/primitive"
-// 	"go.mongodb.org/mongo-driver/mongo"
-// 	"go.mongodb.org/mongo-driver/mongo/options"
-// )
-
-// type SignedDetails struct{
-// 	Email 			string
-// 	First_name 		string
-// 	Last_name		string
-// 	Uid				string
-// 	User_type 		string
-// 	jwt.RegisteredClaims
-// }
-
-// var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
-
-// var SECRECT_KEY string = os.Getenv("SECRECT_KEY")
-
-// func GenerateAllToken(email string, firstname string, lastname string, userType string, uid string) (signedToken string, signedRefreshToken string, err error){
-// 	claims := &SignedDetails{
-// 		Email : email,
-// 		First_name: firstname,
-// 		Last_name: lastname,
-// 		Uid: uid,
-// 		User_type: userType,
-// 		RegisteredClaims: jwt.RegisteredClaims{
-//             ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * time.Duration(24))),
-//         },
-// 	}
-// 	refreshClaims := &SignedDetails{
-// 		RegisteredClaims: jwt.RegisteredClaims{
-//             ExpiresAt: jwt.NewNumericDate(time.Now().Local().Add(time.Hour * time.Duration(168))),
-//         },
-// 	}
-
-// 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRECT_KEY))
-// 	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(SECRECT_KEY))
-
-// 	if err != nil{
-// 		log.Panic(err)
-// 		return
-// 	}
-// 	return token, refreshToken, err
-// }
-
-// func ValidateToken(signedToken string) (claims *SignedDetails, msg string){
-// 	token, err :=  jwt.ParseWithClaims(
-// 		signedToken,
-// 		&SignedDetails{},
-// 		func(token *jwt.Token)(interface{}, error){
-// 			return []byte(SECRECT_KEY), nil
-// 		},
-// 	)
-// 	if err != nil{
-// 		msg = err.Error()
-// 		return
-// 	}
-// 	claims, ok := token.Claims.(*SignedDetails)
-// 	if !ok{
-// 		msg = fmt.Sprintf("the token is invalid")
-// 		msg = err.Error()
-// 		return
-// 	}
-// 	if claims.ExpiresAt.Before(time.Now()){
-// 		msg = fmt.Sprintf("token is expired")
-// 		msg = err.Error()
-// 		return
-// 	}
-// 	return claims, msg
-// }
-
-// func UpdateAllToken(signedToken string, signedRefreshToken string, userId string){
-// 	var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-// 	var updateObj primitive.D
-
-// 	updateObj = append(updateObj, bson.E{"token", signedToken})
-// 	updateObj = append (updateObj, bson.E{"refresh_token", signedRefreshToken})
-
-// 	Updated_at, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-// 	updateObj = append(updateObj, bson.E{"updated_at", Updated_at})
-// 	upsert := true
-// 	filter := bson.M{"user_id": userId}
-// 	opt := options.UpdateOptions{
-// 		Upsert : &upsert,
-// 	}
-// 	_, err := userCollection.UpdateOne(
-// 		ctx,
-// 		filter,
-// 		bson.D{
-// 			{"$set", updateObj},
-// 		},
-// 		&opt,
-// 	)
-
-// 	defer cancel()
-
-// 	if err != nil{
-// 		log.Panic(err)
-// 		return
-// 	}
-// 	return
-// }
-
 package helpers
 
 import (
-	// "context"
-	// "fmt"
+	"auth-service/database"
+	"auth-service/logger"
+	"context"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	// database "database/databaseConnection.gp"
-	"auth-service/logger"
 	"github.com/golang-jwt/jwt/v4"
-	// "go.mongodb.org/mongo-driver/bson"
-	// "go.mongodb.org/mongo-driver/bson/primitive"
-	// "go.mongodb.org/mongo-driver/mongo"
-	// "go.mongodb.org/mongo-driver/mongo/options"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+// Lưu refresh token đã hết hạn vào MongoDB
+func SaveExpiredRefreshToken(userID, refreshToken string, expiresAt time.Time) error {
+	collection := database.OpenCollection(database.Client, "expired_refresh_tokens")
+	filter := bson.M{"user_id": userID, "refresh_token": refreshToken}
+	update := bson.M{
+		"$set": bson.M{
+			"user_id": userID,
+			"refresh_token": refreshToken,
+			"expires_at": expiresAt,
+		},
+	}
+	opts := options.Update().SetUpsert(true)
+	_, err := collection.UpdateOne(context.Background(), filter, update, opts)
+	return err
+}
+
+// Kiểm tra refresh token đã hết hạn có tồn tại không
+func IsExpiredRefreshToken(userID, refreshToken string) bool {
+	collection := database.OpenCollection(database.Client, "expired_refresh_tokens")
+	filter := bson.M{"user_id": userID, "refresh_token": refreshToken}
+	count, err := collection.CountDocuments(context.Background(), filter)
+	return err == nil && count > 0
+}
 
 type SignedDetails struct{
 	Email        string `json:"email"`
@@ -267,12 +173,14 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 		return
 	}
 
-	if claims.ExpiresAt.Before(time.Now()) {
-		msg = "token is expired"
-		return
-	}
+	   if claims.ExpiresAt.Before(time.Now()) {
+			   msg = "token is expired"
+			   // Lưu refresh token đã hết hạn vào database để kiểm tra về sau
+			   _ = SaveExpiredRefreshToken(claims.Uid, signedToken, claims.ExpiresAt.Time)
+			   return
+	   }
 
-	return claims, msg
+	   return claims, msg
 }
 
 func RefreshToken(refreshToken string) (newAccessToken string, msg string) {
@@ -287,6 +195,7 @@ func RefreshToken(refreshToken string) (newAccessToken string, msg string) {
 		logger.Err("Error generating new access token", err)
 		return "", "Error generating new access token"
 	}
+
 
 	return newAccessToken, ""
 }

@@ -10,16 +10,17 @@ import (
 )
 
 type EmailKafkaMessage struct {
-	To string `json:"to"`
-	Subject string `json:"subject"`
-	TemplatePath string `json:"template_path"`
-	Data interface{} `json:"data"`
+	To           string      `json:"to"`
+	Subject      string      `json:"subject"`
+	TemplatePath string      `json:"template"`
+	Data         interface{} `json:"data"`
 }
 
 func StartKafkaConsumer(emailService *EmailService) error {
+	logger.Info("Starting Kafka consumer for email service...")
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{os.Getenv("KAFKA_BROKER")},
-		Topic: "email_topic",
+		Topic:   "email_topic",
 		GroupID: "email_service_group",
 	})
 

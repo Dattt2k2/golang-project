@@ -6,6 +6,8 @@ import (
 
 	database "auth-service/database"
 	"auth-service/logger"
+	"auth-service/models"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
@@ -40,27 +42,6 @@ func CheckUsernameExists(username string) (bool, error){
 	return count > 0, nil
 }
 
-// func CheckEmailExists(email string) (bool, error){
-// 	exists , err := userBloom.Contains(email)
-// 	if err != nil{
-// 		log.Printf("Error checking email: %v", err)
-// 		return false, err
-// 	}
-
-// 	if !exists{
-// 		return false, nil
-// 	}
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-// 	defer cancel()
-
-// 	count, err := userCollection.CountDocuments(ctx, bson.M{"email": email})
-// 	if err != nil{
-// 		return false, err
-// 	}
-
-// 	return count > 0, nil
-// }
 
 func CheckEmailExists(email string) (bool, error){
 	if userBloom != nil{
@@ -135,4 +116,11 @@ func HashPassword(password string) (string, error) {
 func VerifyPassword(password, hashedPassword string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	return err == nil
+}
+
+func CheckIsVerify(user *models.User) bool {
+	if user == nil {
+		return false 
+	}
+	return user.IsVerify
 }

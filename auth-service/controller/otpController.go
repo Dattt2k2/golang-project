@@ -33,7 +33,7 @@ type OTPRequest struct {
 
 func SendOTPHander(email, template string) error {
 	expireTime := 3
-	otpCode, err := helpers.GenerateAndStoreOTP(redisClient, email, time.Duration(expireTime)*time.Minute)
+	otpCode, err := helpers.GenerateAndStoreOTP(email, time.Duration(expireTime)*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func VerifyOTPHandler() gin.HandlerFunc {
 			return
 		}
 
-		otpCode, err := helpers.GetOTP(redisClient, req.Email)
+		otpCode, err := helpers.GetOTP(req.Email)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "Failed to retrieve OTP code"})
@@ -103,9 +103,9 @@ func ResendOTPHander() gin.HandlerFunc {
 		redisClient.Incr(ctx, resendKey)
 		redisClient.Expire(ctx, resendKey, 10*time.Minute)
 
-		otpCode, err := helpers.GetOTP(redisClient, req.Email)
+		otpCode, err := helpers.GetOTP(req.Email)
 		if err != nil {
-			otpCode, err = helpers.GenerateAndStoreOTP(redisClient, req.Email, 3*time.Minute)
+			otpCode, err = helpers.GenerateAndStoreOTP(req.Email, 3*time.Minute)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate OTP"})
 				return

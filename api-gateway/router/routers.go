@@ -17,6 +17,7 @@ import (
 	// "github.com/Dattt2k2/golang-project/api-gateway/middleware"
 	"api-gateway/logger"
 	"api-gateway/middleware"
+
 	"github.com/gin-gonic/gin"
 	// "google.golang.org/grpc/admin"
 	// "golang.org/x/text/transform"
@@ -406,88 +407,6 @@ func SetupRouter(router *gin.Engine) {
 			c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 		})
 
-		// auth.POST("/login", func(c *gin.Context) {
-		// 	bodyBytes, _ := io.ReadAll(c.Request.Body)
-		// 	req, _ := http.NewRequest("POST", "http://auth-service:8081/auth/users/login", bytes.NewReader(bodyBytes))
-		// 	req.Header.Set("Content-Type", "application/json")
-		// 	req.Header.Set("X-Device-Id", c.GetString("device_id"))
-		// 	req.Header.Set("User-Agent", c.GetString("user_agent"))
-		// 	req.Header.Set("X-Platform", c.GetString("platform"))
-
-		// 	resp, err := client.Do(req)
-		// 	if err != nil {
-		// 		logger.Err("Error creating new request", err)
-		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
-		// 		return
-		// 	}
-		// 	logger.Info("Auth response:", logger.Int("statusCode", resp.StatusCode))
-		// 	defer resp.Body.Close()
-
-		// 	responseBytes, _ := io.ReadAll(resp.Body)
-		// 	logger.Info("Auth response body:", logger.Str("responseBody", string(responseBytes)))
-
-		// 	// Nếu status code không phải 200, forward trực tiếp response lỗi
-		// 	if resp.StatusCode != http.StatusOK {
-		// 		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), responseBytes)
-		// 		return
-		// 	}
-
-		// 	var loginResponse struct {
-		// 		Email        string `json:"email"`
-		// 		User_type    string `json:"user_type"`
-		// 		Uid          string `json:"user_id"`
-		// 		Token        string `json:"token"`
-		// 		RefreshToken string `json:"refresh_token"`
-		// 	}
-		// 	if err := json.Unmarshal(responseBytes, &loginResponse); err != nil {
-		// 		logger.Err("Failed to parse auth response", err, logger.Str("responseBody", string(responseBytes)))
-		// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse auth response"})
-		// 		return
-		// 	}
-
-		// 	logger.Info("After unmarshalling:", logger.Str("email", loginResponse.Email), logger.Str("user_type", loginResponse.User_type), logger.Str("uid", loginResponse.Uid), logger.Str("token", loginResponse.Token))
-
-		// 	// Lưu thông tin vào context
-		// 	c.Set("email", loginResponse.Email)
-		// 	c.Set("role", loginResponse.User_type)
-		// 	c.Set("uid", loginResponse.Uid)
-
-		// 	a, _ := c.Get("email")
-		// 	logger.Info("Email from context:", logger.Str("email", a.(string)))
-
-		// 	c.SetCookie(
-		// 		"auth_token",
-		// 		loginResponse.Token,
-		// 		60*60*24*7, // 7 ngày
-		// 		"/",
-		// 		"",
-		// 		c.Request.TLS != nil, // secure nếu là HTTPS
-		// 		true,                 // httpOnly
-		// 	)
-
-		// 	// Lưu refresh_token vào cookie
-		// 	c.SetCookie(
-		// 		"refresh_token",
-		// 		loginResponse.RefreshToken,
-		// 		60*60*24*30, // 30 ngày
-		// 		"/",
-		// 		"",
-		// 		c.Request.TLS != nil,
-		// 		true,
-		// 	)
-
-		// 	logger.Info("Set auth_token and refresh_token cookies")
-
-		// 	// Gửi phản hồi trở lại client (bao gồm token)
-		// 	c.JSON(resp.StatusCode, gin.H{
-		// 		"message":       "Login successful",
-		// 		"email":         loginResponse.Email,
-		// 		"role":          loginResponse.User_type,
-		// 		"uid":           loginResponse.Uid,
-		// 		"token":         loginResponse.Token,
-		// 		"refresh_token": loginResponse.RefreshToken,
-		// 	})
-		// })
 		auth.POST("/login", func(c *gin.Context) {
 			bodyBytes, err := io.ReadAll(c.Request.Body)
 			if err != nil {
@@ -546,7 +465,7 @@ func SetupRouter(router *gin.Engine) {
 				Email        string `json:"email"`
 				User_type    string `json:"user_type"`
 				Uid          string `json:"user_id"`
-				Token        string `json:"token"`
+				Token        string `json:"access_token"`
 				RefreshToken string `json:"refresh_token"`
 			}
 			if err := json.Unmarshal(responseBytes, &loginResponse); err != nil {
@@ -559,8 +478,8 @@ func SetupRouter(router *gin.Engine) {
 			c.Set("role", loginResponse.User_type)
 			c.Set("uid", loginResponse.Uid)
 
-			c.SetCookie("auth_token", loginResponse.Token, 60*60*24*7, "/", "", c.Request.TLS != nil, true)
-			c.SetCookie("refresh_token", loginResponse.RefreshToken, 60*60*24*30, "/", "", c.Request.TLS != nil, true)
+			// c.SetCookie("auth_token", loginResponse.Token, 60*60*24*7, "/", "", c.Request.TLS != nil, true)
+			// c.SetCookie("refresh_token", loginResponse.RefreshToken, 60*60*24*30, "/", "", c.Request.TLS != nil, true)
 
 			logger.Info("Login successful", logger.Str("uid", loginResponse.Uid))
 
@@ -569,19 +488,81 @@ func SetupRouter(router *gin.Engine) {
 				"email":         loginResponse.Email,
 				"role":          loginResponse.User_type,
 				"uid":           loginResponse.Uid,
-				"token":         loginResponse.Token,
+				"access_token":  loginResponse.Token,
 				"refresh_token": loginResponse.RefreshToken,
 			})
 		})
 
+		auth.POST("/refresh-token", func(c *gin.Context) {
+			var reqBody struct {
+				RefreshToken string `json:"refresh_token"`
+			}
+			if err := c.ShouldBindJSON(&reqBody); err != nil || reqBody.RefreshToken == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Missing refresh_token in body"})
+				return
+			}
+
+			jsonBody, _ := json.Marshal(reqBody)
+			req, err := http.NewRequest("POST", "http://auth-service:8081/auth/refresh-token", bytes.NewReader(jsonBody))
+			if err != nil {
+				logger.Err("Error creating refresh token request", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				logger.Err("Error sending refresh token request", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
+				return
+			}
+			defer resp.Body.Close()
+
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
+		})
+
+		auth.POST("/verify-otp", func(c *gin.Context) {
+			bodyBytes, _ := io.ReadAll(c.Request.Body)
+			req, _ := http.NewRequest("POST", "http://auth-service:8081/auth/verify-otp", bytes.NewReader(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Device-Id", c.GetString("device_id"))
+			req.Header.Set("User-Agent", c.GetString("user_agent"))
+			req.Header.Set("X-Platform", c.GetString("platform"))
+
+			resp, err := client.Do(req)
+			if err != nil {
+				logger.Err("Error creating new request", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
+				return
+			}
+			defer resp.Body.Close()
+
+			c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+		})
+
+		auth.POST("/resend-otp", func(c *gin.Context) {
+			bodyBytes, _ := io.ReadAll(c.Request.Body)
+			req, _ := http.NewRequest("POST", "http://auth-service:8081/auth/resend-otp", bytes.NewReader(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Device-Id", c.GetString("device_id"))
+			req.Header.Set("User-Agent", c.GetString("user_agent"))
+			req.Header.Set("X-Platform", c.GetString("platform"))
+
+			resp, err := client.Do(req)
+			if err != nil {
+				logger.Err("Error creating new request", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to auth service"})
+				return
+			}
+			defer resp.Body.Close()
+
+			c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+		})
 	}
-	router.GET("/images/:filename", GetImage())
-	// In your SetupRouter function
-	router.GET("/static-images/:filename", func(c *gin.Context) {
-		filename := c.Param("filename")
-		logger.Info("Forwarding to static-images:", logger.Str("filename", filename))
-		ForwardImageRequest(c, "http://product-service:8082/static-images/"+filename)
-	})
+
 	// Protected routes - cần auth
 	protected := router.Group("/api")
 	protected.Use(middleware.AuthMiddleware())

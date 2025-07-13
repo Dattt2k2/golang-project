@@ -17,4 +17,8 @@ func AuthRoutes(router *gin.Engine) {
 
 	authGroup.POST("/users/register", authController.SignUp())
 	authGroup.POST("/users/login", authController.Login())
+	authGroup.POST("/refresh-token", authController.RefreshToken())
+
+	authGroup.POST("/verify-otp", authController.VerifyOTP())
+	authGroup.POST("/resend-otp", authController.ResendOTP())
 }

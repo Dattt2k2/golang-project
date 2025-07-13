@@ -59,11 +59,6 @@ func (ctrl *AuthController) SignUp() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		err = SendOTPHander(*user.Email, "send_otp.html")
-		if err != nil {
-			logger.Error("Error sending OTP", logger.ErrField(err))
-		}
-
 		c.JSON(http.StatusOK, gin.H{
 			"message":       "User created successfully",
 			"user":          response.User,
@@ -89,7 +84,7 @@ func (ctrl *AuthController) Login() gin.HandlerFunc {
 		response, err := ctrl.authService.Login(ctx, &credential)
 		if err != nil {
 			logger.Err("Error logging in", err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -318,5 +313,81 @@ func (ctrl *AuthController) GetDevices() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, devices)
 		logger.Info("Devices retrieved successfully", logger.Str("user_id", userID))
+	}
+}
+
+func (ctrl *AuthController) RefreshToken() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		var req struct {
+			RefreshToken string `json:"refresh_token" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		accessToken, err := ctrl.authService.RefreshToken(ctx, req.RefreshToken)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"access_token": accessToken})
+	}
+}
+
+func (ctrl *AuthController) VerifyOTP() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		var req models.VerifyOTPRequest
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		if err := ctrl.authService.VerifyOTP(ctx, req.Email, req.OTPCode); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OTP code"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "OTP code verified successfully"})
+	}
+}
+
+func (ctrl *AuthController) ResendOTP() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		var req models.ResendOTPRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+		// if c.Errors != nil {
+		// 	var errMsgs []string
+		// 	for _, e := range c.Errors {
+		// 		errMsgs = append(errMsgs, e.Error())
+		// 	}
+		// 	c.JSON(http.StatusBadRequest, gin.H{"error": errMsgs})
+		// 	return
+		// }
+		_, err := ctrl.authService.ResendOTP(ctx, req.Email)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resend OTP"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "OTP code resent successfully",
+		})
 	}
 }
