@@ -2,10 +2,13 @@ package helpers
 
 import (
 	"auth-service/database"
+	"auth-service/logger"
 	"context"
 	"errors"
 	"math/rand"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func generateOTP(length int) string {
@@ -31,12 +34,22 @@ func GenerateAndStoreOTP(email string, expire time.Duration) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// Log OTP and email
+	logger.Logger.Infof("Generated OTP for %s: %s", email, otp)
+	logger.Logger.Infof("Storing OTP in Redis: key=otp:%s, value=%s", email, otp)
 	return otp, nil
 }
 
 func GetOTP(email string) (string, error) {
 	ctx := context.Background()
-	return database.RedisClient.Get(ctx, "otp:"+email).Result()
+	otp, err := database.RedisClient.Get(ctx, "otp:"+email).Result()
+	if err != nil {
+		logger.Logger.Errorf("Failed to retrieve OTP for %s: %v", email, err)
+		return "", err
+	}
+	// Log OTP and email
+	logger.Logger.Infof("Retrieved OTP for %s: %s", email, otp)
+	return otp, nil
 }
 
 func ResendOTP(email string) (string, error) {
@@ -44,6 +57,7 @@ func ResendOTP(email string) (string, error) {
 	resendKey := "resend_otp:" + email
 	count, _ := database.RedisClient.Get(ctx, resendKey).Int()
 	if count >= 5 {
+		logger.Logger.Warn("Too many OTP resend requests", zap.String("email", email), zap.Int("count", count))
 		return "", errors.New("too many OTP resend requests, please try again later")
 	}
 	database.RedisClient.Incr(ctx, resendKey)
@@ -52,5 +66,7 @@ func ResendOTP(email string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// Log new OTP
+	logger.Logger.Infof("Resent OTP for %s: %s", email, otp)
 	return otp, nil
 }

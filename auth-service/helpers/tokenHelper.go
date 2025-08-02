@@ -61,7 +61,7 @@ func InitDotEnv() {
 	}
 
 	// Lấy giá trị SECRET_KEY từ biến môi trường
-	SECRET_KEY = os.Getenv("SECRET_KEY")
+	SECRET_KEY = os.Getenv("JWT_SECRET")
 	if SECRET_KEY == "" {
 		logger.Err("SECRET_KEY is not set in .env file", nil)
 	}

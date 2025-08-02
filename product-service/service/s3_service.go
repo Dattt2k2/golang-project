@@ -187,6 +187,7 @@ func (s *S3Service) GeneratePresignedUploadURL(filename, contentType string) (st
 	return urlStr, publicURL, nil
 }
 
+
 // GeneratePresignedDownloadURL - Tạo presigned URL để download (cho private files)
 func (s *S3Service) GeneratePresignedDownloadURL(key string, expiration time.Duration) (string, error) {
 	req, _ := s.client.GetObjectRequest(&s3.GetObjectInput{

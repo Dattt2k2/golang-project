@@ -53,7 +53,7 @@ func main() {
 			log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
 		}
 		repo := repository.NewProductRepository(database.OpenCollection(database.Client, "products"))
-		svc := service.NewProductService(repo)
+		svc := service.NewProductService(repo, service.NewS3Service())
 		productServer := controllers.NewProductServer(svc)
 		s := grpc.NewServer()
 

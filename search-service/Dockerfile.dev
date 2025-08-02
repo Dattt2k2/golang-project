@@ -8,6 +8,6 @@ COPY . .
 # Cài air (hot reload)
 RUN go install github.com/air-verse/air@latest
 
-WORKDIR /app/product-service
+WORKDIR /app/search-service
 
 CMD ["air"]

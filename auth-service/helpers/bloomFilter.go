@@ -7,11 +7,12 @@ import (
 	"math"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/net/context"
+	"gorm.io/gorm"
 
 	database "auth-service/database"
+	"auth-service/models"
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -46,50 +47,37 @@ func NewUserBloomFilter() *BloomFilter{
 	return NewBloomFilter("user_bloom", DefaultM, DefaultK)
 }
 
-func (bf *BloomFilter) Init(userCollection *mongo.Collection) error{
+func (bf *BloomFilter) Init(db *gorm.DB) error{
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	database.RedisClient.Del(ctx, bf.Name)
 
-	cursor, err := userCollection.Find(ctx, bson.M{})
-	if err != nil{
-		return err
-	}
-
-	defer cursor.Close(ctx)
+	var users []struct {
+        Email   string
+        Username string
+        Phone   string
+    }
+    // Nếu bạn không có trường Username thì bỏ Username đi
+    if err := db.Model(&models.User{}).Select("email, phone").Find(&users).Error; err != nil {
+        return err
+    }
 
 	pipe := database.RedisClient.Pipeline()
 	count := 0
 
-	for cursor.Next(ctx){
-		var user struct {
-			Email string	`bson:"email"`
-			Username string `bson:"username,omitempty"`
-			Phone string	`bson:"phone,omitempty"`
-		}
-
-		if err := cursor.Decode(&user); err != nil{
-			continue
-		}
-
-		if user.Email != ""{
+	for _, user := range users {
+		if user.Email != "" {
 			bf.addToPipeline(pipe, user.Email)
 			count++
 		}
-
-		if user.Username != ""{
-			bf.addToPipeline(pipe, user.Username)
-			count++
-		}
-
-		if user.Phone != ""{
+		if user.Phone != "" {
 			bf.addToPipeline(pipe, user.Phone)
 			count++
 		}
 	}
-	
-	_, err = pipe.Exec(ctx)
+
+	_, err := pipe.Exec(ctx)
 	return err
 }
 

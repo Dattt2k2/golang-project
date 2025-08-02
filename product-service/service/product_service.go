@@ -31,10 +31,11 @@ type ProductService interface {
 
 type productServiceImpl struct {
 	repo repository.ProductRepository
+	S3Service *S3Service
 }
 
-func NewProductService(repo repository.ProductRepository) ProductService {
-	return &productServiceImpl{repo: repo}
+func NewProductService(repo repository.ProductRepository, s3Service *S3Service ) ProductService {
+	return &productServiceImpl{repo: repo, S3Service : s3Service}
 }
 
 func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Product) error {
@@ -112,6 +113,12 @@ func (s *productServiceImpl) GetProductByID(ctx context.Context, id primitive.Ob
 	found, err := helper.GetCachedProductData(ctx, cacheKey, &product)
 	if err == nil && found {
 		log.Printf("Cache hit for product: %s", id.Hex())
+		if product.ImagePath != "" {
+			url, err := s.GetS3PathIfExist(product.ImagePath, 100*time.Minute)
+			if err == nil {
+				product.ImagePath = url 
+			}
+		}
 		return &product, nil
 	}
 
@@ -124,7 +131,7 @@ func (s *productServiceImpl) GetProductByID(ctx context.Context, id primitive.Ob
 		go func(p *models.Product) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			if err := helper.CacheProductData(ctx, cacheKey, p, 30*time.Minute); err != nil { // Đổi TTL thành 30 phút
+			if err := helper.CacheProductData(ctx, cacheKey, p, 30*time.Minute); err != nil { 
 				log.Printf("Error caching product data: %v", err)
 			} else {
 				log.Printf("Cached product data with key: %s", cacheKey)
@@ -140,8 +147,8 @@ func (s *productServiceImpl) GetProductByName(ctx context.Context, name string) 
 
 func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product, int64, int, bool, bool, bool, error) {
 	cachedResult, found, err := helper.GetAllProductsFromCache(ctx, page, limit)
+
 	if err == nil && found && cachedResult != nil {
-		log.Printf("Cache hit for products: page=%d, limit=%d", page, limit)
 		return cachedResult.Products, cachedResult.Total, cachedResult.Pages, cachedResult.HasNext, cachedResult.HasPrev, true, nil
 	}
 
@@ -149,6 +156,15 @@ func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int
 	products, total, err := s.repo.FindAll(ctx, skip, limit)
 	if err != nil {
 		return nil, 0, 0, false, false, false, err
+	}
+
+	for i := range products {
+		if products[i].ImagePath != "" {
+			url, err := s.GetS3PathIfExist(products[i].ImagePath, 100*time.Minute)
+			if err == nil {
+				products[i].ImagePath = url 
+			}
+		}
 	}
 
 	pages := int((total + limit - 1) / limit)
@@ -261,9 +277,16 @@ func (s *productServiceImpl) DecrementSoldCount(ctx context.Context, productID s
 
 
 func (s *productServiceImpl) GetAllProductForIndex(ctx context.Context) ([]models.Product, error) {
-	products, _ , err := s.repo.FindAll(ctx, 0, 0) // Lấy tất cả sản phẩm mà không phân trang
+	products, _, err := s.repo.FindAll(ctx, 0, 0)
 	if err != nil {
 		return nil, err
 	}
-	return products, err 
+	return products, nil
+}
+
+func (s *productServiceImpl) GetS3PathIfExist(key string, expiration time.Duration) (string, error) {
+	if key == "" {
+		return "", errors.New("image key is empty")
+	}
+	return s.S3Service.GeneratePresignedDownloadURL(key, expiration)
 }

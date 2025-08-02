@@ -9,8 +9,8 @@ import (
 	"auth-service/kafka"
 	"auth-service/models"
 	"auth-service/repository"
+	"auth-service/websocket"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type AuthService interface {
@@ -27,6 +27,7 @@ type AuthService interface {
 	VerifyOTP(ctx context.Context, email, otpCode string) error
 	SendOTP(ctx context.Context, email string) (string, error)
 	ResendOTP(ctx context.Context, email string) (string, error)
+	UpdateUserRole(ctx context.Context, userID, newRole string) error
 }
 
 type authServiceImpl struct {
@@ -66,24 +67,22 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 	defaultPhone := ""
 
 	user := &models.User{
-		ID:         primitive.NewObjectID(),
 		Email:      &email,
 		Password:   &hashedPassword,
-		First_name: &defaultFirstName,
-		Last_name:  &defaultLastName,
-		User_type:  &userType,
+		FirstName:  &defaultFirstName,
+		LastName:   &defaultLastName,
+		UserType:   &userType,
 		Phone:      &defaultPhone,
-		Created_at: time.Now(),
-		Updated_at: time.Now(),
 		IsVerify:   false,
 	}
-	user.User_id = user.ID.Hex()
-
-	token, refreshToken, err := helpers.GenerateAllToken(email, defaultFirstName, defaultLastName, userType, user.User_id)
+	result, err := s.userRepo.Create(ctx, user)
 	if err != nil {
 		return nil, err
 	}
-	result, err := s.userRepo.Create(ctx, user)
+
+	userID := result.ID.String()
+
+	token, refreshToken, err := helpers.GenerateAllToken(email, defaultFirstName, defaultLastName, userType, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +103,8 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 		Subject:  "Welcome to Our Service",
 		Template: "./template/otp_send.html",
 		Data: map[string]interface{}{
-			"FirstName": *user.First_name,
-			"LastName":  *user.Last_name,
+			"FirstName": *user.FirstName,
+			"LastName":  *user.LastName,
 			"Email":     *user.Email,
 			"OTP":       otp,
 		},
@@ -137,17 +136,17 @@ func (s *authServiceImpl) Login(ctx context.Context, credential *models.LoginCre
 		return nil, errors.New("email or password is incorrect")
 	}
 
-	token, refreshToken, err := helpers.GenerateAllToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
+	token, refreshToken, err := helpers.GenerateAllToken(*foundUser.Email, *foundUser.FirstName, *foundUser.LastName, *foundUser.UserType, foundUser.ID.String())
 	if err != nil {
 		return nil, errors.New("error generating token")
 	}
 
 	loginResponse := &models.LoginResponse{
 		Email:        *foundUser.Email,
-		First_name:   *foundUser.First_name,
-		Last_name:    *foundUser.Last_name,
-		User_type:    *foundUser.User_type,
-		User_id:      foundUser.User_id,
+		First_name:   *foundUser.FirstName,
+		Last_name:    *foundUser.LastName,
+		User_type:    *foundUser.UserType,
+		User_id:      foundUser.ID.String(),
 		Token:        token,
 		RefreshToken: refreshToken,
 	}
@@ -218,7 +217,7 @@ func (s *authServiceImpl) AdminChangePassword(ctx context.Context, adminID, targ
 		return errors.New("target user not found")
 	}
 
-	if *targetUser.User_type != "USER" {
+	if *targetUser.UserType != "USER" {
 		return errors.New("target user is not a seller")
 	}
 
@@ -316,4 +315,33 @@ func (s *authServiceImpl) ResendOTP(ctx context.Context, email string) (string, 
 	}
 
 	return otp, nil
+}
+
+func (s *authServiceImpl) UpdateUserRole(ctx context.Context, userID, newRole string) error {
+	err := s.userRepo.UpdateRole(ctx, userID, newRole)
+	if err != nil {
+		return err 
+	}
+
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return err 
+	}
+
+	accessToken, err := helpers.GenerateToken(*user.Email, *user.FirstName, *user.LastName, newRole, userID, time.Hour*24)
+	if err != nil {
+		return err
+	}
+
+	refreshToken, err := helpers.GenerateToken(*user.Email, *user.FirstName, *user.LastName, newRole, userID, time.Hour*168)
+	if err != nil {
+		return err
+	}
+
+	err = websocket.NotifyRoleChange(userID, newRole, accessToken, refreshToken)
+	if err != nil {
+		return err 
+	}
+
+	return nil
 }

@@ -53,7 +53,7 @@ func (ctrl *AuthController) SignUp() gin.HandlerFunc {
 			return
 		}
 
-		response, err := ctrl.authService.Register(ctx, *user.Email, *user.Password, *user.User_type)
+		response, err := ctrl.authService.Register(ctx, *user.Email, *user.Password, *user.UserType)
 		if err != nil {
 			logger.Err("Error registering user", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -390,4 +390,25 @@ func (ctrl *AuthController) ResendOTP() gin.HandlerFunc {
 			"message": "OTP code resent successfully",
 		})
 	}
+}
+
+func (ctrl *AuthController) UpdateUserRole() gin.HandlerFunc {
+	return func(c *gin.Context) {
+        var req struct {
+            UserID  string `json:"user_id"`
+            NewRole string `json:"new_role"`
+        }
+        if err := c.ShouldBindJSON(&req); err != nil {
+            c.JSON(400, gin.H{"error": "Invalid request"})
+            return
+        }
+
+        err := ctrl.authService.UpdateUserRole(c.Request.Context(), req.UserID, req.NewRole)
+        if err != nil {
+            c.JSON(500, gin.H{"error": err.Error()})
+            return
+        }
+
+        c.JSON(200, gin.H{"message": "User role updated successfully"})
+    }
 }

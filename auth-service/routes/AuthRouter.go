@@ -4,6 +4,7 @@ import (
 	controller "auth-service/controller"
 	"auth-service/repository"
 	service "auth-service/service"
+	"auth-service/websocket"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,4 +22,5 @@ func AuthRoutes(router *gin.Engine) {
 
 	authGroup.POST("/verify-otp", authController.VerifyOTP())
 	authGroup.POST("/resend-otp", authController.ResendOTP())
+	authGroup.GET("/ws", websocket.WebSocketHander)
 }

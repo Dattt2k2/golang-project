@@ -12,7 +12,7 @@ import (
 // Hàm khởi tạo service riêng để dùng cho Kafka consumer hoặc các mục đích khác
 func NewProductService() service.ProductService {
 	productRepo := repository.NewProductRepository(database.OpenCollection(database.Client, "products"))
-	return service.NewProductService(productRepo)
+	return service.NewProductService(productRepo, service.NewS3Service())
 }
 
 func SetupProductController() *controller.ProductController {

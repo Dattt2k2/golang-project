@@ -12,7 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var DB *mongo.Database
 var Client *mongo.Client = DBinstance()
 
 func DBinstance() *mongo.Client {

@@ -33,7 +33,7 @@ type Product struct {
 	SoldCount   int                `json:"sold_count" bson:"sold_count"`
 	Created_at  time.Time          `json:"created_at" bson:"created_at"`
 	Updated_at  time.Time          `json:"updated_at" bson:"updated_at"`
-	UserID      primitive.ObjectID `json:"user_id" bson:"user_id"`
+	UserID      string             `json:"user_id" bson:"user_id"`
 }
 
 // CreateProductRequest - Request struct cho tạo product mới

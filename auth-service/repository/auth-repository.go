@@ -2,135 +2,89 @@ package repository
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	"auth-service/database"
 	"auth-service/models"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/gorm"
 )
 
 type UserRepository interface {
-	FindByEmail(ctx context.Context, email string) (*models.User, error)
-	FindByID(ctx context.Context, id string) (*models.User, error)
-	Create(ctx context.Context, user *models.User) (*mongo.InsertOneResult, error)
-	GetAllUsers(ctx context.Context, startIndex int, recordPerPage int) ([]bson.M, error)
-	UpdatePassword(ctx context.Context, userID string, hashedPass string) error 
-	GetUserType(ctx context.Context, userID string) (string, error)
-	UpdateVerificationStatus(ctx context.Context, userID string, isVerified bool) error
+    FindByEmail(ctx context.Context, email string) (*models.User, error)
+    FindByID(ctx context.Context, id string) (*models.User, error)
+    Create(ctx context.Context, user *models.User) (*models.User, error)
+    GetAllUsers(ctx context.Context, offset int, limit int) ([]models.User, error)
+    UpdatePassword(ctx context.Context, userID string, hashedPass string) error
+    GetUserType(ctx context.Context, userID string) (string, error)
+    UpdateVerificationStatus(ctx context.Context, email string, isVerified bool) error
+    UpdateRole(ctx context.Context, userID, newRole string) error
 }
 
 type userRepositoryImpl struct {
-	collection *mongo.Collection
+	db *gorm.DB
 }
 
 func NewUserRepository() UserRepository {
 	return &userRepositoryImpl{
-		collection: database.OpenCollection(database.Client, "user"),
+		db: database.DB,
 	}
 }
 
 func (r *userRepositoryImpl) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User 
-	err := r.collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
-	if err == mongo.ErrNoDocuments {
-		return nil, errors.New("user not found")
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+		return nil, err
 	}
-	if err != nil {
-		return nil, err 
-	}
-	
 
 	return &user, nil
 }
 
 func (r *userRepositoryImpl) FindByID(ctx context.Context, id string) (*models.User, error) {
 	var user models.User 
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
-	if err != nil {
-		return nil, err 
-	}
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&user).Error; err != nil {
+        return nil, err
+    }
 	return &user, nil
 }
 
-func (r *userRepositoryImpl) Create(ctx context.Context, user *models.User) (*mongo.InsertOneResult, error) {
-	result, err := r.collection.InsertOne(ctx, user)
-	return result, err
+func (r *userRepositoryImpl) Create(ctx context.Context, user *models.User) (*models.User, error) {
+	 if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
+        return nil, err
+    }
+	return user, nil
 }
 
-func (r *userRepositoryImpl) GetAllUsers(ctx context.Context, startIndex int, recordPerPage int) ([]bson.M, error) {
+func (r *userRepositoryImpl) GetAllUsers(ctx context.Context, startIndex int, recordPerPage int) ([]models.User, error) {
 
-	matchStage := bson.D{{Key: "$match", Value: bson.D{}}}
-	groupStage := bson.D{{Key: "$group", Value: bson.D{
-		{Key: "_id", Value: "null"},
-		{Key: "totalCount", Value: bson.D{{Key: "$sum", Value: 1}}},
-		{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}},
-	}}}
-	projectStage := bson.D{{Key: "$project", Value: bson.D{
-        {Key: "_id", Value: 0},
-        {Key: "total_count", Value: 1},
-        {Key: "user_items", Value: bson.D{{Key: "$slice", Value: []interface{}{"$data", startIndex, recordPerPage}}}},
-    }}}
-
-	result, err := r.collection.Aggregate(ctx, mongo.Pipeline{
-		matchStage, groupStage, projectStage,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	var allUsers []bson.M
-	if err = result.All(ctx, &allUsers); err != nil {
-		return nil, err 
-	}
-	return allUsers, nil
+	var users []models.User
+    if err := r.db.WithContext(ctx).Offset(startIndex).Limit(recordPerPage).Find(&users).Error; err != nil {
+        return nil, err
+    }
+	return users, nil
 }
 
 func (r *userRepositoryImpl) UpdatePassword(ctx context.Context, userID string, hashedPassword string) error {
-	filter := bson.M{"_id": userID}
-	update := bson.M{
-		"$set": bson.M{
-			"password": hashedPassword,
-			"updated_at": time.Now(),
-		},
-	}
-	
-	_, err := r.collection.UpdateOne(ctx, filter, update)
-	return err 
+	return r.db.WithContext(ctx).Model(&models.User{}).
+    	Where("id = ?", userID).
+    	Update("password", hashedPassword).Error 
 }
 
 func (r *userRepositoryImpl) GetUserType(ctx context.Context, userID string) (string, error) {
-	var result struct {
-		UserType string `bson:"user_type"`
-	}
-
-	err := r.collection.FindOne(
-		ctx,
-		bson.M{"_id": userID},
-		options.FindOne().SetProjection(bson.M{"user_type": 1, "_id": 0}),
-	).Decode(&result)
-
-	if err != nil {
-		return "", err 
-	}
-
-	return result.UserType, nil
+	var user models.User
+    if err := r.db.WithContext(ctx).Select("user_type").Where("id = ?", userID).First(&user).Error; err != nil {
+        return "", err
+    }
+	return *user.UserType, nil
 }
 
 func (r *userRepositoryImpl) UpdateVerificationStatus(ctx context.Context, email string, isVerified bool) error {
-	filter := bson.M{"email": email}
-	update := bson.M{
-		"$set": bson.M{
-			"is_verify": isVerified,
-			"updated_at": time.Now(),
-		},
-	}
+	return r.db.WithContext(ctx).Model(&models.User{}).
+        Where("email = ?", email).
+        Update("is_verify", isVerified).Error
+}
 
-	opts := options.Update()
-	_, err := r.collection.UpdateOne(ctx, filter, update, opts)
-	return err
+func (r *userRepositoryImpl) UpdateRole(ctx context.Context, userID, newRole string) error {
+	return r.db.WithContext(ctx).Model(&models.User{}).
+        Where("id = ?", userID).
+        Update("user_type", newRole).Error
 }

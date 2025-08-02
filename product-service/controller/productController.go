@@ -2,12 +2,9 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
+
 	"strconv"
 	"time"
 
@@ -31,62 +28,6 @@ func NewProductController(service service.ProductService, s3Service service.S3Se
 	}
 }
 
-// func CheckSellerRole(c *gin.Context) {
-// 	userRole := c.GetHeader("user_type")
-// 	if userRole != "SELLER" {
-// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "You don't have permission"})
-// 		c.Abort()
-// 		return
-// 	}
-// 	c.Next()
-// }
-
-func saveImageToFileSystem(c *gin.Context, file *multipart.FileHeader) (string, error) {
-	// Get current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("Error getting working directory: %v", err)
-	}
-	log.Printf("Current working directory: %s", wd)
-
-	// Create absolute paths
-	possibleDirs := []string{
-		filepath.Join(wd, "uploads", "images"),
-		filepath.Join(wd, "product-service", "uploads", "images"),
-	}
-
-	var saveDir string
-	for _, dir := range possibleDirs {
-		err := os.MkdirAll(dir, os.ModePerm)
-		if err == nil {
-			saveDir = dir
-			log.Printf("Successfully created directory: %s", saveDir)
-			break
-		}
-		log.Printf("Failed to create directory %s: %v", dir, err)
-	}
-
-	if saveDir == "" {
-		return "", fmt.Errorf("Failed to create any image directory")
-	}
-
-	// Create a unique filename
-	imageFileName := fmt.Sprintf("%d-%s", time.Now().Unix(), file.Filename)
-	imagePath := filepath.Join(saveDir, imageFileName)
-
-	log.Printf("Saving file to: %s", imagePath)
-
-	// Save the file
-	if err := c.SaveUploadedFile(file, imagePath); err != nil {
-		return "", fmt.Errorf("Failed to save image: %v", err)
-	}
-
-	log.Printf("Successfully saved image to: %s", imagePath)
-
-	// Return just the filename
-	return imageFileName, nil
-}
-
 func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
@@ -101,41 +42,17 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
 			return
 		}
-
-		userObjID, err := primitive.ObjectIDFromHex(userID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		var req models.CreateProductRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
 			return
 		}
-
-		name := c.PostForm("name")
-		description := c.PostForm("description")
-		quantityStr := c.PostForm("quantity")
-		priceStr := c.PostForm("price")
-		category := c.PostForm("category")
-
-		quantity, err := strconv.Atoi(quantityStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity"})
-			return
-		}
-		price, err := strconv.ParseFloat(priceStr, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price"})
-			return
-		}
-
-		file, err := c.FormFile("image")
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Image is required"})
-			return
-		}
-
-		imagePath, err := saveImageToFileSystem(c, file)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image"})
-			return
-		}
+		name := req.Name
+		description := req.Description
+		quantity := req.Quantity
+		price := req.Price
+		category := req.Category
+		imagePath := req.ImagePath
 
 		product := models.Product{
 			Name:        name,
@@ -144,7 +61,7 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			Price:       price,
 			Quantity:    quantity,
 			ImagePath:   imagePath,
-			UserID:      userObjID,
+			UserID:      userID,
 		}
 
 		if err := ctrl.service.AddProduct(ctx, product); err != nil {
@@ -208,15 +125,7 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 			update["quantity"] = quantity
 		}
 
-		file, err := c.FormFile("image")
-		if err == nil {
-			imagePath, err := saveImageToFileSystem(c, file)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			update["image_path"] = imagePath
-		}
+		update["image_path"] = c.PostForm("image_path")
 
 		if err := ctrl.service.EditProduct(ctx, productID, update); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
@@ -438,95 +347,3 @@ func (pc *ProductController) CreateProduct(c *gin.Context) {
 	})
 }
 
-// CreateProductWithImage - Workflow 2: Tạo product và upload ảnh cùng lúc
-func (pc *ProductController) CreateProductWithImage(c *gin.Context) {
-	// Parse multipart form
-	err := c.Request.ParseMultipartForm(10 << 20) // 10MB max
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Failed to parse form data",
-		})
-		return
-	}
-
-	// Get product data from form
-	var req models.CreateProductWithImageRequest
-	req.Name = c.PostForm("name")
-	req.Category = c.PostForm("category")
-	req.Description = c.PostForm("description")
-
-	if req.Name == "" || req.Category == "" || req.Description == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Missing required fields: name, category, description",
-		})
-		return
-	}
-
-	// Parse numeric fields
-	quantity, err := strconv.Atoi(c.PostForm("quantity"))
-	if err != nil || quantity < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid quantity",
-		})
-		return
-	}
-	req.Quantity = quantity
-
-	price, err := strconv.ParseFloat(c.PostForm("price"), 64)
-	if err != nil || price <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid price",
-		})
-		return
-	}
-	req.Price = price
-
-	// Handle file upload
-	file, header, err := c.Request.FormFile("image")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Image file is required",
-		})
-		return
-	}
-	defer file.Close()
-
-	// Upload image to S3
-	imageURL, err := pc.s3Service.UploadFile(file, header)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to upload image",
-			"details": err.Error(),
-		})
-		return
-	}
-
-	// Create product with uploaded image URL
-	product := models.Product{
-		ID:          primitive.NewObjectID(),
-		Name:        req.Name,
-		ImagePath:   imageURL, // URL từ S3
-		Category:    req.Category,
-		Description: req.Description,
-		Quantity:    req.Quantity,
-		Price:       req.Price,
-		SoldCount:   0,
-		Created_at:  time.Now(),
-		Updated_at:  time.Now(),
-	}
-
-	// Save to database
-	err = pc.service.AddProduct(c.Request.Context(), product)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to create product",
-			"details": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Product created successfully with image",
-	})
-}

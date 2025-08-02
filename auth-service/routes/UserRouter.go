@@ -32,4 +32,6 @@ func UserRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.POST("/api/auth/users/logout-all", authController.LogoutAll())
 	incomingRoutes.GET("/api/auth/users/devices", authController.GetDevices())
 	incomingRoutes.POST("/api/auth/admin/change-password", authController.AdminChangePassword())
+
+	incomingRoutes.POST("/admin/update-role", authController.UpdateUserRole())
 }

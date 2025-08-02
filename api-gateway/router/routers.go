@@ -8,7 +8,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"strings"
 
 	// "os"
@@ -19,160 +18,10 @@ import (
 	"api-gateway/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	// "google.golang.org/grpc/admin"
 	// "golang.org/x/text/transform"
 )
-
-func ForwardImageRequest(c *gin.Context, serviceURL string) {
-	logger.InfoE("ForwardImageRequest starting for: %s", nil, logger.Str("serviceURL", serviceURL))
-
-	client := &http.Client{
-		Timeout: time.Second * 30,
-	}
-
-	req, err := http.NewRequest("GET", serviceURL, nil)
-	if err != nil {
-		logger.Err("Error creating request", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
-		return
-	}
-
-	logger.InfoE("Sending request to: %s", nil, logger.Str("serviceURL", serviceURL))
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Err("Error sending request", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
-		return
-	}
-	defer resp.Body.Close()
-
-	logger.InfoE("Response status code: %d", nil, logger.Int("statusCode", resp.StatusCode))
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Err("Error response from service", err, logger.Int("statusCode", resp.StatusCode))
-
-		// Read the response body to log the error
-		errorBody, _ := io.ReadAll(resp.Body)
-		logger.Err("Error body: %s", err, logger.Str("errorBody", string(errorBody)))
-
-		c.JSON(resp.StatusCode, gin.H{"error": "Image not found"})
-		return
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		// Try to determine from filename
-		filename := c.Param("filename")
-		ext := strings.ToLower(filepath.Ext(filename))
-
-		switch ext {
-		case ".jpg", ".jpeg":
-			contentType = "image/jpeg"
-		case ".png":
-			contentType = "image/png"
-		case ".gif":
-			contentType = "image/gif"
-		case ".webp":
-			contentType = "image/webp"
-		default:
-			contentType = "application/octet-stream"
-		}
-
-		logger.Err("No content type in response, using: %s", err, logger.Str("contentType", contentType))
-	} else {
-		logger.Info("Content type from response", logger.Str("contentType", contentType))
-	}
-
-	// Create a new response body since we've consumed the original
-	logger.Info("Streaming image to client", logger.Str("contentType", contentType))
-	c.Header("Content-Type", contentType)
-	c.Status(http.StatusOK)
-	io.Copy(c.Writer, resp.Body)
-}
-
-func GetImage() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		filename := c.Param("filename")
-		logger.Info("API Gateway GetImage", logger.Str("filename", filename))
-
-		// Try multiple service URLs
-		serviceURLs := []string{
-			"http://product-service:8082/images/" + filename,
-			"http://product-service:8082/static/product-service/uploads/images/" + filename,
-			"http://product-service:8082/static/uploads/images/" + filename,
-			"http://product-service:8082/uploads/images/" + filename,
-		}
-
-		var resp *http.Response
-		var err error
-
-		client := &http.Client{Timeout: time.Second * 30}
-
-		// Try each URL
-		for _, serviceURL := range serviceURLs {
-			logger.Info("Trying URL", logger.Str("serviceURL", serviceURL))
-
-			req, err := http.NewRequest("GET", serviceURL, nil)
-			if err != nil {
-				logger.Err("Error creating request", err, logger.Str("serviceURL", serviceURL))
-				continue
-			}
-
-			resp, err = client.Do(req)
-			if err != nil {
-				logger.Err("Error accessing URL", err, logger.Str("serviceURL", serviceURL))
-				continue
-			}
-
-			if resp.StatusCode == http.StatusOK {
-				logger.Info("Successfully found image", logger.Str("serviceURL", serviceURL))
-				break
-			}
-
-			resp.Body.Close()
-		}
-
-		if resp == nil || resp.StatusCode != http.StatusOK {
-			logger.Err("Failed to find image at any URL", err)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
-			return
-		}
-		defer resp.Body.Close()
-
-		// Get content type
-		contentType := resp.Header.Get("Content-Type")
-		if contentType == "" {
-			ext := strings.ToLower(filepath.Ext(filename))
-			switch ext {
-			case ".jpg", ".jpeg":
-				contentType = "image/jpeg"
-			case ".png":
-				contentType = "image/png"
-			case ".gif":
-				contentType = "image/gif"
-			default:
-				contentType = "application/octet-stream"
-			}
-		}
-
-		// Read the entire image into memory
-		imageData, err := io.ReadAll(resp.Body)
-		if err != nil {
-			logger.Err("Error reading image data", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read image"})
-			return
-		}
-
-		if len(imageData) == 0 {
-			logger.Err("Empty image data received", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Empty image data"})
-			return
-		}
-		logger.Info("Successfully read image data", logger.Int("length", len(imageData)))
-		c.Header("Content-Type", contentType)
-		c.Data(http.StatusOK, contentType, imageData)
-	}
-}
 
 func transformProductResponse(c *gin.Context, responseBody []byte) ([]byte, error) {
 	var response map[string]interface{}
@@ -200,9 +49,106 @@ func transformProductResponse(c *gin.Context, responseBody []byte) ([]byte, erro
 
 	return json.Marshal(response)
 }
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Cho phép tất cả origin (production nên cấu hình cẩn thận)
+	},
+}
+
+func ForwardWebSocketToService(c *gin.Context, serviceURL string) {
+	// Lấy thông tin user từ context
+	userID, exists := c.Get("uid")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Upgrade connection to WebSocket
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		logger.Err("Failed to upgrade to WebSocket", err)
+		return
+	}
+	defer conn.Close()
+
+	// Connect to backend service WebSocket
+	serviceURL = strings.Replace(serviceURL, "ws://", "ws://", 1)
+	serviceURL += "?user_id=" + userID.(string)
+
+	backendConn, _, err := websocket.DefaultDialer.Dial(serviceURL, nil)
+	if err != nil {
+		logger.Err("Failed to connect to backend WebSocket", err)
+		return
+	}
+	defer backendConn.Close()
+
+	// Proxy messages bidirectionally
+	go func() {
+		for {
+			messageType, message, err := conn.ReadMessage()
+			if err != nil {
+				break
+			}
+			backendConn.WriteMessage(messageType, message)
+		}
+	}()
+
+	for {
+		messageType, message, err := backendConn.ReadMessage()
+		if err != nil {
+			break
+		}
+		conn.WriteMessage(messageType, message)
+	}
+}
 func ForwardRequestToService(c *gin.Context, serviceURL string, method string, contentType string) {
 	logger.InfoE("ForwardRequestToService starting for: %s", nil, logger.Str("serviceURL", serviceURL))
+	if strings.Contains(serviceURL, "/products/get") || strings.Contains(serviceURL, "/search") || strings.Contains(serviceURL, "/advanced-search") {
+		client := &http.Client{
+			Timeout: time.Second * 30,
+		}
 
+		req, err := http.NewRequest(method, serviceURL, nil)
+		if err != nil {
+			logger.Err("Error creating GET request", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+			return
+		}
+
+		// Set headers
+		req.Header.Set("Content-Type", contentType)
+		// Thêm Authorization header nếu có
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			req.Header.Set("Authorization", authHeader)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			logger.Err("Error in GET request", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
+			return
+		}
+		defer resp.Body.Close()
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			logger.Err("Error reading GET response", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
+			return
+		}
+
+		if strings.Contains(serviceURL, "/products/get") {
+			transformedBody, err := transformProductResponse(c, bodyBytes)
+			if err == nil {
+				bodyBytes = transformedBody
+			}
+		}
+
+		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
+		return
+	}
 	email, exist := c.Get("email")
 	if !exist {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Email not found in context"})
@@ -242,6 +188,11 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		req.Header.Set("email", email.(string))
 		req.Header.Set("user_type", role.(string))
 		req.Header.Set("user_id", uid.(string))
+		// Thêm Authorization header nếu có
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			req.Header.Set("Authorization", authHeader)
+		}
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -325,6 +276,11 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		req.Header.Set("email", email.(string))
 		req.Header.Set("user_type", role.(string))
 		req.Header.Set("user_id", uid.(string))
+		// Thêm Authorization header nếu có
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			req.Header.Set("Authorization", authHeader)
+		}
 
 		// Send request
 		resp, err := client.Do(req)
@@ -363,6 +319,10 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		req.Header.Set("email", email.(string))
 		req.Header.Set("user_type", role.(string))
 		req.Header.Set("user_id", uid.(string))
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			req.Header.Set("Authorization", authHeader)
+		}
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -563,108 +523,137 @@ func SetupRouter(router *gin.Engine) {
 		})
 	}
 
+	publicRoutes := router.Group("/api")
+	{
+		// Product routes
+		publicRoutes.GET("/products/get", func(c *gin.Context) {
+			ForwardRequestToService(c, "http://product-service:8082/products/get", "GET", "application/json")
+		})
+		publicRoutes.GET("/products/search", func(c *gin.Context) {
+			ForwardRequestToService(c, "http://product-service:8082/products/search?name"+c.Query("name"), "GET", "application/json")
+		})
+		publicRoutes.GET("/search", func(c *gin.Context) {
+			ForwardRequestToService(c, "http://search-service:8086/search?query="+c.Query("query"), "GET", "application/json")
+		})
+		publicRoutes.GET("/advanced-search", func(c *gin.Context) {
+			ForwardRequestToService(c, "http://search-service:8086/advanced-search?query="+c.Query("query")+"&category="+c.Query("category")+"&brand="+c.Query("brand"), "GET", "application/json")
+		})
+	}
+
 	// Protected routes - cần auth
 	protected := router.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
 		userGroup := protected.Group("/user")
 		userGroup.Use(middleware.RequireUserRole("USER"))
+		userGroup.Use(middleware.RBACMiddleware("USER"))
 		{
-			// Usre routes
-			protected.GET("/user/get", func(c *gin.Context) {
+			// User routes
+			userGroup.GET("/user/get", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/user", "GET", "application/json")
 			})
-			protected.POST("/users/change-password", func(c *gin.Context) {
+			userGroup.POST("/users/change-password", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/users/change-password", "POST", "application/json")
 			})
-			protected.POST("/users/logout", func(c *gin.Context) {
+			userGroup.POST("/users/logout", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/users/logout", "GET", "application/json")
 			})
-			protected.POST("/users/logout-all", func(c *gin.Context) {
+			userGroup.POST("/users/logout-all", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/users/logout-all", "GET", "application/json")
 			})
 
 			// Cart routes
-			protected.POST("/cart/add/:id", func(c *gin.Context) {
+			userGroup.POST("/cart/add/:id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://cart-service:8083/cart/add/"+c.Param("id"), "POST", "application/json")
 			})
-			protected.GET("/cart/get/", func(c *gin.Context) {
+			userGroup.GET("/cart/get/", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://cart-service:8083/cart/user/get/", "GET", "application/json")
 			})
-			protected.DELETE("/cart/delete/:id", func(c *gin.Context) {
+			userGroup.DELETE("/cart/delete/:id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://cart-service:8083/cart/delete/"+c.Param("id"), "DELETE", "application/json")
 			})
 
 			// Order routes
-			protected.POST("/order/cart", func(c *gin.Context) {
+			userGroup.POST("/order/cart", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://order-service:8084/order/cart", "POST", "application/json")
 			})
-			protected.POST("/order/direct", func(c *gin.Context) {
+			userGroup.POST("/order/direct", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://order-service:8084/order/direct", "POST", "application/json")
 			})
-			protected.GET("/order", func(c *gin.Context) {
+			userGroup.GET("/order", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://order-service:8084/order/user", "GET", "application/json")
 			})
-			protected.POST("/user/order/cancel/:order_id", func(c *gin.Context) {
+			userGroup.POST("/user/order/cancel/:order_id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/"+c.Param("order_id"), "POST", "application/json")
 			})
 		}
-		adminGroup := protected.Group("/admin")
-		adminGroup.Use(middleware.RequireUserRole("SELLER"))
+		sellerGroup := protected.Group("/seller")
+		// sellerGroup.Use(middleware.RBACMiddleware("SELLER"))
+		sellerGroup.Use(middleware.RequireUserRole("SELLER"))
 		{
 			// User routes
-			protected.GET("/admin/get-users", func(c *gin.Context) {
+			sellerGroup.GET("/get-users", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/admin/get-user", "GET", "application/json")
 			})
 
-			protected.POST("/admin/change-password/", func(c *gin.Context) {
+			sellerGroup.POST("/change-password/", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/admin/change-password", "POST", "application/json")
 			})
 
 			// Product routes
-			protected.POST("/products/add", func(c *gin.Context) {
-				ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "multipart/form-data")
+			sellerGroup.POST("/products/add", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "application/json")
 			})
 
-			protected.PUT("/products/edit/:id", func(c *gin.Context) {
+			sellerGroup.PUT("/products/edit/:id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://product-service:8082/products/edit/"+c.Param("id"), "PUT", "multipart/form-data")
 			})
-			protected.GET("/products/images/:filename", func(ctx *gin.Context) {
+			sellerGroup.GET("/products/images/:filename", func(ctx *gin.Context) {
 				ForwardRequestToService(ctx, "http://product-service:8082/images/"+ctx.Param("filename"), "GET", "image/png")
 			})
 
 			// Cart routes
-			protected.GET("/admin/orders", func(c *gin.Context) {
+			sellerGroup.GET("/admin/orders", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://order-service:8084/admin/orders", "GET", "application/json")
 			})
 		}
 
-		// Product routes
-		protected.GET("/products/get", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://product-service:8082/products/get", "GET", "application/json")
-		})
-		protected.GET("/products/search", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://product-service:8082/products/search?name"+c.Query("name"), "GET", "application/json")
-		})
+		adminGroup := protected.Group("/admin")
+		adminGroup.Use(middleware.RBACMiddleware("ADMIN"))
+		{
+			adminGroup.GET("/get-users", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://auth-service:8081/admin/get-user", "GET", "application/json")
+			})
+			adminGroup.POST("/change-password/", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://auth-service:8081/admin/change-password", "POST", "application/json")
+			})
+			adminGroup.GET("/get-orders", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://order-service:8084/admin/orders", "GET", "application/json")
+			})
+			adminGroup.DELETE("/delete-order/:order_id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://order-service:8084/admin/delete-order/"+c.Param("order_id"), "DELETE", "application/json")
+			})
 
-		// Cart routes
-		protected.POST("/cart", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://cart-service:8083/cart", "POST", "application/json")
-		})
-		protected.GET("/cart/get", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://cart-service:8083/cart/get", "GET", "application/json")
-		})
+		}
 
-		protected.DELETE("/products/delete/:id", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://product-service:8082/products/delete/"+c.Param("id"), "DELETE", "application/json")
-		})
+		// // Cart routes
+		// protected.POST("/cart", func(c *gin.Context) {
+		// 	ForwardRequestToService(c, "http://cart-service:8083/cart", "POST", "application/json")
+		// })
+		// protected.GET("/cart/get", func(c *gin.Context) {
+		// 	ForwardRequestToService(c, "http://cart-service:8083/cart/get", "GET", "application/json")
+		// })
+
+		// protected.DELETE("/products/delete/:id", func(c *gin.Context) {
+		// 	ForwardRequestToService(c, "http://product-service:8082/products/delete/"+c.Param("id"), "DELETE", "application/json")
+		// })
 
 		// Search routes
-		protected.GET("/search", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://search-service:8086/search?name="+c.Query("name"), "GET", "application/json")
-		})
-		protected.GET("/advanced-search", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://search-service:8086/advanced-search?name="+c.Query("name")+"&category="+c.Query("category")+"&brand="+c.Query("brand"), "GET", "application/json")
+
+		// WebSocket routes - proxy to auth-service
+		protected.GET("/ws", func(c *gin.Context) {
+			// Proxy WebSocket connection to auth-service
+			ForwardWebSocketToService(c, "ws://auth-service:8081/auth/ws")
 		})
 	}
 }

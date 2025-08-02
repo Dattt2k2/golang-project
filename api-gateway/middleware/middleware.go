@@ -10,6 +10,8 @@ import (
 
 	helper "api-gateway/helpers"
 	"api-gateway/logger"
+
+	"api-gateway/models"
 	"github.com/google/uuid"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/redisdb"
@@ -127,7 +129,6 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		var tokenString string
 
-		// Try to get token from header
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" {
 			if strings.HasPrefix(authHeader, "Bearer ") {
@@ -220,5 +221,24 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("uid", claims.Uid)
 
 		c.Next()
+	}
+}
+
+
+func RBACMiddleware(allowedRoles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, exists := c.Get("user")
+		if  !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error" : "Unauthorized"})
+			return 
+		}
+		u := user.(models.User)
+		for _, role := range allowedRoles {
+			if u.Role != nil && *u.Role == role {
+				c.Next()
+				return 
+			}
+		}
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbiden"})
 	}
 }
