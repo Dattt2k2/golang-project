@@ -1,0 +1,11 @@
+FROM golang:1.24-alpine
+
+WORKDIR /app/order-service
+
+RUN go install github.com/air-verse/air@latest
+
+COPY . .
+
+
+WORKDIR /app/order-service
+CMD ["air"]
