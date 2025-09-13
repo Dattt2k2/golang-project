@@ -3,7 +3,6 @@ package helpers
 import (
 	"auth-service/database"
 	"auth-service/logger"
-	"context"
 	"net/url"
 	"os"
 	"strings"
@@ -11,32 +10,37 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/gorm/clause"
 )
 
-// Lưu refresh token đã hết hạn vào MongoDB
+type ExpiredRefreshToken struct {
+	ID        uint      `gorm:"primaryKey"`
+	UserID    string    `gorm:"not null"`
+	RefreshToken string `gorm:"not null"`
+	ExpiresAt time.Time `gorm:"not null"`
+}
+
 func SaveExpiredRefreshToken(userID, refreshToken string, expiresAt time.Time) error {
-	collection := database.OpenCollection(database.Client, "expired_refresh_tokens")
-	filter := bson.M{"user_id": userID, "refresh_token": refreshToken}
-	update := bson.M{
-		"$set": bson.M{
-			"user_id": userID,
-			"refresh_token": refreshToken,
-			"expires_at": expiresAt,
-		},
+	token := ExpiredRefreshToken{
+		UserID:       userID,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAt,
 	}
-	opts := options.Update().SetUpsert(true)
-	_, err := collection.UpdateOne(context.Background(), filter, update, opts)
-	return err
+	return database.DB.Clauses(
+		clause.OnConflict{
+			Columns:   []clause.Column{{Name: "user_id"}, {Name: "refresh_token"}},
+			DoUpdates: clause.AssignmentColumns([]string{"expires_at"}),
+		},
+	).Create(&token).Error
 }
 
 // Kiểm tra refresh token đã hết hạn có tồn tại không
 func IsExpiredRefreshToken(userID, refreshToken string) bool {
-	collection := database.OpenCollection(database.Client, "expired_refresh_tokens")
-	filter := bson.M{"user_id": userID, "refresh_token": refreshToken}
-	count, err := collection.CountDocuments(context.Background(), filter)
-	return err == nil && count > 0
+	var count int64 
+	database.DB.Model(&ExpiredRefreshToken{}). 
+		Where("user_id = ? AND refresh_token = ?", userID, refreshToken).
+		Count(&count)
+	return count > 0
 }
 
 type SignedDetails struct{

@@ -21,7 +21,8 @@
 go.work
 go.work.sum
 
-**/tmp/
+/tmp/
+/main
 
 .env
 .config

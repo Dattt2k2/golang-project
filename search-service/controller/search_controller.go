@@ -21,7 +21,7 @@ func NewSearchController(service service.SearchService) *SearchController {
 
 func (ctrl *SearchController) BasicSearch(query string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-	   logger.Logger.Infof("RawQuery: %s", c.Request.URL.RawQuery)
+		logger.Logger.Infof("RawQuery: %s", c.Request.URL.RawQuery)
 		query := c.Query("query")
 		if query == "" {
 			query = c.Query("q")
@@ -44,7 +44,7 @@ func (ctrl *SearchController) BasicSearch(query string) gin.HandlerFunc {
 
 func (ctrl *SearchController) AdvancedSearch(query string, filters map[string]interface{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
-	   logger.Logger.Infof("RawQuery: %s", c.Request.URL.RawQuery)
+		logger.Logger.Infof("RawQuery: %s", c.Request.URL.RawQuery)
 		query := c.Query("query")
 		if query == "" {
 			query = c.Query("q")

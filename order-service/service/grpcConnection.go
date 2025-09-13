@@ -12,7 +12,7 @@ import (
 )
 
 func CartServiceConnection() cartPb.CartServiceClient {
-	conn, err := grpc.Dial("cart-service:8090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("cart-service:8090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil{
 		logger.Err("Failed to connect to Cart-service", err)
@@ -23,7 +23,11 @@ func CartServiceConnection() cartPb.CartServiceClient {
 }
 
 func ProductServiceConnection() productPb.ProductServiceClient {
-	conn, err := grpc.Dial("product-service:8089", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("product-service:8089", grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	if err != nil{
+		logger.Err("Failed to connect to Product-service", err)
+	}
 
 	if err != nil{
 		logger.Err("Failed to connect to Product-service", err)

@@ -1,9 +1,20 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"os"
+	"strings"
+
+	"payment-service/repository"
+	"payment-service/routes"
 	"payment-service/src/config"
 	"payment-service/src/service"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -13,29 +24,95 @@ func main() {
 		log.Fatalf("Error loading configuration: %v", err)
 	}
 
-	// Initialize Kafka producer
-	producer, err := service.NewKafkaProducer(cfg.Kafka.Broker)
-	if err != nil {
-		log.Fatalf("Error initializing Kafka producer: %v", err)
+	// Database configuration
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
 	}
-	defer producer.Close()
-
-	// Initialize Kafka consumer
-	consumer, err := service.NewKafkaConsumer(cfg.Kafka.Broker, cfg.Kafka.Topic)
-	if err != nil {
-		log.Fatalf("Error initializing Kafka consumer: %v", err)
+	dbPort := os.Getenv("DB_PORT")
+	if dbPort == "" {
+		dbPort = "5432"
 	}
-	defer consumer.Close()
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		dbUser = "postgres"
+	}
+	dbPassword := os.Getenv("DB_PASSWORD")
+	if dbPassword == "" {
+		dbPassword = "password"
+	}
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "payment_db"
+	}
 
-	// Start the Kafka consumer in a separate goroutine
-	go func() {
-		if err := consumer.Start(); err != nil {
-			log.Fatalf("Error starting Kafka consumer: %v", err)
+	// PostgreSQL DSN
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
+		dbHost, dbUser, dbPassword, dbName, dbPort)
+
+	// Initialize database
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
+	})
+	if err != nil {
+		log.Fatalf("Failed to connect to PostgreSQL database: %v", err)
+	}
+
+	// Initialize repository
+	paymentRepo := repository.NewPaymentRepository(db)
+	if err := paymentRepo.Migrate(); err != nil {
+		// Handle duplicate table errors gracefully in development
+		if strings.Contains(strings.ToLower(err.Error()), "duplicate") ||
+			strings.Contains(strings.ToLower(err.Error()), "already exists") {
+			log.Printf("Migration warning (tables may already exist): %v", err)
+		} else {
+			log.Fatalf("Failed to migrate database: %v", err)
 		}
-	}()
+	}
 
-	// Start the payment service (e.g., HTTP server)
-	if err := service.StartPaymentService(cfg); err != nil {
-		log.Fatalf("Error starting payment service: %v", err)
+	// Get webhook secret
+	webhookSecret := os.Getenv("WEBHOOK_SECRET")
+	if webhookSecret == "" {
+		webhookSecret = "default-secret"
+	}
+
+	// Initialize Kafka (optional - if you need messaging)
+	if cfg.KafkaBroker != "" {
+		producer := service.NewKafkaProducer(cfg.KafkaBroker, cfg.KafkaTopic)
+		defer producer.Close()
+
+		consumer := service.NewKafkaConsumer(cfg.KafkaBroker, cfg.KafkaTopic)
+		defer consumer.Close()
+
+		// Start Kafka consumer in background
+		go func() {
+			for {
+				msg, err := consumer.ReadMessage(context.Background())
+				if err != nil {
+					log.Printf("Error reading message from Kafka: %v", err)
+					continue
+				}
+				log.Printf("Received message: %s", string(msg.Value))
+			}
+		}()
+	}
+
+	// Setup routes using SetupRoutes function
+	router := routes.SetupRoutes(paymentRepo, webhookSecret)
+
+	// Add health check
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok", "service": "payment-service", "database": "postgresql"})
+	})
+
+	// Start server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Server starting on port %s with PostgreSQL", port)
+	if err := router.Run(":" + port); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }

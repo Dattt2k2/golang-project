@@ -43,6 +43,7 @@ services:
       # - ./go.sum:/app/go.sum:ro
     depends_on:
       - mongodb
+      - postgres-auth
     networks:
       - default
     logging:
@@ -120,6 +121,8 @@ services:
     depends_on:
       - mongodb
       - kafka
+      - postgres-order
+  # Database variables are provided via env files (./order-service/.env and ./.env)
     networks:
       - default
     logging:
@@ -166,8 +169,47 @@ services:
     networks:
       - default
     command: ["air", "-c", ".air.toml"]
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./payment-service/dockerfile.dev
+    ports:
+      - "8088:8088"
+    depends_on:
+      - postgres-payment
+    env_file:
+      - ./.env
+    environment:
+      # Non-DB variables remain; DB variables are loaded from ./.env or service env file
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      PORT: ${PORT}
+      PAYMENT_GATEWAY_URL: ${PAYMENT_GATEWAY_URL}
+      PAYMENT_GATEWAY_KEY: ${PAYMENT_GATEWAY_KEY}
+      PAYMENT_GATEWAY_SECRET: ${PAYMENT_GATEWAY_SECRET}
+      KAFKA_BROKER: ${KAFKA_BROKER}
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: ["air", "-c", ".air.toml"]
+    volumes:
+      - ./payment-service:/app/payment-service:cached
 
-  # Infrastructure services (same as production)
+  # db:
+  #   image: postgres:16
+  #   env_file:
+  #     - ./.env
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #   ports:
+  #     - "5432:5432"
+  # # Infrastructure services (same as production)
   mongodb:
     image: mongo:latest
     container_name: mongodb
@@ -188,14 +230,16 @@ services:
     container_name: mongo-express
     ports:
       - "8085:8081"
+    env_file:
+      - ./.env
     environment:
-      - ME_CONFIG_MONGODB_URL=mongodb://mongodb:27017/
-      - ME_CONFIG_MONGODB_SERVER=mongodb
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
-      - ME_CONFIG_MONGODB_NO_AUTH=true  
+      - ME_CONFIG_MONGODB_URL=${ME_CONFIG_MONGODB_URL}
+      - ME_CONFIG_MONGODB_SERVER=${ME_CONFIG_MONGODB_SERVER}
+      - ME_CONFIG_MONGODB_PORT=${ME_CONFIG_MONGODB_PORT}
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=${ME_CONFIG_MONGODB_ENABLE_ADMIN}
+      - ME_CONFIG_BASICAUTH_USERNAME=${ME_CONFIG_BASICAUTH_USERNAME}
+      - ME_CONFIG_BASICAUTH_PASSWORD=${ME_CONFIG_BASICAUTH_PASSWORD}
+      - ME_CONFIG_MONGODB_NO_AUTH=${ME_CONFIG_MONGODB_NO_AUTH}
     depends_on:
       - mongodb
     networks:
@@ -204,10 +248,12 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: elasticsearch
+    env_file:
+      - ./.env
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=${ES_DISCOVERY_TYPE}
+      - xpack.security.enabled=${ES_XPACK_SECURITY_ENABLED}
+      - "ES_JAVA_OPTS=${ES_JAVA_OPTS}"
     ulimits:
       memlock:
         soft: -1
@@ -229,9 +275,11 @@ services:
     container_name: zookeeper
     ports:
       - "2181:2181"
+    env_file:
+      - ./.env
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME}
     networks:
       - default
 
@@ -241,11 +289,13 @@ services:
     container_name: kafka
     ports:
       - "9092:9092"
+    env_file:
+      - ./.env
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
     depends_on:
       - zookeeper
     networks:
@@ -286,35 +336,71 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-  postgres:
-    image: postgres:15
-    container_name: postgres
+    env_file:
+      - ./.env
+  # Separate Postgres instances per service (no host port mapping to avoid conflicts)
+  postgres-auth:
+    image: postgres:16
+    container_name: postgres-auth
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: auth_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${AUTH_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AUTH_POSTGRES_DB}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_auth_data:/var/lib/postgresql/data
     networks:
       - default
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 3  
+      retries: 3
+
+  postgres-payment:
+    image: postgres:16
+    container_name: postgres-payment
+    restart: always
+    env_file:
+      - ./.env
+    volumes:
+      - postgres_payment_data:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres-order:
+    image: postgres:16
+    container_name: postgres-order
+    restart: always
+    env_file:
+      - ./order-service/.env
+    volumes:
+      - postgres_order_data:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
+    env_file:
+      - ./.env
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     ports:
       - "5050:80"
     depends_on:
-      - postgres
+      - postgres-auth
     networks:
       - default
   # Optional: Add api-gateway for development if needed (without Kong)
@@ -343,6 +429,9 @@ volumes:
   redis_data:
   elasticsearch_data:
   postgres_data:
+  postgres_auth_data:
+  postgres_payment_data:
+  postgres_order_data:
 
 networks:
   default:

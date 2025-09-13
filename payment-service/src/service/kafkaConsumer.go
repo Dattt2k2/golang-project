@@ -14,17 +14,21 @@ type PaymentMessage struct {
 	Status  string `json:"status"`
 }
 
-func StartKafkaConsumer(brokerAddress string, topic string) {
+func NewKafkaConsumer(brokerAddress string, topic string) *kafka.Reader {
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{brokerAddress},
 		Topic:   topic,
 		GroupID: "payment-service-group",
 	})
 
+	return r
+}
+func RunKafkaConsumer(r *kafka.Reader) {
 	for {
 		m, err := r.ReadMessage(context.Background())
 		if err != nil {
-			log.Fatalf("Error while reading message: %v", err)
+			log.Printf("Error reading message from Kafka: %v", err)
+			continue
 		}
 
 		var paymentMsg PaymentMessage

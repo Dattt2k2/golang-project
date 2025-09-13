@@ -2,17 +2,24 @@ package service
 
 import (
 	"context"
-	"time"
+	"encoding/json"
+
+	"order-service/kafka"
+	"order-service/log"
+	"order-service/models"
+	"order-service/repositories"
 
 	productpb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
 	cartpb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
-	"github.com/Dattt2k2/golang-project/order-service/log"
-	"github.com/Dattt2k2/golang-project/order-service/kafka"
-	"github.com/Dattt2k2/golang-project/order-service/models"
-	"github.com/Dattt2k2/golang-project/order-service/repositories"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"gorm.io/datatypes"
 )
 
+type OrderItem struct {
+	ProductID string  `json:"product_id"`
+	Name      string  `json:"name"`
+	Quantity  int     `json:"quantity"`
+	Price     float64 `json:"price"`
+}
 type OrderService struct {
 	orderRepo *repositories.OrderRepository
 }
@@ -23,7 +30,7 @@ func NewOrderService(orderRepo *repositories.OrderRepository) *OrderService {
 	}
 }
 
-func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive.ObjectID, source, paymentMethod, shippingAddress string, selectedProductIDs []string) (*models.Order, error) {
+func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, source, paymentMethod, shippingAddress string, selectedProductIDs []string) (*models.Order, error) {
 	// Get cart items using gRPC
 	cartClient := CartServiceConnection()
 	if cartClient == nil {
@@ -31,7 +38,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
 	}
 
 	req := &cartpb.CartRequest{
-		UserId: userID.Hex(),
+		UserId: userID,
 	}
 
 	resp, err := cartClient.GetCartItems(ctx, req)
@@ -61,17 +68,16 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
 	}
 
 	// Convert cart items to order items
-	var orderItems []models.OrderItem
+	var orderItems []OrderItem
 	var totalPrice float64 = 0
 
 	for _, item := range filteredItems {
-		productID, err := primitive.ObjectIDFromHex(item.ProductId)
 		if err != nil {
 			return nil, err
 		}
 
 		stockReq := &productpb.ProductRequest{
-			Id: productID.Hex(),
+			Id: item.ProductId,
 		}
 
 		stockResp, err := productClient.CheckStock(ctx, stockReq)
@@ -83,8 +89,8 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
 			return nil, NewServiceError("Product is out of stock")
 		}
 
-		orderItem := models.OrderItem{
-			ProductID: productID,
+		orderItem := OrderItem{
+			ProductID: item.ProductId,
 			Name:      item.Name,
 			Quantity:  int(item.Quantity),
 			Price:     float64(item.Price),
@@ -95,20 +101,19 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID primitive
 		totalPrice = calculateTotalPrice(orderItems)
 	}
 
-	// Create new order
-	now := time.Now()
+	itemsJSON, err := json.Marshal(orderItems)
+	if err != nil {
+		return nil, err 
+	}
 	newOrder := models.Order{
-		ID:              primitive.NewObjectID(),
 		UserID:          userID,
-		Items:           orderItems,
+		Items:           datatypes.JSON(itemsJSON),
 		TotalPrice:      totalPrice,
 		Status:          "PENDING",
 		Source:          source,
 		PaymentMethod:   paymentMethod,
 		PaymentStatus:   "PENDING",
-		ShippingAddress: shippingAddress, 
-		Created_at:      now,
-		Updated_at:      now,
+		ShippingAddress: shippingAddress,
 	}
 
 	// Save order to database
@@ -143,11 +148,6 @@ type OrderItemRequest struct {
 
 // CreateOrderDirect creates an order directly from the provided request
 func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectRequest) (*models.Order, error) {
-	// Convert user ID
-	userID, err := primitive.ObjectIDFromHex(req.UserID)
-	if err != nil {
-		return nil, err
-	}
 
 	productClient := ProductServiceConnection()
 	if productClient == nil {
@@ -155,17 +155,13 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 	}
 
 	// Convert items
-	var orderItems []models.OrderItem
+	var orderItems []OrderItem
 	var totalPrice float64 = 0
 
 	for _, item := range req.Items {
-		productID, err := primitive.ObjectIDFromHex(item.ProductID)
-		if err != nil {
-			return nil, err
-		}
 
 		stockReq := &productpb.ProductRequest{
-			Id: productID.Hex(),
+			Id: item.ProductID,
 		}
 
 		stockResp, err := productClient.CheckStock(ctx, stockReq)
@@ -177,8 +173,8 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 			return nil, NewServiceError("Product is out of stock")
 		}
 
-		orderItem := models.OrderItem{
-			ProductID: productID,
+		orderItem := OrderItem{
+			ProductID: item.ProductID,
 			Name:      item.Name,
 			Quantity:  item.Quantity,
 			Price:     item.Price,
@@ -198,20 +194,20 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		paymentStatus = "PENDING_VERIFICATION"
 	}
 
-	// Create new order
-	now := time.Now()
+	itemsJSON, err := json.Marshal(orderItems)
+	if err != nil {
+		return nil, err 
+	}
+
 	newOrder := models.Order{
-		ID:              primitive.NewObjectID(),
-		UserID:          userID,
-		Items:           orderItems,
+		UserID:          req.UserID,
+		Items:           datatypes.JSON(itemsJSON),
 		TotalPrice:      totalPrice,
 		Status:          initialStatus,
 		PaymentMethod:   req.PaymentMethod,
 		PaymentStatus:   paymentStatus,
 		ShippingAddress: req.ShippingAddress,
 		Source:          req.Source,
-		Created_at:      now,
-		Updated_at:      now,
 	}
 
 	// Save order to database
@@ -245,7 +241,6 @@ func (s *OrderService) AdminGetOrders(ctx context.Context, page, limit int) ([]m
 	for i := range orders {
 		items, err := s.orderRepo.GetOrderItems(ctx, orders[i].ID)
 		if err != nil {
-			logger.Err("Failed to get items for order", err, logger.Str("order_id", orders[i].ID.Hex()))
 			continue
 		}
 		orders[i].Items = items
@@ -255,7 +250,7 @@ func (s *OrderService) AdminGetOrders(ctx context.Context, page, limit int) ([]m
 }
 
 // GetUserOrders retrieves orders for a specific user with pagination
-func (s *OrderService) GetUserOrders(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.Order, int64, int, bool, bool, error) {
+func (s *OrderService) GetUserOrders(ctx context.Context, userID string, page, limit int) ([]models.Order, int64, int, bool, bool, error) {
 	orders, total, err := s.orderRepo.FindOrdersByUserID(ctx, userID, page, limit)
 	if err != nil {
 		return nil, 0, 0, false, false, err
@@ -268,7 +263,6 @@ func (s *OrderService) GetUserOrders(ctx context.Context, userID primitive.Objec
 	for i := range orders {
 		items, err := s.orderRepo.GetOrderItems(ctx, orders[i].ID)
 		if err != nil {
-			logger.Err("Failed to get items for order", err, logger.Str("order_id", orders[i].ID.Hex()))
 			continue
 		}
 		orders[i].Items = items
@@ -277,7 +271,7 @@ func (s *OrderService) GetUserOrders(ctx context.Context, userID primitive.Objec
 	return orders, total, pages, hasNext, hasPrev, nil
 }
 
-func calculateTotalPrice(items []models.OrderItem) float64 {
+func calculateTotalPrice(items []OrderItem) float64 {
 	var totalPrice float64
 	for _, item := range items {
 		totalPrice += float64(item.Quantity) * item.Price
@@ -298,10 +292,10 @@ func calculatePages(total int64, limit int64) int {
 	return pages
 }
 
-func (s *OrderService) GetOrderByID(ctx context.Context, orderID primitive.ObjectID) (*models.Order, error) {
+func (s *OrderService) GetOrderByID(ctx context.Context, orderID uint) (*models.Order, error) {
 	return s.orderRepo.GetOrderByID(ctx, orderID)
 }
-func (s *OrderService) CanceldOrder(ctx context.Context, orderID primitive.ObjectID, userID primitive.ObjectID, role string) error {
+func (s *OrderService) CancelOrder(ctx context.Context, orderID uint, userID string, role string) error {
 	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
 	if err != nil {
 		return NewServiceError("Failed to get order")

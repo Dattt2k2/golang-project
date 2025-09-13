@@ -1,11 +1,17 @@
-FROM golang:1.24-alpine
+FROM golang:1.25-alpine
 
-WORKDIR /app/order-service
+WORKDIR /app
 
+# Use GOPROXY to improve module download reliability in CI/dev
+ENV GOPROXY=https://proxy.golang.org,direct
+
+# Install air for hot reload
 RUN go install github.com/air-verse/air@latest
 
-COPY . .
+# Copy whole repo into /app so module replacements like ../module/... resolve
+COPY . /app
 
-
-WORKDIR /app/order-service
-CMD ["air"]
+# Set working dir to the payment service folder and run air
+WORKDIR /app/payment-service
+RUN mkdir -p /app/payment-service/tmp
+CMD ["air", "-c", ".air.toml"]

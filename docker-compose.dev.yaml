@@ -427,7 +427,27 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./payment-service/Dockerfile.dev
+      args:
+        - SERVICE_NAME=payment-service
+    ports:
+      - "8087:8087"
+    env_file:
+      - ./payment-service/.env
+    depends_on:
+      - postgres
+      - kafka
+      - redis
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
   mongodb:
     image: mongo:latest
     container_name: mongodb
