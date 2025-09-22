@@ -36,9 +36,19 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			return
 		}
 
-		userID := c.GetHeader("user_id")
-		if userID == "" {
+		userID, exits := c.Get("uid")
+		if !exits {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
+			return
+		} 
+		userIDStr, ok := userID.(string)
+		if !ok || userIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
+			return
+		}
+
+		if userIDString , ok := userID.(string); !ok || userIDString == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
 			return
 		}
 		var req models.CreateProductRequest
@@ -60,7 +70,7 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			Price:       price,
 			Quantity:    quantity,
 			ImagePath:   imagePath,
-			UserID:      userID,
+			UserID:      userIDStr,
 		}
 
 		if err := ctrl.service.AddProduct(ctx, product); err != nil {
