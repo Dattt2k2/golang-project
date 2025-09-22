@@ -12,8 +12,7 @@ import (
 	"product-service/service"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 )
 
 type ProductController struct {
@@ -88,46 +87,44 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID not found"})
 			return
 		}
-		productID, err := primitive.ObjectIDFromHex(id)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+
+		if _, err := uuid.Parse(id); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Product ID"})
 			return
 		}
 
-		name := c.PostForm("name")
-		description := c.PostForm("description")
-		priceStr := c.PostForm("price")
-		quantityStr := c.PostForm("quantity")
-
-		// update := bson.M{"updated_at": time.Now()}
-		update := bson.M{}
-		if name != "" {
-			update["name"] = name
+		var req models.UpdateProductRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
+			return 
 		}
 
-		if description != "" {
-			update["description"] = description
+		update := make(map[string]interface{})
+		if req.Name != nil {
+			update["name"] = *req.Name
 		}
-		if priceStr != "" {
-			price, err := strconv.ParseFloat(priceStr, 64)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid price format"})
-				return
-			}
-			update["price"] = price
+		if req.ImagePath != nil {
+			update["image_path"] = *req.ImagePath
 		}
-		if quantityStr != "" {
-			quantity, err := strconv.Atoi(quantityStr)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity format"})
-				return
-			}
-			update["quantity"] = quantity
+		if req.Category != nil {
+			update["category"] = *req.Category
+		}
+		if req.Description != nil {
+			update["description"] = *req.Description
+		}
+		if req.Quantity != nil {
+			update["quantity"] = *req.Quantity
+		}
+		if req.Price != nil {
+			update["price"] = *req.Price
 		}
 
-		update["image_path"] = c.PostForm("image_path")
+		if len(update) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
+			return
+		}
 
-		if err := ctrl.service.EditProduct(ctx, productID, update); err != nil {
+		if err := ctrl.service.EditProduct(ctx, id, update); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
 			return
 		}
@@ -145,22 +142,28 @@ func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		userID, err := primitive.ObjectIDFromHex(c.GetHeader("user_id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		userID, exits := c.Get("uid")
+		if !exits {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
+			return
+		} 
+		userIDStr, ok := userID.(string)
+		if !ok || userIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
+			return
 		}
 		id := c.Param("id")
 		if id == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID not found"})
 			return
 		}
-		productID, err := primitive.ObjectIDFromHex(id)
-		if err != nil {
+
+		if _, err := uuid.Parse(id); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Product ID"})
 			return
 		}
 
-		if err := ctrl.service.DeleteProduct(ctx, productID, userID); err != nil {
+		if err := ctrl.service.DeleteProduct(ctx, id, userIDStr); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
 			return
 		}
@@ -216,27 +219,27 @@ func (ctrl *ProductController) GetAllProducts() gin.HandlerFunc {
 	}
 }
 
-func (ctrl *ProductController) GetProductByName() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		name := c.Query("name")
-		if name == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Name query parameter is required"})
-			return
-		}
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-		defer cancel()
-		products, err := ctrl.service.GetProductByName(ctx, name)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		if len(products) == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"message": "No product found"})
-			return
-		}
-		c.JSON(http.StatusOK, products)
-	}
-}
+// func (ctrl *ProductController) GetProductByName() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		name := c.Query("name")
+// 		if name == "" {
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Name query parameter is required"})
+// 			return
+// 		}
+// 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+// 		defer cancel()
+// 		products, err := ctrl.service.GetProductByName(ctx, name)
+// 		if err != nil {
+// 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 			return
+// 		}
+// 		if len(products) == 0 {
+// 			c.JSON(http.StatusNotFound, gin.H{"message": "No product found"})
+// 			return
+// 		}
+// 		c.JSON(http.StatusOK, products)
+// 	}
+// }
 
 type StockUpdateItem struct {
 	ProductID string `json:"product_id"`
@@ -247,10 +250,6 @@ type StockUpdateItem struct {
 // isRestock: true for restock, false for sale
 func (ctrl *ProductController) UpdateProductStock(ctx context.Context, items []StockUpdateItem, isRestock bool) error {
 	for _, item := range items {
-		objID, err := primitive.ObjectIDFromHex(item.ProductID)
-		if err != nil {
-			return err
-		}
 
 		quantity := item.Quantity
 		if !isRestock {
@@ -258,7 +257,7 @@ func (ctrl *ProductController) UpdateProductStock(ctx context.Context, items []S
 		}
 
 		// Call UpdateProductStock with proper parameters (product ID and quantity)
-		err = ctrl.service.UpdateProductStock(ctx, objID, quantity)
+		err := ctrl.service.UpdateProductStock(ctx, item.ProductID, quantity)
 		if err != nil {
 			return err
 		}
@@ -298,52 +297,52 @@ func (ctrl *ProductController) DecrementSoldCount(ctx context.Context, productID
 	return ctrl.service.DecrementSoldCount(ctx, productID, quantity)
 }
 
-// CreateProduct - Workflow 1: Tạo product với image_path có sẵn (từ presigned URL)
-func (pc *ProductController) CreateProduct(c *gin.Context) {
-	var req models.CreateProductRequest
+// // CreateProduct - Workflow 1: Tạo product với image_path có sẵn (từ presigned URL)
+// func (pc *ProductController) CreateProduct(c *gin.Context) {
+// 	var req models.CreateProductRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request data",
-			"details": err.Error(),
-		})
-		return
-	}
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{
+// 			"error":   "Invalid request data",
+// 			"details": err.Error(),
+// 		})
+// 		return
+// 	}
 
-	// Validate image_path if provided
-	if req.ImagePath != "" {
-		// Optional: Validate if URL is accessible or from your S3 bucket
-		log.Printf("Product will be created with image: %s", req.ImagePath)
-	}
+// 	// Validate image_path if provided
+// 	if req.ImagePath != "" {
+// 		// Optional: Validate if URL is accessible or from your S3 bucket
+// 		log.Printf("Product will be created with image: %s", req.ImagePath)
+// 	}
 
-	// Convert request to model
-	product := models.Product{
-		ID:          primitive.NewObjectID(),
-		Name:        req.Name,
-		ImagePath:   req.ImagePath, // Có thể empty hoặc có URL
-		Category:    req.Category,
-		Description: req.Description,
-		Quantity:    req.Quantity,
-		Price:       req.Price,
-		SoldCount:   0,
-		Created_at:  time.Now(),
-		Updated_at:  time.Now(),
-		// UserID sẽ được set từ JWT token
-	}
+// 	// Convert request to model
+// 	product := models.Product{
+// 		ID:          string,
+// 		Name:        req.Name,
+// 		ImagePath:   req.ImagePath, // Có thể empty hoặc có URL
+// 		Category:    req.Category,
+// 		Description: req.Description,
+// 		Quantity:    req.Quantity,
+// 		Price:       req.Price,
+// 		SoldCount:   0,
+// 		Created_at:  time.Now(),
+// 		Updated_at:  time.Now(),
+// 		// UserID sẽ được set từ JWT token
+// 	}
 
-	// Save to database
-	err := pc.service.AddProduct(c.Request.Context(), product)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to create product",
-			"details": err.Error(),
-		})
-		return
-	}
+// 	// Save to database
+// 	err := pc.service.AddProduct(c.Request.Context(), product)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{
+// 			"error":   "Failed to create product",
+// 			"details": err.Error(),
+// 		})
+// 		return
+// 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Product created successfully",
-	})
-}
+// 	c.JSON(http.StatusCreated, gin.H{
+// 		"success": true,
+// 		"message": "Product created successfully",
+// 	})
+// }
 

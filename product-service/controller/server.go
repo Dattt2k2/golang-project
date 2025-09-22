@@ -7,7 +7,6 @@ import (
 	"product-service/log"
 	pb "module/gRPC-Product/service"
 	"product-service/service"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -112,21 +111,14 @@ func NewProductServer(service service.ProductService) *ProductServer {
 
 func (s *ProductServer) AddProduct(ctx context.Context, req *pb.ProductRequest) (*pb.BasicProductResponse, error) {
 	id := req.Id 
-	log.Printf("Product id: %v", id)
-	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid product ID format: %v", err)
-	}
 
-	log.Printf("product id: %v", productID)
-
-	product, err := s.service.GetProductByID(ctx, productID)
+	product, err := s.service.GetProductByID(ctx, id)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
 
 	return &pb.BasicProductResponse{
-		Id: product.ID.String(),
+		Id: product.ID,
 		Name: product.Name,
 		Price: float32(product.Price),
 	}, nil
@@ -134,20 +126,14 @@ func (s *ProductServer) AddProduct(ctx context.Context, req *pb.ProductRequest) 
 
 func (s *ProductServer) GetProductInfo(ctx context.Context, req *pb.ProductRequest) (*pb.ProductResponse, error) {
 	id := req.Id
-	log.Printf("Product id: %v", id)
-	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid product ID format: %v", err)
-	}
-	log.Printf("product id: %v", productID)
 
-	product, err := s.service.GetProductByID(ctx, productID)
+	product, err := s.service.GetProductByID(ctx, id)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
 
 	return &pb.ProductResponse{
-		Id: product.ID.String(),
+		Id: product.ID,
 		Name: product.Name,
 		Price: float32(product.Price),
 		Description: product.Description,
@@ -157,20 +143,14 @@ func (s *ProductServer) GetProductInfo(ctx context.Context, req *pb.ProductReque
 }
 
 func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest) (*pb.BasicProductResponse, error){
-	id := req.Id 
-	log.Printf("Product id: %v", id)
-	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid product ID format: %v", err)
-	}
-
-	product, err := s.service.GetProductByID(ctx, productID)
+	id := req.Id
+	product, err := s.service.GetProductByID(ctx, id)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
-	log.Printf("product id: %v", productID)
+	log.Printf("product id: %v", id)
 	return &pb.BasicProductResponse{
-		Id: product.ID.Hex(),
+		Id: product.ID,
 		Name: product.Name,
 		Price: float32(product.Price),
 
@@ -178,14 +158,8 @@ func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest
 }
 
 func (s *ProductServer) CheckStock(ctx context.Context, req *pb.ProductRequest) (*pb.StockResponse, error) {
-	id := req.Id 
-	log.Printf("Product id: %v", id)
-	productID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid product ID format: %v", err)
-	}
-
-	product, err := s.service.GetProductByID(ctx, productID)
+	id := req.Id
+	product, err := s.service.GetProductByID(ctx, id)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
@@ -216,7 +190,7 @@ func (s *ProductServer) GetAllProducts(ctx context.Context, req *pb.Empty) (*pb.
 	var pbProducts []*pb.Product 
 	for _, p := range products {
 		pbProducts = append(pbProducts, &pb.Product{
-			Id: p.ID.Hex(),
+			Id: p.ID,
 			Name: p.Name,
 			Price: float32(p.Price),
 			Description: p.Description,

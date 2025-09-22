@@ -7,7 +7,6 @@ import (
 
 	"product-service/models"
 	"github.com/segmentio/kafka-go"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
@@ -58,12 +57,6 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 				continue
 			}
 
-			userID, err := primitive.ObjectIDFromHex(event.UserID)
-			if err != nil {
-				log.Printf("Error converting user ID: %v", err)
-				continue
-			}
-
 			stockItems := make([]models.StockUpdateItem, len(event.Items))
 			for i, item := range event.Items {
 				stockItems[i] = models.StockUpdateItem{
@@ -72,12 +65,7 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 				}
 			}
 			for _, item := range stockItems {
-				id, err := primitive.ObjectIDFromHex(item.ProductID)
-				if err != nil {
-					log.Printf("Invalid product ID: %v", item.ProductID)
-					continue
-				}
-				if err := updater.UpdateProductStock(context.Background(), id, -item.Quantity); err != nil {
+				if err := updater.UpdateProductStock(context.Background(), item.ProductID, -item.Quantity); err != nil {
 					log.Printf("Error updating product stock: %v", err)
 				}
 			}
@@ -88,7 +76,6 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 				}
 			}
 
-			log.Printf("Product stock updated successfully for user: %v", userID)
 		}
 	}()
 
@@ -117,12 +104,6 @@ func ConsumerOrderReturned(brokers []string, updater models.ProductStockUpdater)
 				continue
 			}
 
-			userID, err := primitive.ObjectIDFromHex(event.UserID)
-			if err != nil {
-				log.Printf("Error converting user ID: %v", err)
-				continue
-			}
-
 			stockItems := make([]models.StockUpdateItem, len(event.Items))
 			for i, item := range event.Items {
 				stockItems[i] = models.StockUpdateItem{
@@ -131,12 +112,8 @@ func ConsumerOrderReturned(brokers []string, updater models.ProductStockUpdater)
 				}
 			}
 			for _, item := range stockItems {
-				id, err := primitive.ObjectIDFromHex(item.ProductID)
-				if err != nil {
-					log.Printf("Invalid product ID: %v", item.ProductID)
-					continue
-				}
-				if err := updater.UpdateProductStock(context.Background(), id, item.Quantity); err != nil {
+
+				if err := updater.UpdateProductStock(context.Background(), item.ProductID, item.Quantity); err != nil {
 					log.Printf("Error updating product stock: %v", err)
 				}
 			}
@@ -146,8 +123,6 @@ func ConsumerOrderReturned(brokers []string, updater models.ProductStockUpdater)
 					log.Printf("Error decrementing sold count: %v", err)
 				}
 			}
-
-			log.Printf("Product stock updated successfully for user: %v", userID)
 		}
 	}()
 	log.Printf("Kafka consumer started for topic: %s", OrderReturnedTopic)

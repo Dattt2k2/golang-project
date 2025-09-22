@@ -1,18 +1,26 @@
 package routes
 
 import (
+	"context"
 	controller "product-service/controller"
-	"product-service/database"
+	logger "product-service/log"
 	"product-service/repository"
 	"product-service/service"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
-	// "go.mongodb.org/mongo-driver/mongo"
 )
 
 // Hàm khởi tạo service riêng để dùng cho Kafka consumer hoặc các mục đích khác
 func NewProductService() service.ProductService {
-	productRepo := repository.NewProductRepository(database.OpenCollection(database.Client, "products"))
-	return service.NewProductService(productRepo, service.NewS3Service())
+	cfg, err := config.LoadDefaultConfig(context.Background())
+    if err != nil {
+        logger.Logger.Fatal("unable to load SDK config, " + err.Error())
+    }
+    dynamoClient := dynamodb.NewFromConfig(cfg)
+    productRepo := repository.NewProductRepository(dynamoClient, "products") // "products" là tên DynamoDB table
+    return service.NewProductService(productRepo, service.NewS3Service())
 }
 
 func SetupProductController() *controller.ProductController {
@@ -34,7 +42,7 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine) {
 	// Get all product from database
 	authorized.GET("/products/get", productController.GetAllProducts())
 	// search product
-	authorized.GET("/products/search", productController.GetProductByName())
+	// authorized.GET("/products/search", productController.GetProductByName())
 
 	authorized.GET("/best-selling", productController.GetBestSellingProducts())
 	// get product image

@@ -1,26 +1,26 @@
 package main
 
 import (
-	"log"
-	"net"
-	"os"
+	"context"
+    "log"
+    "net"
+    "os"
 
-	// database "github.com/Dattt2k2/golang-project/product-service/database"
-	controllers "product-service/controller"
-	"product-service/database"
-	"product-service/kafka"
-	logger "product-service/log"
-	"product-service/repository"
-	"product-service/routes"
-	service "product-service/service"
+    controllers "product-service/controller"
+    "product-service/database"
+    "product-service/kafka"
+    logger "product-service/log"
+    "product-service/repository"
+    "product-service/routes"
+    service "product-service/service"
 
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"google.golang.org/grpc"
+    "github.com/aws/aws-sdk-go-v2/config"
+    "github.com/aws/aws-sdk-go-v2/service/dynamodb"
+    "github.com/gin-gonic/gin"
+    "github.com/joho/godotenv"
+    "google.golang.org/grpc"
 
-	// "go.mongodb.org/mongo-driver/mongo"
-
-	pb "module/gRPC-Product/service"
+    pb "module/gRPC-Product/service"
 )
 
 func main() {
@@ -32,10 +32,19 @@ func main() {
 	if err != nil {
 		log.Println("Warning: Error loading .env file:", err)
 	}
-	mongodbURL := os.Getenv("MONGODB_URL")
-	if mongodbURL == "" {
-		log.Fatalf("MONGODB_URL is not set on .env file yet")
+
+	cfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		logger.Logger.Fatal("unable to load SDK config, " + err.Error())
 	}
+
+	dynamoClient := dynamodb.NewFromConfig(cfg)
+	_, err = dynamoClient.ListTables(context.Background(), &dynamodb.ListTablesInput{})
+    if err != nil {
+        log.Printf("Warning: Could not connect to DynamoDB: %v", err)
+    } else {
+        log.Printf("Connected to DynamoDB successfully")
+    }
 
 	database.InitRedis()
 	defer database.RedisClient.Close()
@@ -52,7 +61,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
 		}
-		repo := repository.NewProductRepository(database.OpenCollection(database.Client, "products"))
+		repo := repository.NewProductRepository(dynamoClient, "products")
 		svc := service.NewProductService(repo, service.NewS3Service())
 		productServer := controllers.NewProductServer(svc)
 		s := grpc.NewServer()

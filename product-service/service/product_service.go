@@ -11,18 +11,18 @@ import (
 	"product-service/kafka"
 	"product-service/models"
 	"product-service/repository"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/google/uuid"
 )
 
 type ProductService interface {
 	AddProduct(ctx context.Context, product models.Product) error
-	EditProduct(ctx context.Context, id primitive.ObjectID, update bson.M) error
-	DeleteProduct(ctx context.Context, id, userID primitive.ObjectID) error
-	GetProductByID(ctx context.Context, id primitive.ObjectID) (*models.Product, error)
-	GetProductByName(ctx context.Context, name string) ([]models.Product, error)
+	EditProduct(ctx context.Context, id string, update map[string]interface{}) error
+	DeleteProduct(ctx context.Context, id, userID string) error
+	GetProductByID(ctx context.Context, id string) (*models.Product, error)
+	// GetProductByName(ctx context.Context, name string) ([]models.Product, error)
 	GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product, int64, int, bool, bool, bool, error)
-	UpdateProductStock(ctx context.Context, id primitive.ObjectID, quantity int) error
+	UpdateProductStock(ctx context.Context, id string, quantity int) error
 	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error)
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
@@ -39,7 +39,7 @@ func NewProductService(repo repository.ProductRepository, s3Service *S3Service )
 }
 
 func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Product) error {
-	product.ID = primitive.NewObjectID()
+	product.ID = uuid.New().String()
 	product.Created_at = time.Now()
 	product.Updated_at = time.Now()
 	err := s.repo.Insert(ctx, product)
@@ -53,43 +53,43 @@ func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Prod
 		}()
 
 		go func(p models.Product) {
-			_ = kafka.ProduceProductEvent(context.Background(), "created", &p, p.ID.Hex())
+			_ = kafka.ProduceProductEvent(context.Background(), "created", &p, p.ID)
 		}(product)
 	}
 	
 	return err
 }
 
-func (s *productServiceImpl) EditProduct(ctx context.Context, id primitive.ObjectID, update bson.M) error {
+func (s *productServiceImpl) EditProduct(ctx context.Context, id string, update map[string]interface{}) error {
 	update["updated_at"] = time.Now()
 	err := s.repo.Update(ctx, id, update)
 	if err == nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			productKey := fmt.Sprintf("products:%s", id.Hex())
+			productKey := fmt.Sprintf("products:%s", id)
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
 			}
 		}()
 		
-		go func(id primitive.ObjectID) {
+		go func(id string) {
 			product, err := s.repo.FindByID(context.Background(), id)
 			if err == nil && product != nil {
-				_ = kafka.ProduceProductEvent(context.Background(), "updated", product, id.Hex())
+				_ = kafka.ProduceProductEvent(context.Background(), "updated", product, id)
 			}
 		} (id)
 	}
 	return err
 }
 
-func (s *productServiceImpl) DeleteProduct(ctx context.Context, id, userID primitive.ObjectID) error {
+func (s *productServiceImpl) DeleteProduct(ctx context.Context, id, userID string) error {
 	err := s.repo.Delete(ctx, id, userID)
 	if err == nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			productKey := fmt.Sprintf("product:%s", id.Hex())
+			productKey := fmt.Sprintf("product:%s", id)
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
 			}
@@ -99,20 +99,20 @@ func (s *productServiceImpl) DeleteProduct(ctx context.Context, id, userID primi
 			}
 		}()
 
-		go func(id primitive.ObjectID) {
-			_ = kafka.ProduceProductEvent(context.Background(), "deleted", nil, id.Hex())
+		go func(id string) {
+			_ = kafka.ProduceProductEvent(context.Background(), "deleted", nil, id)
 		} (id)
 	}
 	return err
 }
 
-func (s *productServiceImpl) GetProductByID(ctx context.Context, id primitive.ObjectID) (*models.Product, error) {
-	cacheKey := fmt.Sprintf("product:%s", id.Hex()) // Đổi thành "product:" để nhất quán
+func (s *productServiceImpl) GetProductByID(ctx context.Context, id string) (*models.Product, error) {
+	cacheKey := fmt.Sprintf("product:%s", id) // Đổi thành "product:" để nhất quán
 
 	var product models.Product
 	found, err := helper.GetCachedProductData(ctx, cacheKey, &product)
 	if err == nil && found {
-		log.Printf("Cache hit for product: %s", id.Hex())
+		log.Printf("Cache hit for product: %s", id)
 		if product.ImagePath != "" {
 			url, err := s.GetS3PathIfExist(product.ImagePath, 100*time.Minute)
 			if err == nil {
@@ -141,9 +141,9 @@ func (s *productServiceImpl) GetProductByID(ctx context.Context, id primitive.Ob
 	return productPtr, nil
 }
 
-func (s *productServiceImpl) GetProductByName(ctx context.Context, name string) ([]models.Product, error) {
-	return s.repo.FindByName(ctx, name)
-}
+// func (s *productServiceImpl) GetProductByName(ctx context.Context, name string) ([]models.Product, error) {
+// 	return s.repo.FindByName(ctx, name)
+// }
 
 func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product, int64, int, bool, bool, bool, error) {
 	cachedResult, found, err := helper.GetAllProductsFromCache(ctx, page, limit)
@@ -183,13 +183,13 @@ func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int
 	return products, total, pages, hasNext, hasPrev, false, nil
 }
 
-func (s *productServiceImpl) UpdateProductStock(ctx context.Context, id primitive.ObjectID, quantity int) error {
+func (s *productServiceImpl) UpdateProductStock(ctx context.Context, id string, quantity int) error {
 	err := s.repo.UpdateStock(ctx, id, quantity)
 	if err == nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			productKey := fmt.Sprintf("products:%s", id.Hex())
+			productKey := fmt.Sprintf("products:%s", id)
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
 			}
@@ -199,12 +199,7 @@ func (s *productServiceImpl) UpdateProductStock(ctx context.Context, id primitiv
 }
 
 func (s *productServiceImpl) IncrementSoldCount(ctx context.Context, productID string, quantity int) error {
-	productIDObj, err := primitive.ObjectIDFromHex(productID)
-	if err != nil {
-		return errors.New("invalid product ID")
-	}
-
-	err = s.repo.IncrementSoldCount(ctx, productIDObj, quantity)
+	err := s.repo.IncrementSoldCount(ctx, productID, quantity)
 	if err == nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -252,12 +247,8 @@ func (s *productServiceImpl) GetBestSellingProducts(ctx context.Context, limit i
 }
 
 func (s *productServiceImpl) DecrementSoldCount(ctx context.Context, productID string, quantity int) error {
-	productIDObj, err := primitive.ObjectIDFromHex(productID)
-	if err != nil {
-		return errors.New("invalid product ID")
-	}
 
-	err = s.repo.DecrementSoldCount(ctx, productIDObj, quantity)
+	err := s.repo.DecrementSoldCount(ctx, productID, quantity)
 	if err == nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
