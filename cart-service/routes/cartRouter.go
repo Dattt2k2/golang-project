@@ -1,18 +1,35 @@
 package routes
 
 import (
+	"context"
 	"log"
+	"os"
 
 	"cart-service/controller"
+	logger "cart-service/log"
 	"cart-service/repository"
 	"cart-service/service"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
 )
 
 // SetupCartDependencies thiết lập các dependencies theo mô hình 3 layer
 func SetupCartDependencies() (*controller.CartController, *controller.CartServer) {
 	// Setup repository layer
-	cartRepo := repository.NewcartRepository()
+	cfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		logger.Logger.Fatal("unable to load SDK config, " + err.Error())
+	}
+
+	dynamodbClient := dynamodb.NewFromConfig(cfg)
+
+	tableName := os.Getenv("DYNAMODB_CART_TABLE")
+	if tableName == "" {
+		tableName = "carts"
+	}
+	cartRepo := repository.NewcartRepository(dynamodbClient, tableName)
 
 	// Setup service layer
 	cartService, err := service.NewCartService(cartRepo)

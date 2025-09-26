@@ -51,6 +51,7 @@ func main() {
 	// brokers := kafkaHost
 	kafka.InitOrderSuccessProducer(brokers)
 	kafka.InitOrderReturnedProducer(brokers)
+	kafka.InitPaymentProducer(brokers)
 
 	// Start payment consumer to listen for payment status updates
 	orderRepo := repositories.NewOrderRepository(db)

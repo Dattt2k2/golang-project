@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"math"
+	"time"
 
 	"order-service/models"
 
@@ -104,6 +105,22 @@ func (r *OrderRepository) UpdatePaymentStatus(ctx context.Context, orderID uint,
 		Update("payment_status", paymentStatus).Error
 }
 
+func (r *OrderRepository) UpdateOrderPaymentStatus(ctx context.Context, orderID uint, paymentStatus string, paymentIntentID *string) error {
+    updates := map[string]interface{}{
+        "payment_status": paymentStatus,
+        "updated_at":     time.Now(),
+    }
+    
+    if paymentIntentID != nil {
+        updates["payment_intent_id"] = *paymentIntentID
+    }
+    
+    return r.db.WithContext(ctx).
+        Model(&models.Order{}).
+        Where("id = ?", orderID).
+        Updates(updates).Error
+}
+
 // FindOrderByID retrieves a specific order by ID
 func (r *OrderRepository) GetOrderByID(ctx context.Context, orderID uint) (*models.Order, error) {
 	var order models.Order
@@ -114,3 +131,18 @@ func (r *OrderRepository) GetOrderByID(ctx context.Context, orderID uint) (*mode
 
 	return &order, nil
 }
+
+
+func (r *OrderRepository) UpdatePaymentIntentID(ctx context.Context, orderID uint, paymentIntentID string) error {
+	return r.db.WithContext(ctx).Model(&models.Order{}).
+		Where("id = ?", orderID).
+		Update("payment_intent_id", paymentIntentID).Error
+}
+
+func (r *OrderRepository) UpdateOrderFields(ctx context.Context, orderID uint, updates map[string]interface{}) error {
+    return r.db.WithContext(ctx).
+        Model(&models.Order{}).
+        Where("id = ?", orderID).
+        Updates(updates).Error
+}
+

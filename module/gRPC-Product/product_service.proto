@@ -22,6 +22,7 @@ message BasicProductResponse {
     string id = 1;
     string name = 2;
     float price = 3;
+    string vendor_id = 4;
 }
 
 message ProductResponse {
@@ -31,6 +32,7 @@ message ProductResponse {
     string description = 4;
     int32 quantity = 5;
     string image_url = 6; 
+    string vendor_id = 7;
 }
 
 

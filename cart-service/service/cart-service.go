@@ -9,8 +9,9 @@ import (
 
 	"cart-service/models"
 	"cart-service/repository"
+
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-Product/service"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -44,14 +45,17 @@ func NewCartService(repo repository.CartRepository) (CartService, error) {
 	}, nil 
 }
 
-func (s *cartServiceImpl) AddToCart(ctx context.Context, UserID string, productID string, quantity int ) error {
+func (s *cartServiceImpl) AddToCart(ctx context.Context, userID string, productID string, quantity int ) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	userObj, err := primitive.ObjectIDFromHex(UserID)
-	if err != nil {
-		return errors.New("Invalid user ID format")
+	if _, err := uuid.Parse(userID); err != nil {
+		return errors.New("Invalid User ID format")
 	}
+	if _, err := uuid.Parse(productID); err != nil {
+		return errors.New("Invalid Product ID format")
+	}
+
 
 	productReq := &pb.ProductRequest{
 		Id: productID,
@@ -72,20 +76,16 @@ func (s *cartServiceImpl) AddToCart(ctx context.Context, UserID string, productI
 		return errors.New("Not enough stock available")
 	}
 
-	productObj, err := primitive.ObjectIDFromHex(productID)
-	if err != nil {
-		return errors.New("Invalid product ID format")
-	}
-
 
 	cartItem := models.CartItem{
-		ProductID: productObj,
+		VendorID: basicInfo.VendorId,
+		ProductID: productID,
 		Name: basicInfo.Name,
 		Price: float64(basicInfo.Price),
 		Quantity: quantity,
 	}
 
-	return s.repo.AddItem(ctx, userObj, cartItem)
+	return s.repo.AddItem(ctx, userID, cartItem)
 }
 
 
@@ -93,12 +93,11 @@ func (s *cartServiceImpl) GetUserCart(ctx context.Context, userID string) (*mode
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	userObjID, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		return nil, errors.New("Invalid user ID format")
+	if _, err := uuid.Parse(userID); err != nil {
+		return nil, errors.New("Invalid User ID format")
 	}
 
-	return s.repo.FindByUserID(ctx, userObjID)
+	return s.repo.FindByUserID(ctx, userID)
 
 }
 
@@ -107,17 +106,14 @@ func (s *cartServiceImpl) DeleteProductFromCart(ctx context.Context, userID stri
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	userObjID, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		return errors.New("Invalid user ID")
+	if _, err := uuid.Parse(userID); err != nil {
+		return errors.New("Invalid User ID format")
 	}
 
-	productObjID, err := primitive.ObjectIDFromHex(productID)
-	if err != nil {
-		return errors.New("Invalid product ID")
+	if _, err := uuid.Parse(productID); err != nil {
+		return errors.New("Invalid Product ID format")
 	}
-
-	modifiedCount, err := s.repo.RemoveItem(ctx,  userObjID, productObjID)
+	modifiedCount, err := s.repo.RemoveItem(ctx, userID, productID)
 	if err != nil {
 		return errors.New("Failed to remove item from cart")
 	}
@@ -134,12 +130,11 @@ func (s *cartServiceImpl) ClearCart(ctx context.Context, userID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	userObjID, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		return errors.New("Invalid user ID format")
+	if _, err := uuid.Parse(userID); err != nil {
+		return errors.New("Invalid User ID format")
 	}
 
-	return s.repo.ClearCart(ctx, userObjID)
+	return s.repo.ClearCart(ctx, userID)
 }
 
 func (s *cartServiceImpl) GetAllCarts(ctx context.Context, page, limit int) ([]models.Cart, int, int, bool, bool, error) {

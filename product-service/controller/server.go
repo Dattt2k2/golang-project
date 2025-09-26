@@ -153,6 +153,7 @@ func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest
 		Id: product.ID,
 		Name: product.Name,
 		Price: float32(product.Price),
+		VendorId:  product.UserID,
 
 	}, nil
 }

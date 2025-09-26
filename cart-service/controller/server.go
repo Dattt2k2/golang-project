@@ -121,10 +121,11 @@ func (s *CartServer) GetCartItems (ctx context.Context, req *pb.CartRequest) (*p
 	var items []*pb.CartItem
 	for _, item := range cart.Items {
 		cartItem := &pb.CartItem{
-			ProductId: item.ProductID.Hex(),
+			ProductId: item.ProductID,
 			Quantity:  int32(item.Quantity),
 			Price:     float32(item.Price),
 			Name:      item.Name,
+			VendorId:  item.VendorID,
 		}
 		items = append(items, cartItem)
 	}

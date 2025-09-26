@@ -284,4 +284,245 @@ func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
 
 }
 
+func (ctrl *OrderController) HandlePaymentSuccess() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // Get order ID from URL parameter
+        orderIDStr := c.Param("id")
+        orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+        if err != nil {
+            logger.Err("Invalid order ID", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+            return
+        }
 
+        // Parse request body
+        type PaymentSuccessRequest struct {
+            PaymentIntentID string `json:"payment_intent_id"`
+        }
+
+        var req PaymentSuccessRequest
+        if err := c.ShouldBindJSON(&req); err != nil {
+            logger.Err("Failed to bind JSON", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+            return
+        }
+
+        // Create context with timeout
+        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+
+        // Call service method
+        if err := ctrl.orderService.HandlePaymentSuccess(ctx, uint(orderID), req.PaymentIntentID); err != nil {
+            logger.Err("Failed to handle payment success", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process payment success"})
+            return
+        }
+
+        logger.Logger.Infof("Payment success processed for order %d", orderID)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "Payment success processed",
+            "order_id": orderID,
+            "status": "confirmed",
+        })
+    }
+}
+
+// HandlePaymentFailure handles payment failure callback from payment-service
+func (ctrl *OrderController) HandlePaymentFailure() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // Get order ID from URL parameter
+        orderIDStr := c.Param("id")
+        orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+        if err != nil {
+            logger.Err("Invalid order ID", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+            return
+        }
+
+        // Parse request body
+        type PaymentFailureRequest struct {
+            Reason string `json:"reason"`
+        }
+
+        var req PaymentFailureRequest
+        if err := c.ShouldBindJSON(&req); err != nil {
+            logger.Err("Failed to bind JSON", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+            return
+        }
+
+        // Create context with timeout
+        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+
+        // Call service method
+        if err := ctrl.orderService.HandlePaymentFailure(ctx, uint(orderID), req.Reason); err != nil {
+            logger.Err("Failed to handle payment failure", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process payment failure"})
+            return
+        }
+
+        logger.Logger.Infof("Payment failure processed for order %d, reason: %s", orderID, req.Reason)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "Payment failure processed",
+            "order_id": orderID,
+            "status": "payment_failed",
+        })
+    }
+}
+
+func (ctrl *OrderController) ConfirmDelivery() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        orderIDStr := c.Param("id")
+        orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+        if err != nil {
+            logger.Err("Invalid order ID", err)
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+            return
+        }
+
+        userID := c.GetHeader("user_id")
+        if userID == "" {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "User authentication required"})
+            return
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+
+        if err := ctrl.orderService.ConfirmDelivery(ctx, uint(orderID), userID); err != nil {
+            logger.Err("Failed to confirm delivery", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        logger.Logger.Infof("Delivery confirmed for order %d by user %s", orderID, userID)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "Delivery confirmed successfully",
+            "order_id": orderID,
+            "status": "delivered",
+        })
+    }
+}
+
+// MarkAsShipped - Vendor marks order as shipped
+func (ctrl *OrderController) MarkAsShipped() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        orderIDStr := c.Param("id")
+        orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+            return
+        }
+
+        vendorID := c.GetHeader("user_id")
+        userType := c.GetHeader("user_type")
+        
+        if userType != "VENDOR" && userType != "SELLER" {
+            c.JSON(http.StatusForbidden, gin.H{"error": "Only vendors can mark orders as shipped"})
+            return
+        }
+
+        if vendorID == "" {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Vendor authentication required"})
+            return
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+
+        if err := ctrl.orderService.MarkAsShipped(ctx, uint(orderID), vendorID); err != nil {
+            logger.Err("Failed to mark as shipped", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        logger.Logger.Infof("Order %d marked as shipped by vendor %s", orderID, vendorID)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "Order marked as shipped successfully",
+            "order_id": orderID,
+            "status": "shipped",
+        })
+    }
+}
+
+// GetOrderStatus - Get detailed order status (for both buyer and vendor)
+func (ctrl *OrderController) GetOrderStatus() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        orderIDStr := c.Param("id")
+        orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+            return
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
+
+        order, err := ctrl.orderService.GetOrderByID(ctx, uint(orderID))
+        if err != nil {
+            logger.Err("Failed to get order", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get order"})
+            return
+        }
+
+        // Check authorization - only order owner or vendor can view
+        userID := c.GetHeader("user_id")
+        userType := c.GetHeader("user_type")
+        
+        if userType != "ADMIN" && userType != "SELLER" {
+            if order.UserID != userID {
+                c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to view this order"})
+                return
+            }
+        }
+
+        c.JSON(http.StatusOK, gin.H{
+            "order_id": order.ID,
+            "status": order.Status,
+            "payment_status": order.PaymentStatus,
+            "payment_method": order.PaymentMethod,
+            "total_price": order.TotalPrice,
+            "platform_fee": order.PlatformFee,
+            "vendor_amount": order.VendorAmount,
+            "shipping_address": order.ShippingAddress,
+            "delivery_date": order.DeliveryDate,
+            "payment_release_date": order.PaymentReleaseDate,
+            "created_at": order.CreatedAt,
+            "updated_at": order.UpdatedAt,
+        })
+    }
+}
+
+// ReleasePaymentManually - Admin can manually release payment (emergency use)
+func (ctrl *OrderController) ReleasePaymentManually() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        orderIDStr := c.Param("id")
+        orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+            return
+        }
+
+        userType := c.GetHeader("user_type")
+        if userType != "ADMIN" {
+            c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can manually release payments"})
+            return
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+
+        if err := ctrl.orderService.ReleasePaymentToVendor(ctx, uint(orderID)); err != nil {
+            logger.Err("Failed to manually release payment", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        logger.Logger.Infof("Payment manually released for order %d", orderID)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "Payment released to vendor successfully",
+            "order_id": orderID,
+        })
+    }
+}

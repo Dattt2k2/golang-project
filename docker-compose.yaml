@@ -309,14 +309,21 @@ services:
     command: >
       bash -c "
         echo -e 'Waiting for Kafka to be ready...' &&
-        cub kafka-ready -b kafka:9092 1 120 &&
+        cub kafka-ready -b ${KAFKA_BROKER} 1 120 &&
         echo -e 'Creating Kafka topics...' &&
-        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic payment &&
-        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic order-success &&
-        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic product-events &&
-        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic email-events &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic payment &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic payment_events &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic payment_requests &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic order_success &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic order_returned &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic vendor_payment_processed &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic vendor_account_updates &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic vendor_payments &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic bank_payouts &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic product-events &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic email-events &&
         echo -e 'Successfully created the following topics:' &&
-        kafka-topics --list --bootstrap-server kafka:9092
+        kafka-topics --list --bootstrap-server ${KAFKA_BROKER}
       "
     networks:
       - default

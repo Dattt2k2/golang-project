@@ -21,5 +21,6 @@ message CartItem {
     int32 quantity = 2;
     float price = 3;
     string name = 4;
+    string vendor_id = 5;
 }
 

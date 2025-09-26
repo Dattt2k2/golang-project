@@ -1,19 +1,19 @@
 package routes
 
 import (
-	"github.com/Dattt2k2/golang-project/cart-service/database"
-	"github.com/Dattt2k2/golang-project/order-service/controller"
-	"github.com/Dattt2k2/golang-project/order-service/repositories"
-	orderService "github.com/Dattt2k2/golang-project/order-service/service"
+	"order-service/database"
+	"order-service/controller"
+	"order-service/repositories"
+	orderService "order-service/service"
 	"github.com/gin-gonic/gin"
 )
 func SetupOrderController() *controller.OrderController {
 
-	orderRepo := repositories.NewOrderRepository(database.OpenCollection(database.Client, "order"))
-	// Import the service package and create a service instance
-	orderSvc := orderService.NewOrderService(orderRepo)
+	db := database.InitDB() // This returns *gorm.DB
+    orderRepo := repositories.NewOrderRepository(db)
+    orderSvc := orderService.NewOrderService(orderRepo)
 
-	return controller.NewOrderController(orderSvc)
+    return controller.NewOrderController(orderSvc)
 }
 
 
@@ -28,4 +28,13 @@ func OrderRoutes(incomming *gin.Engine){
 	authorized.GET("order/user", orderController.GetUserOrders())
 	authorized.GET("admin/orders", orderController.AdminGetOrders())
 	authorized.POST("user/order/cancel/:order_id", orderController.CancelOrder())
+
+	authorized.POST("orders/:id/confirm-delivery", orderController.ConfirmDelivery())
+    authorized.POST("orders/:id/mark-shipped", orderController.MarkAsShipped())
+    authorized.GET("orders/:id/status", orderController.GetOrderStatus())
+    authorized.POST("orders/:id/release-payment", orderController.ReleasePaymentManually())
+    
+    // Payment callback routes (for payment-service)
+    authorized.POST("orders/:id/payment/success", orderController.HandlePaymentSuccess())
+    authorized.POST("orders/:id/payment/failure", orderController.HandlePaymentFailure())
 }

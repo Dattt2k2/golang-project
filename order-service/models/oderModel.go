@@ -4,6 +4,8 @@ import (
 	// "time"
 
 	// "go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
+
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -30,16 +32,29 @@ import (
 // 	Updated_at		time.Time				`bson:"updated_at"`
 // }
 
-
 type Order struct {
 	gorm.Model
-	UserID string `gorm:"not null"`
-	Items  datatypes.JSON `gorm:"type:jsonb;not null"`
-	Status string `gorm:"not null;default:'pending'"`
-	Source string `gorm:"not null;default:'web'"`
-	TotalPrice float64 `gorm:"not null"`
-	PaymentMethod string `gorm:"not null;default:'cod'"`
-	PaymentStatus string `gorm:"not null;default:'unpaid'"`
-	ShippingStatus string `gorm:"not null;default:'pending'"`
-	ShippingAddress string `gorm:"not null"`
+	UserID             string         `gorm:"not null"`
+	Items              datatypes.JSON `gorm:"type:jsonb;not null"`
+	Status             string         `gorm:"not null;default:'pending'"`
+	Source             string         `gorm:"not null;default:'web'"`
+	TotalPrice         float64        `gorm:"not null"`
+	PaymentMethod      string         `gorm:"not null;default:'cod'"`
+	PaymentStatus      string         `gorm:"not null;default:'unpaid'"`
+	PaymentIntentID    *string        `gorm:"column:payment_intent_id" json:"payment_intent_id,omitempty"`
+	ShippingStatus     string         `gorm:"not null;default:'pending'"`
+	ShippingAddress    string         `gorm:"not null"`
+	// VendorID           *string        `gorm:"column:vendor_id" json:"vendor_id,omitempty"`
+	PlatformFee        float64        `gorm:"not null;default:0"`
+	VendorAmount       float64        `gorm:"not null;default:0"`
+	DeliveryDate       *time.Time     `json:"delivery_date"`
+	PaymentReleaseDate *time.Time     `json:"payment_release_date"`
+}
+
+type OrderItem struct {
+	ProductID string  `json:"product_id"`
+	Name      string  `json:"name"`
+	Quantity  int     `json:"quantity"`
+	Price     float64 `json:"price"`
+	VendorID  string  `json:"vendor_id"`
 }
