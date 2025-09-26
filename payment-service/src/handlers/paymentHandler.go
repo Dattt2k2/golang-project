@@ -61,7 +61,6 @@ func (h *Handler) GetPaymentByOrderID() gin.HandlerFunc {
 
         resp := models.PaymentResponse{
             Status:        payment.Status,
-            Message:       "Payment found",
             TransactionID: payment.TransactionID,
         }
 

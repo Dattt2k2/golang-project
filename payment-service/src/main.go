@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -9,7 +8,7 @@ import (
 
 	"payment-service/repository"
 	"payment-service/routes"
-	"payment-service/src/config"
+	// "payment-service/src/config"
 	"payment-service/src/service"
 
 	"github.com/gin-gonic/gin"
@@ -19,10 +18,10 @@ import (
 
 func main() {
 	// Load configuration
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		log.Fatalf("Error loading configuration: %v", err)
-	}
+	// cfg, err := config.LoadConfig()
+	// if err != nil {
+	// 	log.Fatalf("Error loading configuration: %v", err)
+	// }
 
 	// Database configuration
 	dbHost := os.Getenv("DB_HOST")
@@ -70,35 +69,41 @@ func main() {
 		}
 	}
 
+	// Initialize vendor repository (required by routes.SetupRoutes)
+	vendorRepo := repository.NewVendorRepository(db)
+	// VendorRepository does not expose a Migrate method; if schema migration is required,
+	// perform it using the repository package or gorm AutoMigrate directly.
+	// For now, assume vendor tables are managed elsewhere or add a Migrate method to repository.VendorRepository.
+
 	// Get webhook secret
 	webhookSecret := os.Getenv("WEBHOOK_SECRET")
 	if webhookSecret == "" {
 		webhookSecret = "default-secret"
 	}
 
-	// Initialize Kafka (optional - if you need messaging)
-	if cfg.KafkaBroker != "" {
-		producer := service.NewKafkaProducer(cfg.KafkaBroker, cfg.KafkaTopic)
-		defer producer.Close()
+	paymentService := service.NewPaymentService(paymentRepo, webhookSecret)
 
-		consumer := service.NewKafkaConsumer(cfg.KafkaBroker, cfg.KafkaTopic)
-		defer consumer.Close()
+	orderServiceURL := os.Getenv("ORDER_SERVICE_URL")
+	if orderServiceURL == "" {
+		orderServiceURL = "http://order-service:8087" // Default in Docker
+	}
 
-		// Start Kafka consumer in background
-		go func() {
-			for {
-				msg, err := consumer.ReadMessage(context.Background())
-				if err != nil {
-					log.Printf("Error reading message from Kafka: %v", err)
-					continue
-				}
-				log.Printf("Received message: %s", string(msg.Value))
-			}
-		}()
+	kafkaBrokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
+	if len(kafkaBrokers) == 0 || kafkaBrokers[0] == "" {
+		kafkaBrokers = []string{"localhost:9092"}
+	}
+
+	// Start payment consumer to handle payment requests from order-service
+	if len(kafkaBrokers) > 0 && kafkaBrokers[0] != "" {
+		paymentConsumer := service.NewPaymentConsumer(paymentService, orderServiceURL)
+		
+		// Start consumer in goroutine
+		go paymentConsumer.StartConsumer(kafkaBrokers)
+		log.Println("Payment consumer started for payment_requests topic")
 	}
 
 	// Setup routes using SetupRoutes function
-	router := routes.SetupRoutes(paymentRepo, webhookSecret)
+	router := routes.SetupRoutes(paymentRepo, vendorRepo, webhookSecret)
 
 	// Add health check
 	router.GET("/health", func(c *gin.Context) {

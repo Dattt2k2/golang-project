@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"payment-service/models"
 
 	"gorm.io/gorm"
@@ -177,4 +178,33 @@ func (r *PaymentRepository) GetRefundByRefundID(refundID string) (*models.Refund
 	}
 
 	return &ref, nil
+}
+
+// Vendor Payout methods
+func (r *PaymentRepository) CreateVendorPayout(ctx context.Context, payout *models.VendorPayout) error {
+	return r.DB.WithContext(ctx).Create(payout).Error
+}
+
+func (r *PaymentRepository) UpdateVendorPayout(ctx context.Context, payoutID uint, updates map[string]interface{}) error {
+	return r.DB.WithContext(ctx).Model(&models.VendorPayout{}).Where("id = ?", payoutID).Updates(updates).Error
+}
+
+func (r *PaymentRepository) GetVendorPayouts(ctx context.Context, vendorID string, limit, offset int) ([]*models.VendorPayout, error) {
+	var payouts []*models.VendorPayout
+	err := r.DB.WithContext(ctx).
+		Where("vendor_id = ?", vendorID).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&payouts).Error
+	return payouts, err
+}
+
+func (r *PaymentRepository) GetPayoutByID(ctx context.Context, payoutID uint) (*models.VendorPayout, error) {
+	var payout models.VendorPayout
+	err := r.DB.WithContext(ctx).Where("id = ?", payoutID).First(&payout).Error
+	if err != nil {
+		return nil, err
+	}
+	return &payout, nil
 }
