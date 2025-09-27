@@ -21,8 +21,65 @@
 go.work
 go.work.sum
 
+# Temporary directories
 /tmp/
-/main
+temp/
 
+# Main binaries (add specific service names)
+/main
+main
+*-service/main
+*/main
+email-service/main
+cart-service/cart-service
+product-service/product-service
+api-gateway/api-gateway
+user-service/user-service
+
+# Environment files
 .env
+.env.*
 .config
+
+# Log files
+*.log
+logs/
+*/logs/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build and distribution directories
+dist/
+build/
+bin/
+target/
+
+# Docker volumes and data
+data/
+volumes/
+
+# Go mod cache (if you want to ignore it)
+# go.mod
+# go.sum
+
+# Air (hot reload) temp files
+tmp/
+.air/
+
+# Debug files
+debug
+*.pprof
