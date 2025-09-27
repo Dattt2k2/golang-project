@@ -257,7 +257,7 @@ func (ctrl *OrderController) CancelOrder() gin.HandlerFunc{
     return func (c *gin.Context) {
         ctx, cancel := context.WithTimeout(c.Request.Context(), 10 * time.Second)
         defer cancel()
-        userRole := c.GetHeader("user_type")
+        userRole := c.GetHeader("role")
         if userRole != "USER" && userRole != "SELLER" {
             logger.Err("Unauthorized access", nil, logger.Str("user_role", userRole))
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user type"})

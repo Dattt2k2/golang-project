@@ -4,7 +4,7 @@ import (
 	"log"
 	"order-service/database"
 	"order-service/models"
-	"order-service/repositories"
+	// "order-service/repositories"
 	"os"
 
 	"order-service/kafka"
@@ -52,10 +52,9 @@ func main() {
 	kafka.InitOrderSuccessProducer(brokers)
 	kafka.InitOrderReturnedProducer(brokers)
 	kafka.InitPaymentProducer(brokers)
-
 	// Start payment consumer to listen for payment status updates
-	orderRepo := repositories.NewOrderRepository(db)
-	kafka.StartPaymentConsumer(brokers, orderRepo)
+	// orderRepo := repositories.NewOrderRepository(db)
+	// kafka.StartPaymentConsumer(brokers, orderRepo)
 
 	routes.OrderRoutes(router)
 

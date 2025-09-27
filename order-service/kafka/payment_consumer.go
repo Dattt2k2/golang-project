@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
+	"time"
 
 	"order-service/repositories"
 
@@ -19,43 +21,58 @@ type PaymentEvent struct {
 }
 
 func StartPaymentConsumer(brokers []string, repo *repositories.OrderRepository) *kafka.Reader {
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: brokers,
-		Topic:   "payment",
-		GroupID: "order-service-group",
-	})
+    r := kafka.NewReader(kafka.ReaderConfig{
+        Brokers:        brokers,
+        Topic:          "payment",
+        GroupID:        "order-service-group",
+        MinBytes:       10e3, // 10KB
+        MaxBytes:       10e6, // 10MB
+        CommitInterval: time.Second,
+    })
 
-	go func() {
-		for {
-			m, err := r.ReadMessage(context.Background())
-			if err != nil {
-				log.Printf("error reading payment message: %v", err)
-				continue
-			}
+    go func() {
+        defer r.Close()
+        
+        for {
+            // Thêm timeout để tránh block vô hạn
+            ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+            
+            m, err := r.FetchMessage(ctx)
+            cancel()
+            
+            if err != nil {
+                log.Printf("error fetching payment message: %v", err)
+                time.Sleep(5 * time.Second) // Delay trước khi retry
+                continue
+            }
 
-			var ev PaymentEvent
-			if err := json.Unmarshal(m.Value, &ev); err != nil {
-				log.Printf("invalid payment event: %v", err)
-				continue
-			}
+            var ev PaymentEvent
+            if err := json.Unmarshal(m.Value, &ev); err != nil {
+                log.Printf("invalid payment event: %v", err)
+                r.CommitMessages(context.Background(), m) // Commit để skip message lỗi
+                continue
+            }
 
-			// attempt to parse OrderID as uint (order IDs are numeric)
-			var oid uint64
-			if oid, err = parseUint(ev.OrderID); err != nil {
-				log.Printf("invalid order id in payment event: %v", err)
-				continue
-			}
+            var oid uint64
+            if oid, err = strconv.ParseUint(ev.OrderID, 10, 64); err != nil { // Sửa parseUint
+                log.Printf("invalid order id in payment event: %v", err)
+                r.CommitMessages(context.Background(), m)
+                continue
+            }
 
-			// update payment status in DB using repo
-			if err := repo.UpdatePaymentStatus(context.Background(), uint(oid), ev.Status); err != nil {
-				log.Printf("failed to update payment status for order %s: %v", ev.OrderID, err)
-				continue
-			}
-			log.Printf("updated payment status for order %s to %s", ev.OrderID, ev.Status)
-		}
-	}()
+            if err := repo.UpdatePaymentStatus(context.Background(), uint(oid), ev.Status); err != nil {
+                log.Printf("failed to update payment status for order %s: %v", ev.OrderID, err)
+                // Không commit nếu DB update fail → sẽ retry
+                continue
+            }
 
-	return r
+            // Commit message sau khi xử lý thành công
+            r.CommitMessages(context.Background(), m)
+            log.Printf("updated payment status for order %s to %s", ev.OrderID, ev.Status)
+        }
+    }()
+
+    return r
 }
 
 func parseUint(s string) (uint64, error) {

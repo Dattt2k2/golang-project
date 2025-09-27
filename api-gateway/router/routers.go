@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
+	// "net/url"
 	"strings"
 
 	// "os"
@@ -170,56 +170,51 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 	client := &http.Client{Timeout: time.Second * 30}
 
-	if method == "GET" {
-		// Handle GET request với query params
-		reqURL, _ := url.Parse(serviceURL)
-		q := reqURL.Query()
+	// if method == "GET" {
+	// 	// Handle GET request với query params
+	// 	reqURL, _ := url.Parse(serviceURL)
+	// 	q := reqURL.Query()
 
-		// Add original query params
-		for key, values := range c.Request.URL.Query() {
-			for _, value := range values {
-				q.Add(key, value)
-			}
-		}
+	// 	// Add original query params
+	// 	for key, values := range c.Request.URL.Query() {
+	// 		for _, value := range values {
+	// 			q.Add(key, value)
+	// 		}
+	// 	}
 
-		// Add user info to query params
-		q.Set("vendor_id", uid.(string))
-		q.Set("email", email.(string))
-		q.Set("user_type", role.(string))
+	// 	reqURL.RawQuery = q.Encode()
 
-		reqURL.RawQuery = q.Encode()
+	// 	req, err := http.NewRequest(method, reqURL.String(), nil)
+	// 	if err != nil {
+	// 		logger.Err("Error creating GET request", err)
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+	// 		return
+	// 	}
 
-		req, err := http.NewRequest(method, reqURL.String(), nil)
-		if err != nil {
-			logger.Err("Error creating GET request", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
-			return
-		}
+	// 	req.Header.Set("Content-Type", contentType)
+	// 	authHeader := c.GetHeader("Authorization")
+	// 	if authHeader != "" {
+	// 		req.Header.Set("Authorization", authHeader)
+	// 	}
 
-		req.Header.Set("Content-Type", contentType)
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" {
-			req.Header.Set("Authorization", authHeader)
-		}
+	// 	resp, err := client.Do(req)
+	// 	if err != nil {
+	// 		logger.Err("Error in GET request", err)
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
+	// 		return
+	// 	}
+	// 	defer resp.Body.Close()
 
-		resp, err := client.Do(req)
-		if err != nil {
-			logger.Err("Error in GET request", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
-			return
-		}
-		defer resp.Body.Close()
+	// 	bodyBytes, err := io.ReadAll(resp.Body)
+	// 	if err != nil {
+	// 		logger.Err("Error reading GET response", err)
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
+	// 		return
+	// 	}
 
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			logger.Err("Error reading GET response", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
-			return
-		}
-
-		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
-		return
-	}
+	// 	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
+	// 	return
+	// }
 
 	// Handle POST, PUT, DELETE - chỉ JSON
 	var requestBody map[string]interface{}
@@ -521,7 +516,7 @@ func SetupRouter(router *gin.Engine) {
 			userGroup.GET("/order", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://order-service:8084/order/user", "GET", "application/json")
 			})
-			userGroup.POST("/user/order/cancel/:order_id", func(c *gin.Context) {
+			userGroup.POST("/order/cancel/:order_id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/"+c.Param("order_id"), "POST", "application/json")
 			})
 		}

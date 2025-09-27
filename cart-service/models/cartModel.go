@@ -40,7 +40,7 @@ type CartItem struct {
 }
 
 type Cart struct {
-    ID         string     `json:"id" dynamodbav:"id"`
+    ID         string     `json:"id" dynamodbav:"cart_id"`
     UserID     string     `json:"user_id" dynamodbav:"user_id"`
     Items      []CartItem `json:"items" dynamodbav:"items"`
     Created_at time.Time  `json:"created_at" dynamodbav:"created_at"`

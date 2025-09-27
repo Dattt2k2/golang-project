@@ -7,7 +7,7 @@ import (
 
 	"cart-service/models"
 
-	"github.com/google/uuid"
+	// "github.com/google/uuid"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -34,49 +34,36 @@ func NewCartRepository(client *dynamodb.Client, tableName string) CartRepository
 }
 
 func (r *cartRepositoryImpl) AddItem(ctx context.Context, userID string, item models.CartItem) error {
-	cart, err := r.FindByUserID(ctx, userID)
-	if err != nil {
-		cart = &models.Cart{
-			ID: uuid.New().String(),
-			UserID: userID,
-			Items: []models.CartItem{item},
-			Created_at: time.Now(),
-			Updated_at: time.Now(),
-		}
-	} else {
-		found := false 
-		for i, existingItem := range cart.Items {
-			if existingItem.ProductID == item.ProductID {
-				cart.Items[i].Quantity += item.Quantity
-				found = true
-				break
-			}
-		}
-		if !found {
-			cart.Items = append([]models.CartItem{item}, cart.Items...)
-		}
-		cart.Updated_at = time.Now()
-	}
-
-	cartItem, err := attributevalue.MarshalMap(cart)
+	itemAV, err := attributevalue.MarshalMap(item)
 	if err != nil {
 		return err 
 	}
 
-	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
-		Item:      cartItem,
+		Key: map[string]types.AttributeValue{
+			"user_id": &types.AttributeValueMemberS{Value: userID},
+		},
+
+		UpdateExpression: aws.String("SET #items = list_append(if_not_exists(#items, :empty_list), :new_item),updated_at = :updated_at, created_at = if_not_exists(created_at, :created_at)"),
+		ExpressionAttributeNames: map[string]string{
+			"#items": "items",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":new_item":    &types.AttributeValueMemberL{Value: []types.AttributeValue{&types.AttributeValueMemberM{Value: itemAV}}},
+			":empty_list": &types.AttributeValueMemberL{Value: []types.AttributeValue{}},
+			":updated_at":  &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+			":created_at":  &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+		},
 	})
-	return err
+	return err 
 }
 
 func (r *cartRepositoryImpl) FindByUserID(ctx context.Context, userID string) (*models.Cart, error) {
-	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
-		IndexName: aws.String("user_id-index"),
-		KeyConditionExpression: aws.String("user_id = :user_id"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":user_id": &types.AttributeValueMemberS{Value: userID},
+		Key: map[string]types.AttributeValue{
+			"user_id": &types.AttributeValueMemberS{Value: userID},
 		},
 	})
 
@@ -84,12 +71,11 @@ func (r *cartRepositoryImpl) FindByUserID(ctx context.Context, userID string) (*
 		return nil, err
 	}
 
-	if len(result.Items) == 0 {
-		return nil, fmt.Errorf("Cart not found for user ID: %s", userID)
+	if result.Item == nil {
+		return nil, fmt.Errorf("cart not found for user_id: %s", userID)
 	}
-
-	var cart models.Cart 
-	err = attributevalue.UnmarshalMap(result.Items[0], &cart)
+	var cart models.Cart
+	err = attributevalue.UnmarshalMap(result.Item, &cart)
 	if err != nil {
 		return nil, err 
 	}
@@ -120,6 +106,8 @@ func (r *cartRepositoryImpl) RemoveItem(ctx context.Context, userID string, prod
 	for _, item := range cart.Items {
 		if item.ProductID == productID {
 			removed = true
+		} else {
+			newItems = append(newItems, item)
 		}
 	}
 
