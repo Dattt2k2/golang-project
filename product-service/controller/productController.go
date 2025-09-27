@@ -8,11 +8,13 @@ import (
 	"strconv"
 	"time"
 
+	logger "product-service/log"
 	"product-service/models"
 	"product-service/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type ProductController struct {
@@ -36,21 +38,13 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			return
 		}
 
-		userID, exits := c.Get("uid")
-		if !exits {
+
+		userID := c.GetHeader("user_id")
+		logger.Info("User ID from header:", zap.String("userID", userID))
+		if userID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
 			return
 		} 
-		userIDStr, ok := userID.(string)
-		if !ok || userIDStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
-			return
-		}
-
-		if userIDString , ok := userID.(string); !ok || userIDString == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
-			return
-		}
 		var req models.CreateProductRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
@@ -70,10 +64,11 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			Price:       price,
 			Quantity:    quantity,
 			ImagePath:   imagePath,
-			UserID:      userIDStr,
+			UserID:      userID,
 		}
 
 		if err := ctrl.service.AddProduct(ctx, product); err != nil {
+			logger.Error("Error adding product", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product"})
 			return
 		}
@@ -152,14 +147,9 @@ func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		userID, exits := c.Get("uid")
-		if !exits {
+		userID := c.GetHeader("user_id")
+		if userID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
-			return
-		} 
-		userIDStr, ok := userID.(string)
-		if !ok || userIDStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
 			return
 		}
 		id := c.Param("id")
@@ -173,7 +163,7 @@ func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
 			return
 		}
 
-		if err := ctrl.service.DeleteProduct(ctx, id, userIDStr); err != nil {
+		if err := ctrl.service.DeleteProduct(ctx, id, userID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
 			return
 		}

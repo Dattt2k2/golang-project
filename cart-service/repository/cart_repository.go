@@ -29,7 +29,7 @@ type cartRepositoryImpl struct {
 	tableName string
 }
 
-func NewcartRepository(client *dynamodb.Client, tableName string) CartRepository {
+func NewCartRepository(client *dynamodb.Client, tableName string) CartRepository {
 	return &cartRepositoryImpl{client: client, tableName: tableName}
 }
 

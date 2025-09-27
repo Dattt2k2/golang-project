@@ -2,121 +2,139 @@ package main
 
 import (
 	"context"
-    "log"
-    "net"
-    "os"
+	"log"
+	"net"
+	"os"
 
-    controllers "product-service/controller"
-    "product-service/database"
-    "product-service/kafka"
-    logger "product-service/log"
-    "product-service/repository"
-    "product-service/routes"
-    service "product-service/service"
+	controllers "product-service/controller"
+	"product-service/database"
+	"product-service/kafka"
+	logger "product-service/log"
+	"product-service/repository"
+	"product-service/routes"
+	service "product-service/service"
 
-    "github.com/aws/aws-sdk-go-v2/config"
-    "github.com/aws/aws-sdk-go-v2/service/dynamodb"
-    "github.com/gin-gonic/gin"
-    "github.com/joho/godotenv"
-    "google.golang.org/grpc"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
 
-    pb "module/gRPC-Product/service"
+	pb "module/gRPC-Product/service"
 )
 
+// Sửa toàn bộ function main:
+
 func main() {
+    logger.InitLogger()
+    defer logger.Sync()
 
-	logger.InitLogger()
-	defer logger.Sync()
+    err := godotenv.Load("./product-service/.env")
+    if err != nil {
+        log.Println("Warning: Error loading .env file:", err)
+    }
 
-	err := godotenv.Load("./product-service/.env")
-	if err != nil {
-		log.Println("Warning: Error loading .env file:", err)
-	}
+    dynamoRegion := os.Getenv("DYNAMODB_REGION")
+    if dynamoRegion == "" {
+        dynamoRegion = "us-west-2"
+    }
 
-	cfg, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		logger.Logger.Fatal("unable to load SDK config, " + err.Error())
-	}
+    log.Printf("AWS Region: %s", dynamoRegion)
 
-	dynamoClient := dynamodb.NewFromConfig(cfg)
-	_, err = dynamoClient.ListTables(context.Background(), &dynamodb.ListTablesInput{})
+    cfg, err := config.LoadDefaultConfig(context.Background(),
+        config.WithRegion(dynamoRegion),
+    )
+    if err != nil {
+        logger.Logger.Fatal("unable to load SDK config, " + err.Error())
+    }
+
+    dynamoClient := dynamodb.NewFromConfig(cfg)
+
+    // Debug connection
+    tables, err := dynamoClient.ListTables(context.Background(), &dynamodb.ListTablesInput{})
     if err != nil {
         log.Printf("Warning: Could not connect to DynamoDB: %v", err)
     } else {
         log.Printf("Connected to DynamoDB successfully")
+        log.Printf("Available tables: %v", tables.TableNames)
     }
 
-	database.InitRedis()
-	defer database.RedisClient.Close()
-	log.Printf("Connected to Redis")
+    database.InitRedis()
+    defer database.RedisClient.Close()
+    log.Printf("Connected to Redis")
 
-	grpcReady := make(chan bool)
+    // Tạo ProductService chung cho cả gRPC và HTTP
+    tableName := os.Getenv("DYNAMODB_TABLE")
+    if tableName == "" {
+        tableName = "product-table"
+    }
+    log.Printf("Using DynamoDB table: %s", tableName)
 
-	go func() {
-		grpcPort := os.Getenv("gRPC_PORT")
-		if grpcPort == "" {
-			grpcPort = "8089"
-		}
-		lis, err := net.Listen("tcp", ":"+grpcPort)
-		if err != nil {
-			log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
-		}
-		repo := repository.NewProductRepository(dynamoClient, "products")
-		svc := service.NewProductService(repo, service.NewS3Service())
-		productServer := controllers.NewProductServer(svc)
-		s := grpc.NewServer()
+    repo := repository.NewProductRepository(dynamoClient, tableName)
+    productSvc := service.NewProductService(repo, service.NewS3Service())
 
-		pb.RegisterProductServiceServer(s, productServer)
+    grpcReady := make(chan bool)
 
-		grpcReady <- true
+    go func() {
+        grpcPort := os.Getenv("gRPC_PORT")
+        if grpcPort == "" {
+            grpcPort = "8089"
+        }
+        lis, err := net.Listen("tcp", ":"+grpcPort)
+        if err != nil {
+            log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
+        }
 
-		if err := s.Serve(lis); err != nil {
-			log.Fatalf("Failed to connect to gRPC Server: %v", err)
-		}
-	}()
+        // Sử dụng productSvc chung
+        productServer := controllers.NewProductServer(productSvc)
+        s := grpc.NewServer()
 
-	<-grpcReady
+        pb.RegisterProductServiceServer(s, productServer)
+        grpcReady <- true
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8082`"
-	}
+        if err := s.Serve(lis); err != nil {
+            log.Fatalf("Failed to connect to gRPC Server: %v", err)
+        }
+    }()
 
-	uploadDir := "./uploads/images"
-	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
-		log.Fatalf("Failed to create upload directory: %v", err)
-	}
+    <-grpcReady
 
-	// List all files in the directory
-	files, err := os.ReadDir(uploadDir)
-	if err != nil {
-		log.Printf("Error reading upload directory: %v", err)
-	} else {
-		log.Printf("Files in upload directory:")
-		for _, file := range files {
-			log.Printf("- %s", file.Name())
-		}
-	}
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8082"
+    }
 
-	routes.SetupProductController()
-	productSvc := routes.NewProductService()
-	kafkaHost := os.Getenv("KAFKA_URL")
-	brokers := []string{kafkaHost}
-	if kafkaHost == "" {
-		brokers = []string{"localhost:9092"}
-	}
-	kafka.InitProductEventProducer(brokers)
-	// go kafka.ConsumeOrderSuccess(brokers, controllers.ProductController{})
-	// go kafka.ConsumerOrderReturned(brokers, controllers.ProductController{})
-	go kafka.ConsumeOrderSuccess(brokers, productSvc)
-	go kafka.ConsumerOrderReturned(brokers, productSvc)
+    uploadDir := "./uploads/images"
+    if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+        log.Fatalf("Failed to create upload directory: %v", err)
+    }
 
-	router := gin.New()
-	router.Use(gin.Logger())
+    files, err := os.ReadDir(uploadDir)
+    if err != nil {
+        log.Printf("Error reading upload directory: %v", err)
+    } else {
+        log.Printf("Files in upload directory:")
+        for _, file := range files {
+            log.Printf("- %s", file.Name())
+        }
+    }
 
-	routes.ProductManagerRoutes(router)
-	routes.UploadRoutes(router)
+    // Kafka setup - sử dụng productSvc chung
+    kafkaHost := os.Getenv("KAFKA_URL")
+    brokers := []string{kafkaHost}
+    if kafkaHost == "" {
+        brokers = []string{"localhost:9092"}
+    }
+    kafka.InitProductEventProducer(brokers)
+    go kafka.ConsumeOrderSuccess(brokers, productSvc)
+    go kafka.ConsumerOrderReturned(brokers, productSvc)
 
-	router.Run(":" + port)
+    router := gin.New()
+    router.Use(gin.Logger())
 
+    // Pass productSvc to routes
+    routes.ProductManagerRoutes(router, productSvc)
+    routes.UploadRoutes(router)
+
+    router.Run(":" + port)
 }

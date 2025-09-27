@@ -129,7 +129,6 @@ type Product struct {
 
 // CreateProductRequest - Request struct cho tạo product mới
 type CreateProductRequest struct {
-    VendorID   string  `json:"vendor_id" binding:"required"` // Thêm trường vendor_id
     Name        string  `json:"name" binding:"required,min=2,max=100"`
     ImagePath   string  `json:"image_path,omitempty"` // Optional - có thể empty hoặc có URL từ presigned upload
     Category    string  `json:"category" binding:"required"`
@@ -140,7 +139,6 @@ type CreateProductRequest struct {
 
 // CreateProductWithImageRequest - Request struct khi upload ảnh cùng lúc
 type CreateProductWithImageRequest struct {
-    VendorID    string  `json:"vendor_id" binding:"required"` // Thêm trường vendor_id
     Name        string  `json:"name" binding:"required,min=2,max=100"`
     Category    string  `json:"category" binding:"required"`
     Description string  `json:"description" binding:"required,min=2,max=500"`

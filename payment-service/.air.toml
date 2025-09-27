@@ -1,11 +1,11 @@
-root = "."
-tmp_dir = "tmp"
+root = "src"
+tmp_dir = "../.air_tmp"
 
 [build]
-cmd = "go build -o ./tmp/main ."
-bin = "./tmp/main"
+cmd = "cd src && go build -o ../.air_tmp/main ."
+bin = "/app/payment-service/.air_tmp/main"
 include_ext = ["go"]
-exclude_dir = ["tmp", "vendor"]
+exclude_dir = ["../.air_tmp", "vendor"]
 delay = 500
 
 [log]

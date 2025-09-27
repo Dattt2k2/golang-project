@@ -11,7 +11,7 @@ import (
 	helper "api-gateway/helpers"
 	"api-gateway/logger"
 
-	"api-gateway/models"
+	// "api-gateway/models"
 	"github.com/google/uuid"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/redisdb"
@@ -226,19 +226,23 @@ func AuthMiddleware() gin.HandlerFunc {
 
 
 func RBACMiddleware(allowedRoles ...string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		user, exists := c.Get("user")
-		if  !exists {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error" : "Unauthorized"})
-			return 
-		}
-		u := user.(models.User)
-		for _, role := range allowedRoles {
-			if u.Role != nil && *u.Role == role {
-				c.Next()
-				return 
-			}
-		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbiden"})
-	}
+    return func(c *gin.Context) {
+        userRole, exists := c.Get("role")
+		logger.Info("User role from context:", logger.Str("role", userRole.(string)))
+        if !exists {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+            return
+        }
+        
+        role := userRole.(string)
+        
+        for _, allowedRole := range allowedRoles {
+            if role == allowedRole {
+                c.Next()
+                return
+            }
+        }
+        
+        c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+    }
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	logger "product-service/log"
 	"product-service/models"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -50,12 +51,25 @@ func (r *ProductRepositoryImpl) Insert(ctx context.Context, product models.Produ
 	product.Created_at = now
 	product.Updated_at = now
 	
-	item, err := attributevalue.MarshalMap(product)
-	if err != nil {
-		return err 
+	item := map[string]types.AttributeValue{
+		"id": &types.AttributeValueMemberS{Value: product.ID},
+		"name": &types.AttributeValueMemberS{Value: product.Name},
+		"description": &types.AttributeValueMemberS{Value: product.Description},
+		"price": &types.AttributeValueMemberN{Value: strconv.FormatFloat(product.Price, 'f', 2, 64)},
+		"quantity": &types.AttributeValueMemberN{Value: strconv.FormatInt(int64(product.Quantity), 10)},
+		"category": &types.AttributeValueMemberS{Value: product.Category},
+		"image_path": &types.AttributeValueMemberS{Value: product.ImagePath},
+		"created_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+		"updated_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+		"user_id": &types.AttributeValueMemberS{Value: product.UserID},
+		"sold_count": &types.AttributeValueMemberN{Value: "0"},
 	}
 
-	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
+	if product.ImagePath != "" {
+		item["image_path"] = &types.AttributeValueMemberS{Value: product.ImagePath}
+	}
+
+	_, err := r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
 		Item:      item,
 	})
@@ -127,27 +141,61 @@ func (r *ProductRepositoryImpl) Delete(ctx context.Context, id, userID string) e
     return err
 }
 
+// func (r *ProductRepositoryImpl) FindByID(ctx context.Context, id string) (*models.Product, error) {
+// 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
+// 		TableName: aws.String(r.tableName),
+// 		Key: map[string]types.AttributeValue{
+// 			"id": &types.AttributeValueMemberS{Value: id},
+// 		},
+// 	})
+// 	if err != nil {
+// 		return nil, err 
+// 	}
+
+// 	if result.Item == nil {
+// 		return nil, fmt.Errorf("product not found")
+// 	}
+
+// 	var product models.Product 
+// 	err = attributevalue.UnmarshalMap(result.Item, &product)
+// 	if err != nil {
+// 		return nil, err 
+// 	}
+// 	return &product, nil
+// }
 func (r *ProductRepositoryImpl) FindByID(ctx context.Context, id string) (*models.Product, error) {
-	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(r.tableName),
-		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: id},
-		},
-	})
-	if err != nil {
-		return nil, err 
-	}
-
-	if result.Item == nil {
-		return nil, fmt.Errorf("product not found")
-	}
-
-	var product models.Product 
-	err = attributevalue.UnmarshalMap(result.Item, &product)
-	if err != nil {
-		return nil, err 
-	}
-	return &product, nil
+    // Debug log
+    logger.Info("Finding product by ID in DynamoDB", logger.Str("id", id))
+    
+    result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
+        TableName: aws.String(r.tableName),
+        Key: map[string]types.AttributeValue{
+            "id": &types.AttributeValueMemberS{Value: id},
+        },
+    })
+    
+    if err != nil {
+        logger.Err("DynamoDB GetItem error", err)
+        return nil, err
+    }
+    
+    if result.Item == nil {
+        logger.Info("Product not found in DynamoDB", logger.Str("id", id))
+        return nil, fmt.Errorf("product not found")
+    }
+    
+    var product models.Product
+    err = attributevalue.UnmarshalMap(result.Item, &product)
+    if err != nil {
+        logger.Err("Failed to unmarshal DynamoDB item", err)
+        return nil, err
+    }
+    
+    logger.Info("Successfully found product", 
+        logger.Str("id", id),
+        logger.Str("name", product.Name))
+    
+    return &product, nil
 }
 
 // func (r *productRepositoryImpl) FindByName(ctx context.Context, name string) ([]models.Product, error) {

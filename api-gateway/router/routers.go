@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -102,23 +101,23 @@ func ForwardWebSocketToService(c *gin.Context, serviceURL string) {
 		conn.WriteMessage(messageType, message)
 	}
 }
+
+// Thay thế toàn bộ function ForwardRequestToService:
+
 func ForwardRequestToService(c *gin.Context, serviceURL string, method string, contentType string) {
 	logger.InfoE("ForwardRequestToService starting for: %s", nil, logger.Str("serviceURL", serviceURL))
-	if strings.Contains(serviceURL, "/products/get") || strings.Contains(serviceURL, "/search") || strings.Contains(serviceURL, "/advanced-search") {
-		client := &http.Client{
-			Timeout: time.Second * 30,
-		}
 
+	// Handle public routes without auth
+	if strings.Contains(serviceURL, "/products/get") || strings.Contains(serviceURL, "/search") || strings.Contains(serviceURL, "/advanced-search") {
+		client := &http.Client{Timeout: time.Second * 30}
 		req, err := http.NewRequest(method, serviceURL, nil)
 		if err != nil {
-			logger.Err("Error creating GET request", err)
+			logger.Err("Error creating request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
 			return
 		}
 
-		// Set headers
 		req.Header.Set("Content-Type", contentType)
-		// Thêm Authorization header nếu có
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" {
 			req.Header.Set("Authorization", authHeader)
@@ -126,7 +125,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 		resp, err := client.Do(req)
 		if err != nil {
-			logger.Err("Error in GET request", err)
+			logger.Err("Error in request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
 			return
 		}
@@ -134,7 +133,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			logger.Err("Error reading GET response", err)
+			logger.Err("Error reading response", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
 			return
 		}
@@ -149,6 +148,8 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
 		return
 	}
+
+	// Get user info from context
 	email, exist := c.Get("email")
 	if !exist {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Email not found in context"})
@@ -167,14 +168,26 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		return
 	}
 
-	client := &http.Client{
-		Timeout: time.Second * 30,
-	}
+	client := &http.Client{Timeout: time.Second * 30}
 
 	if method == "GET" {
-		// Handle GET request with query params
+		// Handle GET request với query params
 		reqURL, _ := url.Parse(serviceURL)
-		reqURL.RawQuery = c.Request.URL.RawQuery
+		q := reqURL.Query()
+
+		// Add original query params
+		for key, values := range c.Request.URL.Query() {
+			for _, value := range values {
+				q.Add(key, value)
+			}
+		}
+
+		// Add user info to query params
+		q.Set("vendor_id", uid.(string))
+		q.Set("email", email.(string))
+		q.Set("user_type", role.(string))
+
+		reqURL.RawQuery = q.Encode()
 
 		req, err := http.NewRequest(method, reqURL.String(), nil)
 		if err != nil {
@@ -183,12 +196,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 			return
 		}
 
-		// Set headers
 		req.Header.Set("Content-Type", contentType)
-		req.Header.Set("email", email.(string))
-		req.Header.Set("user_type", role.(string))
-		req.Header.Set("user_id", uid.(string))
-		// Thêm Authorization header nếu có
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" {
 			req.Header.Set("Authorization", authHeader)
@@ -209,131 +217,61 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 			return
 		}
 
-		if strings.Contains(serviceURL, "/products/get") {
-			transformedBody, err := transformProductResponse(c, bodyBytes)
-			if err == nil {
-				bodyBytes = transformedBody
-			}
-		}
-
 		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
 		return
 	}
-	if contentType == "multipart/form-data" {
-		err := c.Request.ParseMultipartForm(10 << 20)
-		if err != nil {
-			logger.Err("Error parsing multipart form", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Error parsing multipart form"})
-			return
+
+	// Handle POST, PUT, DELETE - chỉ JSON
+	var requestBody map[string]interface{}
+
+	if c.Request.Body != nil {
+		bodyBytes, _ := io.ReadAll(c.Request.Body)
+		if len(bodyBytes) > 0 {
+			json.Unmarshal(bodyBytes, &requestBody)
 		}
-
-		// Create a new buffer to store the multipart form data
-		body := &bytes.Buffer{}
-		writer := multipart.NewWriter(body)
-
-		// Copy all form fields
-		for key, values := range c.Request.MultipartForm.Value {
-			for _, value := range values {
-				err := writer.WriteField(key, value)
-				if err != nil {
-					logger.Err("Error writing field", err, logger.Str("key", key))
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
-					return
-				}
-			}
-		}
-
-		// Copy the file
-		if file, header, err := c.Request.FormFile("image"); err == nil {
-			part, err := writer.CreateFormFile("image", header.Filename)
-			if err != nil {
-				logger.Err("Error creating form file", err, logger.Str("filename", header.Filename))
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
-				return
-			}
-
-			if _, err := io.Copy(part, file); err != nil {
-				logger.Err("Error copying file", err, logger.Str("filename", header.Filename))
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating request"})
-				return
-			}
-			file.Close()
-		}
-
-		// Close the multipart writer
-		writer.Close()
-
-		// Create new request
-		req, err := http.NewRequest(method, serviceURL, body)
-		if err != nil {
-			logger.Err("Error creating multipart request", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
-			return
-		}
-
-		// Set headers
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-		req.Header.Set("email", email.(string))
-		req.Header.Set("user_type", role.(string))
-		req.Header.Set("user_id", uid.(string))
-		// Thêm Authorization header nếu có
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" {
-			req.Header.Set("Authorization", authHeader)
-		}
-
-		// Send request
-		resp, err := client.Do(req)
-		if err != nil {
-			logger.Err("Error in multipart request", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
-			return
-		}
-		defer resp.Body.Close()
-
-		// Read and forward response
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			logger.Err("Error reading multipart response", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
-			return
-		}
-
-		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
-	} else {
-		// Xử lý các request không phải multipart form như cũ
-		var bodyBytes []byte
-		if c.Request.Body != nil {
-			bodyBytes, _ = io.ReadAll(c.Request.Body)
-			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		}
-
-		req, err := http.NewRequest(method, serviceURL, bytes.NewBuffer(bodyBytes))
-		if err != nil {
-			logger.Err("Error creating request", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
-			return
-		}
-
-		req.Header.Set("Content-Type", contentType)
-		req.Header.Set("email", email.(string))
-		req.Header.Set("user_type", role.(string))
-		req.Header.Set("user_id", uid.(string))
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" {
-			req.Header.Set("Authorization", authHeader)
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			logger.Err("Error in request", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
-			return
-		}
-		defer resp.Body.Close()
-
-		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 	}
+
+	if requestBody == nil {
+		requestBody = make(map[string]interface{})
+	}
+
+	newBodyBytes, _ := json.Marshal(requestBody)
+
+	req, err := http.NewRequest(method, serviceURL, bytes.NewBuffer(newBodyBytes))
+	if err != nil {
+		logger.Err("Error creating request", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// SỬA PHẦN NÀY - SET VÀO REQUEST HEADER THAY VÌ RESPONSE HEADER
+	req.Header.Set("user_id", uid.(string)) // Thay vì c.Header()
+	req.Header.Set("email", email.(string)) // Thay vì c.Header()
+	req.Header.Set("role", role.(string))   // Thay vì c.Header()
+
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		req.Header.Set("Authorization", authHeader)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Err("Error in request", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
+		return
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Err("Error reading response", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
+		return
+	}
+
+	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
 }
 
 func SetupRouter(router *gin.Engine) {
