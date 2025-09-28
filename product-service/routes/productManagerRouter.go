@@ -15,49 +15,51 @@ import (
 
 // Hàm khởi tạo service riêng để dùng cho Kafka consumer hoặc các mục đích khác
 func NewProductService() service.ProductService {
-    dynamoRegion := os.Getenv("DYNAMODB_REGION")
-    if dynamoRegion == "" {
-        dynamoRegion = "us-west-2"
-    }
-    
-    cfg, err := config.LoadDefaultConfig(context.Background(),
-        config.WithRegion(dynamoRegion),
-    )
-    if err != nil {
-        logger.Logger.Fatal("unable to load SDK config, " + err.Error())
-    }
-    
-    dynamoClient := dynamodb.NewFromConfig(cfg)
-    
-    tableName := os.Getenv("DYNAMODB_TABLE")
-    if tableName == "" {
-        tableName = "product-table"
-    }
-    
-    productRepo := repository.NewProductRepository(dynamoClient, tableName)
-    return service.NewProductService(productRepo, service.NewS3Service())
+	dynamoRegion := os.Getenv("DYNAMODB_REGION")
+	if dynamoRegion == "" {
+		dynamoRegion = "us-west-2"
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.Background(),
+		config.WithRegion(dynamoRegion),
+	)
+	if err != nil {
+		logger.Logger.Fatal("unable to load SDK config, " + err.Error())
+	}
+
+	dynamoClient := dynamodb.NewFromConfig(cfg)
+
+	tableName := os.Getenv("DYNAMODB_TABLE")
+	if tableName == "" {
+		tableName = "product-table"
+	}
+
+	productRepo := repository.NewProductRepository(dynamoClient, tableName)
+	return service.NewProductService(productRepo, service.NewS3Service())
 }
 
 // Sửa function này để nhận productSvc từ main.go
 func ProductManagerRoutes(incomingRoutes *gin.Engine, productSvc service.ProductService) {
-    s3Service := service.NewS3Service()
-    productController := controller.NewProductController(productSvc, *s3Service)
-    
-    authorized := incomingRoutes.Group("/")
+	s3Service := service.NewS3Service()
+	productController := controller.NewProductController(productSvc, *s3Service)
 
-    // add product to database
-    authorized.POST("/products/add", productController.AddProduct())
-    // Edit product from database
-    authorized.PUT("/products/edit/:id", productController.EditProduct())
-    // Delete product from databse
-    authorized.DELETE("/products/delete/:id", productController.DeleteProduct())
-    // Get all product from database
-    authorized.GET("/products/get", productController.GetAllProducts())
-    // search product
-    // authorized.GET("/products/search", productController.GetProductByName())
+	authorized := incomingRoutes.Group("/")
 
-    authorized.GET("/best-selling", productController.GetBestSellingProducts())
-    
-    // Static file server for images
-    incomingRoutes.StaticFS("/static-images", gin.Dir("product-service/uploads/images", true))
+	// add product to database
+	authorized.POST("/products/add", productController.AddProduct())
+	// Edit product from database
+	authorized.PUT("/products/edit/:id", productController.EditProduct())
+	// Delete product from databse
+	authorized.DELETE("/products/delete/:id", productController.DeleteProduct())
+	// Get all product from database
+	authorized.GET("/products/get", productController.GetAllProducts())
+
+	authorized.GET("/products/user", productController.GetProductByUserID())
+	// search product
+	// authorized.GET("/products/search", productController.GetProductByName())
+
+	authorized.GET("/best-selling", productController.GetBestSellingProducts())
+
+	// Static file server for images
+	incomingRoutes.StaticFS("/static-images", gin.Dir("product-service/uploads/images", true))
 }

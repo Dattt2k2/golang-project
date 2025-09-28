@@ -27,6 +27,7 @@ type ProductService interface {
 	GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error)
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetAllProductForIndex(ctx context.Context) ([]models.Product, error)
+	GetProductByUserID(ctx context.Context, userID string, page, limit int64) ([]models.Product, int64, int, bool, bool, error)
 }
 
 type productServiceImpl struct {
@@ -280,4 +281,27 @@ func (s *productServiceImpl) GetS3PathIfExist(key string, expiration time.Durati
 		return "", errors.New("image key is empty")
 	}
 	return s.S3Service.GeneratePresignedDownloadURL(key, expiration)
+}
+
+func (s *productServiceImpl) GetProductByUserID(ctx context.Context, userID string, page, limit int64) ([]models.Product, int64, int, bool, bool, error) {
+	skip := (page - 1) * limit
+	products, total, err := s.repo.FindByUserID(ctx, userID, skip, limit)
+	if err != nil {
+		return nil, 0, 0, false, false, err
+	}
+
+	for i := range products {
+		if products[i].ImagePath != "" {
+			url, err := s.GetS3PathIfExist(products[i].ImagePath, 100*time.Minute)
+			if err == nil {
+				products[i].ImagePath = url 
+			}
+		}
+	}
+
+	pages := int((total + limit - 1) / limit)
+	hasNext := page < int64(pages)
+	hasPrev := page > 1
+	
+	return products, total, pages, hasNext, hasPrev, nil
 }

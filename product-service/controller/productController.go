@@ -297,6 +297,42 @@ func (ctrl *ProductController) DecrementSoldCount(ctx context.Context, productID
 	return ctrl.service.DecrementSoldCount(ctx, productID, quantity)
 }
 
+func (ctrl *ProductController) GetProductByUserID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		userID := c.GetHeader("user_id")
+		page, err := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
+		if err != nil || page < 1 {
+			log.Printf("Invalid page parameter, using default: %v", err)
+			page = 1
+		}
+
+		limit, err := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
+		if err != nil || limit < 1 {
+			log.Printf("Invalid limit parameter, using default: %v", err)
+			limit = 10
+		}
+		products, total, pages, hasNext, hasPrev, err := ctrl.service.GetProductByUserID(ctx, userID, page, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		response := gin.H{
+			"data":     products,
+			"total":    total,
+			"page":     page,
+			"pages":    pages,
+			"has_next": hasNext,
+			"has_prev": hasPrev,
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
 // // CreateProduct - Workflow 1: Tạo product với image_path có sẵn (từ presigned URL)
 // func (pc *ProductController) CreateProduct(c *gin.Context) {
 // 	var req models.CreateProductRequest

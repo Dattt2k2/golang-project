@@ -25,6 +25,7 @@ type ProductRepository interface {
 	FindByID(ctx context.Context, id string) (*models.Product, error)
 	// FindByName(ctx context.Context, name string) ([]models.Product, error)
 	FindAll(ctx context.Context, skip, limit int64) ([]models.Product, int64, error)
+	FindByUserID(ctx context.Context, userID string, skip, limit int64) ([]models.Product, int64, error)
 	UpdateStock(ctx context.Context, id string, quantity int) error
 	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetBestSellingProduct(ctx context.Context, limit int) ([]models.Product, error)
@@ -343,4 +344,52 @@ func (r *ProductRepositoryImpl) DecrementSoldCount(ctx context.Context, productI
         },
     })
     return err
+}
+
+func (r *ProductRepositoryImpl) FindByUserID(ctx context.Context, userID string, skip, limit int64) ([]models.Product, int64, error) {
+	input := &dynamodb.QueryInput{
+        TableName: aws.String(r.tableName),
+        IndexName: aws.String("user_id-index"),
+        KeyConditionExpression: aws.String("#user_id = :uid"),
+        ExpressionAttributeNames: map[string]string{
+            "#user_id": "user_id",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":uid": &types.AttributeValueMemberS{Value: userID},
+        },
+    }
+
+	var products []models.Product
+    var total int64 = 0
+    var skipped int64 = 0
+
+    paginator := dynamodb.NewQueryPaginator(r.client, input)
+    for paginator.HasMorePages() {
+        page, err := paginator.NextPage(ctx)
+        if err != nil {
+            return nil, 0, err
+        }
+        for _, item := range page.Items {
+            total++
+            if skipped < skip {
+                skipped++
+                continue
+            }
+            if int64(len(products)) >= limit {
+                break
+            }
+            var p models.Product
+            if err := attributevalue.UnmarshalMap(item, &p); err != nil {
+                // skip malformed item but continue
+                logger.Err("unmarshal product", err)
+                continue
+            }
+            products = append(products, p)
+        }
+        if int64(len(products)) >= limit {
+            break
+        }
+    }
+
+    return products, total, nil
 }

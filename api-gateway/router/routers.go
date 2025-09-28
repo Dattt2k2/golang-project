@@ -538,8 +538,16 @@ func SetupRouter(router *gin.Engine) {
 				ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "application/json")
 			})
 
+			sellerGroup.GET("/products/user", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://product-service:8082/products/user","GET", "application/json")
+			})
+
+			sellerGroup.DELETE("/products/delete/:id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://product-service:8082/products/delete/"+c.Param("id"), "DELETE", "application/json")
+			})
+
 			sellerGroup.PUT("/products/edit/:id", func(c *gin.Context) {
-				ForwardRequestToService(c, "http://product-service:8082/products/edit/"+c.Param("id"), "PUT", "multipart/form-data")
+				ForwardRequestToService(c, "http://product-service:8082/products/edit/"+c.Param("id"), "PUT", "application/json")
 			})
 			sellerGroup.GET("/products/images/:filename", func(ctx *gin.Context) {
 				ForwardRequestToService(ctx, "http://product-service:8082/images/"+ctx.Param("filename"), "GET", "image/png")
