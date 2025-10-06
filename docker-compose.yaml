@@ -42,8 +42,31 @@ services:
  # - ./go.mod:/app/go.mod:ro
       # - ./go.sum:/app/go.sum:ro
     depends_on:
-      - mongodb
       - postgres-auth
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"  
+    command: ["air", "-c", ".air.toml"]
+
+  user-service: 
+    build:
+      context: .
+      dockerfile: ./user-service/Dockerfile.dev
+    ports:
+      - "8085:8085"
+      - "8095:8095"
+    env_file:
+      - ./user-service/.env
+    volumes:
+      - ./user-service:/app/user-service:cached
+      - ./module:/app/module:cached
+    depends_on:
+      - kafka
+      - postgres-user
     networks:
       - default
     logging:
@@ -69,7 +92,6 @@ services:
       # Mount uploads directory for file handling
       - ./product-service/uploads:/app/product-service/uploads
     depends_on:
-      - mongodb
       - kafka
       - redis
     networks:
@@ -95,7 +117,6 @@ services:
       # - ./go.mod:/app/go.mod:ro
       # - ./go.sum:/app/go.sum:ro
     depends_on:
-      - mongodb
       - kafka
     networks:
       - default
@@ -119,7 +140,6 @@ services:
  # - ./go.mod:/app/go.mod:ro
       # - ./go.sum:/app/go.sum:ro
     depends_on:
-      - mongodb
       - kafka
       - postgres-order
   # Database variables are provided via env files (./order-service/.env and ./.env)
@@ -210,40 +230,6 @@ services:
   #   ports:
   #     - "5432:5432"
   # # Infrastructure services (same as production)
-  mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - default
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  mongo-express:
-    image: mongo-express:latest
-    container_name: mongo-express
-    ports:
-      - "8085:8081"
-    env_file:
-      - ./.env
-    environment:
-      - ME_CONFIG_MONGODB_URL=${ME_CONFIG_MONGODB_URL}
-      - ME_CONFIG_MONGODB_SERVER=${ME_CONFIG_MONGODB_SERVER}
-      - ME_CONFIG_MONGODB_PORT=${ME_CONFIG_MONGODB_PORT}
-      - ME_CONFIG_MONGODB_ENABLE_ADMIN=${ME_CONFIG_MONGODB_ENABLE_ADMIN}
-      - ME_CONFIG_BASICAUTH_USERNAME=${ME_CONFIG_BASICAUTH_USERNAME}
-      - ME_CONFIG_BASICAUTH_PASSWORD=${ME_CONFIG_BASICAUTH_PASSWORD}
-      - ME_CONFIG_MONGODB_NO_AUTH=${ME_CONFIG_MONGODB_NO_AUTH}
-    depends_on:
-      - mongodb
-    networks:
-      - default
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -322,6 +308,8 @@ services:
         kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic bank_payouts &&
         kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic product-events &&
         kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic email-events &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 3 --replication-factor 1 --topic user.created &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic user.created.dlq &&
         echo -e 'Successfully created the following topics:' &&
         kafka-topics --list --bootstrap-server ${KAFKA_BROKER}
       "
@@ -356,6 +344,26 @@ services:
       POSTGRES_DB: ${AUTH_POSTGRES_DB}
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres-user:
+    image: postgres:16
+    container_name: postgres-user
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_USER: ${USER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${USER_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${USER_POSTGRES_DB}
+    volumes:
+      - postgres_user_data:/var/lib/postgresql/data
     networks:
       - default
     healthcheck:
@@ -432,13 +440,13 @@ services:
   #       max-file: "3"
 
 volumes:
-  mongodb_data:
   redis_data:
   elasticsearch_data:
   postgres_data:
   postgres_auth_data:
   postgres_payment_data:
   postgres_order_data:
+  postgres_user_data:
 
 networks:
   default:

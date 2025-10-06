@@ -18,6 +18,9 @@ type Config struct {
 		Host string
 		Port string
 	}
+	Kafka struct {
+		Brokers      []string
+	}
 }
 
 func getEnv(key, defaultValue string) string {
@@ -49,11 +52,13 @@ func InitConfig() *Config {
 	config := &Config{}
 
 	// Database config from environment variables
-	config.Database.Host = getEnv("DB_HOST", "localhost")
+	config.Database.Host = getEnv("DB_HOST", "postgres-user")
 	config.Database.Port = getEnv("DB_PORT", "5432")
 	config.Database.User = getEnv("DB_USER", "postgres")
 	config.Database.Password = getEnv("DB_PASSWORD", "")
 	config.Database.Name = getEnv("DB_NAME", "user_service_db")
+
+	config.Kafka.Brokers = SplitAndTrim(getEnv("KAFKA_BROKERS", ""), ",")
 
 	// Server config from environment variables
 	config.Server.Host = getEnv("SERVER_HOST", "0.0.0.0")

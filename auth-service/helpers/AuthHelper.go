@@ -4,51 +4,33 @@ import (
 	"context"
 	"time"
 
-	database "auth-service/database"
+	// database "auth-service/database"
 	"auth-service/logger"
 	"auth-service/models"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
-var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+var userDB *gorm.DB
 var userBloom *BloomFilter
+
+func SetDB(db *gorm.DB) {
+	userDB = db
+}
 
 func SetUserBloomFilter(bf *BloomFilter){
 	userBloom = bf
 }
 
 func CheckUsernameExists(username string) (bool, error){
-	exists, err := userBloom.Contains(username)
-	if err != nil{
-		logger.Err("Error checking username in BloomFilter", err)
-		return false, err
-	}
-
-	if !exists{
-		return false, nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-	defer cancel()
-
-	count, err := userCollection.CountDocuments(ctx, bson.M{"username": username})
-	if err != nil{
-		return false, err
-	}
-
-	return count > 0, nil
-}
-
-
-func CheckEmailExists(email string) (bool, error){
 	if userBloom != nil{
-		exists, err := userBloom.Contains(email)
-		if err != nil{
-			logger.Err("Error checking email in BloomFilter", err)
-		} else if !exists{
+		exists, err := userBloom.Contains(username)
+		if err != nil {
+			logger.Err("Error checking username in BloomFilter", err)
+			return false, err 
+		}
+		if !exists{
 			return false, nil
 		}
 	}
@@ -56,13 +38,37 @@ func CheckEmailExists(email string) (bool, error){
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	count, err := userCollection.CountDocuments(ctx, bson.M{"email": email})
-	if err != nil{
-		logger.Err("Error checking email in MongoDB", err)
+	var count int64
+	if err := userDB.WithContext(ctx).Model(&models.User{}).Where("username = ?", username).Count(&count).Error; err != nil {
+		logger.Err("Error checking username in Postgres", err)
 		return false, err
 	}
-
 	return count > 0, nil
+}
+
+
+func CheckEmailExists(email string) (bool, error){
+	if userBloom != nil {
+        exists, err := userBloom.Contains(email)
+        if err != nil {
+            logger.Err("Error checking email in BloomFilter", err)
+        } else if !exists {
+            return false, nil
+        }
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    var count int64
+    if err := userDB.WithContext(ctx).Model(&models.User{}).
+        Where("email = ?", email).
+        Count(&count).Error; err != nil {
+        logger.Err("Error checking email in Postgres", err)
+        return false, err
+    }
+
+    return count > 0, nil
 }
 
 func AddUserToBloomFilter(email, phone string) error {

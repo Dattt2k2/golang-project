@@ -10,7 +10,6 @@ import (
 	"auth-service/models"
 	"auth-service/repository"
 	"auth-service/websocket"
-
 )
 
 type AuthService interface {
@@ -67,13 +66,13 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 	defaultPhone := ""
 
 	user := &models.User{
-		Email:      &email,
-		Password:   &hashedPassword,
-		FirstName:  &defaultFirstName,
-		LastName:   &defaultLastName,
-		UserType:   &userType,
-		Phone:      &defaultPhone,
-		IsVerify:   false,
+		Email:     &email,
+		Password:  &hashedPassword,
+		FirstName: &defaultFirstName,
+		LastName:  &defaultLastName,
+		UserType:  &userType,
+		Phone:     &defaultPhone,
+		IsVerify:  false,
 	}
 	result, err := s.userRepo.Create(ctx, user)
 	if err != nil {
@@ -114,6 +113,17 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 	if err != nil {
 		return nil, errors.New("failed to send otp")
 	}
+	// publish user.created event for downstream services
+	userEvent := map[string]interface{}{
+		"id":         result.ID.String(),
+		"email":      *user.Email,
+		"first_name": *user.FirstName,
+		"last_name":  *user.LastName,
+		"phone":      *user.Phone,
+		"user_type":  *user.UserType,
+		"created_at": time.Now().UTC().Format(time.RFC3339),
+	}
+	_ = kafka.SendJSONMessage(kafka.NewKafkaWriter("kafka:9092", "user.created"), userEvent)
 	return &models.SignUpResponse{
 		Message:      "User registered successfully",
 		User:         result,
@@ -320,12 +330,12 @@ func (s *authServiceImpl) ResendOTP(ctx context.Context, email string) (string, 
 func (s *authServiceImpl) UpdateUserRole(ctx context.Context, userID, newRole string) error {
 	err := s.userRepo.UpdateRole(ctx, userID, newRole)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	accessToken, err := helpers.GenerateToken(*user.Email, *user.FirstName, *user.LastName, newRole, userID, time.Hour*24)
@@ -340,7 +350,7 @@ func (s *authServiceImpl) UpdateUserRole(ctx context.Context, userID, newRole st
 
 	err = websocket.NotifyRoleChange(userID, newRole, accessToken, refreshToken)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	return nil

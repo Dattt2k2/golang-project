@@ -4,6 +4,7 @@ import (
 	"auth-service/database"
 	"auth-service/helpers"
 	"auth-service/kafka"
+	"auth-service/models"
 	"context"
 	"net/http"
 	"os"
@@ -11,15 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
-
-var UserCollection *mongo.Collection
-
-func init() {
-	UserCollection = database.OpenCollection(database.Client, "user")
-}
 
 var (
 	redisClient = redis.NewClient(&redis.Options{Addr: os.Getenv("REDIS_URL")})
@@ -55,31 +48,46 @@ func SendOTPHander(email, template string) error {
 func VerifyOTPHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req OTPRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-			return
-		}
+        if err := c.ShouldBindJSON(&req); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+            return
+        }
 
-		otpCode, err := helpers.GetOTP(req.Email)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Failed to retrieve OTP code"})
-			return
-		}
+        otpCode, err := helpers.GetOTP(req.Email)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error": "Failed to retrieve OTP code"})
+            return
+        }
 
-		if otpCode != req.OTPCode {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Invalid OTP code",
-			})
-			return
-		}
-		filter := bson.M{"email": req.Email}
-		update := bson.M{"$set": bson.M{"isVerify": true}}
-		_, err = UserCollection.UpdateOne(c.Request.Context(), filter, update)
-		redisClient.Del(c.Request.Context(), "otp:"+req.Email)
-		c.JSON(http.StatusOK, gin.H{
-			"message": "OTP code verified successfully",
-		})
+        if otpCode != req.OTPCode {
+            c.JSON(http.StatusBadRequest, gin.H{
+                "error": "Invalid OTP code",
+            })
+            return
+        }
+
+        // Update user record in Postgres (idempotent)
+        ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+        defer cancel()
+
+        db := database.DB.WithContext(ctx)
+        if db == nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "database not initialized"})
+            return
+        }
+
+        if err := db.Model(&models.User{}).
+            Where("email = ?", req.Email).
+            Update("is_verify", true).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user verification"})
+            return
+        }
+
+        redisClient.Del(ctx, "otp:"+req.Email)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "OTP code verified successfully",
+        })
 	}
 }
 

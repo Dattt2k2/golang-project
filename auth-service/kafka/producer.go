@@ -29,3 +29,12 @@ func SendEmailMessage(writer *kafka.Writer, msg EmailMessage) error {
 	}
 	return writer.WriteMessages(context.Background(), kafka.Message{Value: data})
 }
+
+// SendJSONMessage marshals v to JSON and writes to kafka writer.
+func SendJSONMessage(writer *kafka.Writer, v interface{}) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return writer.WriteMessages(context.Background(), kafka.Message{Value: data})
+}
