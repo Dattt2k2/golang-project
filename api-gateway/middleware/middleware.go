@@ -3,8 +3,11 @@ package middleware
 import (
 	// "encoding/json"
 	// "fmt"
+	"context"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	// "time"
 
@@ -13,6 +16,7 @@ import (
 
 	// "api-gateway/models"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	// "github.com/Dattt2k2/golang-project/api-gateway/redisdb"
 	// grpcClient "github.com/Dattt2k2/golang-project/api-gateway/grpc"
@@ -245,4 +249,45 @@ func RBACMiddleware(allowedRoles ...string) gin.HandlerFunc {
         
         c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
     }
+}
+
+func RateLimitMiddleware(rdb *redis.Client, maxRequest int64, window time.Duration, prefix string) gin.HandlerFunc {
+	if prefix == "" {
+		prefix = "rate_limit:"
+	}
+
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		if 	ip == "" {
+			ip = "unknown"
+		}
+
+		key := fmt.Sprintf("%s%s", prefix, ip)
+		ctx := context.Background()
+
+		n, err := rdb.Incr(ctx, key).Result()
+		if err != nil {
+			logger.Error("Redis INCR error")
+			c.Next()
+			return 
+		}
+
+		if n == 1 {
+			_ = rdb.Expire(ctx, key, window).Err()
+		}
+
+		if n > maxRequest {
+			ttl, _ := rdb.TTL(ctx, key).Result()
+			retryAfter := int(ttl.Seconds())
+			if retryAfter < 0 {
+				retryAfter = int(window.Seconds())
+			}
+
+			c.Header("Retry-After", fmt.Sprintf("%d", retryAfter))
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests, please try again later."})
+			return
+		}
+		c.Next()
+	}
+
 }

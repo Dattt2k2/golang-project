@@ -333,6 +333,10 @@ services:
       retries: 3
     env_file:
       - ./.env
+    environment:
+      - REDIS_ADDR=${REDIS_ADDR}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_DB=${REDIS_DB}
   # Separate Postgres instances per service (no host port mapping to avoid conflicts)
   postgres-auth:
     image: postgres:16
