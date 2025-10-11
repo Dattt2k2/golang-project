@@ -90,7 +90,7 @@ func main() {
 
 	kafkaBrokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
 	if len(kafkaBrokers) == 0 || kafkaBrokers[0] == "" {
-		kafkaBrokers = []string{"localhost:9092"}
+		kafkaBrokers = []string{"kafka:9092"}
 	}
 
 	// Start payment consumer to handle payment requests from order-service

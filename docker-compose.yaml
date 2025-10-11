@@ -189,6 +189,28 @@ services:
     networks:
       - default
     command: ["air", "-c", ".air.toml"]
+  
+  review-service:
+    build:
+      context: .
+      dockerfile: ./review-service/Dockerfile.dev
+    container_name: review-service
+    ports:
+      - "8093:8089"
+    env_file:
+      - ./review-service/.env
+    volumes:
+      - ./review-service:/app/review-service:cached
+    depends_on:
+      - redis
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: ["air", "-c", ".air.toml"]
   payment-service:
     build:
       context: .
@@ -310,6 +332,7 @@ services:
         kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic email-events &&
         kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 3 --replication-factor 1 --topic user.created &&
         kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic user.created.dlq &&
+        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic product_rating_updates &&
         echo -e 'Successfully created the following topics:' &&
         kafka-topics --list --bootstrap-server ${KAFKA_BROKER}
       "

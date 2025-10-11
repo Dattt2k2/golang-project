@@ -519,6 +519,14 @@ func SetupRouter(router *gin.Engine) {
 			userGroup.POST("/order/cancel/:order_id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://order-service:8084/user/order/cancel/"+c.Param("order_id"), "POST", "application/json")
 			})
+
+			// Review routes
+			userGroup.POST("/product/review/:product_id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://review-service:8094/v1/products/"+c.Param("product_id")+"/reviews", "POST", "application/json")
+			})
+			userGroup.GET("/product/review/:product_id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://review-service:8094/v1/products/"+c.Param("product_id")+"/reviews", "GET", "application/json")
+			})
 		}
 		sellerGroup := protected.Group("/seller")
 		// sellerGroup.Use(middleware.RBACMiddleware("SELLER"))

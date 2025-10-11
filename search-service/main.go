@@ -50,7 +50,7 @@ func main() {
 	kafkaHost := os.Getenv("KAFKA_URL")
 	brokers := []string{kafkaHost}
 	if kafkaHost == ""{
-		brokers = []string{"localhost:9092"}
+		brokers = []string{"kafka:9092"}
 	}
 
 
