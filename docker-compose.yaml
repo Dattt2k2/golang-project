@@ -202,7 +202,7 @@ services:
     volumes:
       - ./review-service:/app/review-service:cached
     depends_on:
-      - redis
+      - kafka
     networks:
       - default
     logging:

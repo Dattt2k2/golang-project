@@ -73,7 +73,7 @@ func (pra *PendingReviewAggregator) Run(ctx context.Context) error {
 		}
 
 		// 4. XÓA các reviews đã xử lý khỏi review_pending
-		deleted, err := pra.deleteProcessedReviews(ctx, aggregate.ReviewIDs)
+		deleted, err := pra.deleteProcessedReviews(ctx, aggregate.ProductID, aggregate.ReviewIDs)
 		if err != nil {
 			log.Printf("Failed to delete reviews for product %s: %v", aggregate.ProductID, err)
 			continue
@@ -137,27 +137,63 @@ func (pra *PendingReviewAggregator) aggregateByProduct(reviews []models.PendingR
 	return aggregates
 }
 
-func (pra *PendingReviewAggregator) deleteProcessedReviews(ctx context.Context, reviewIDs []string) (int, error) {
-	deletedCount := 0
+func (pra *PendingReviewAggregator) deleteProcessedReviews(ctx context.Context, productID string, reviewIDs []string) (int, error) {
+    deletedCount := 0
+    if len(reviewIDs) == 0 {
+        return 0, nil
+    }
 
-	for _, reviewID := range reviewIDs {
-		input := &dynamodb.DeleteItemInput{
-			TableName: aws.String(pra.reviewPendingTable),
-			Key: map[string]types.AttributeValue{
-				"review_id": &types.AttributeValueMemberS{
-					Value: reviewID,
-				},
-			},
-		}
+    // DynamoDB BatchWriteItem accepts up to 25 items per batch
+    const batchSize = 25
+    for i := 0; i < len(reviewIDs); i += batchSize {
+        end := i + batchSize
+        if end > len(reviewIDs) {
+            end = len(reviewIDs)
+        }
 
-		_, err := pra.dynamoDB.DeleteItem(ctx, input)
-		if err != nil {
-			log.Printf("Failed to delete review %s: %v", reviewID, err)
-			continue
-		}
-		deletedCount++
-	}
+        writeRequests := make([]types.WriteRequest, 0, end-i)
+        for _, rid := range reviewIDs[i:end] {
+            key := map[string]types.AttributeValue{
+                "product_id": &types.AttributeValueMemberS{Value: productID},
+                "review_id":  &types.AttributeValueMemberS{Value: rid},
+            }
+            writeRequests = append(writeRequests, types.WriteRequest{
+                DeleteRequest: &types.DeleteRequest{
+                    Key: key,
+                },
+            })
+        }
 
-	log.Printf("Successfully deleted %d/%d reviews from review_pending", deletedCount, len(reviewIDs))
-	return deletedCount, nil
+        batchInput := &dynamodb.BatchWriteItemInput{
+            RequestItems: map[string][]types.WriteRequest{
+                pra.reviewPendingTable: writeRequests,
+            },
+        }
+
+        out, err := pra.dynamoDB.BatchWriteItem(ctx, batchInput)
+        if err != nil {
+            log.Printf("Batch delete failed for product %s: %v", productID, err)
+            // continue to next batch
+            continue
+        }
+
+        // If unprocessed items returned, retry them (simple retry once)
+        if unprocessed, ok := out.UnprocessedItems[pra.reviewPendingTable]; ok && len(unprocessed) > 0 {
+            // retry once for unprocessed
+            retryInput := &dynamodb.BatchWriteItemInput{
+                RequestItems: map[string][]types.WriteRequest{
+                    pra.reviewPendingTable: unprocessed,
+                },
+            }
+            _, retryErr := pra.dynamoDB.BatchWriteItem(ctx, retryInput)
+            if retryErr != nil {
+                log.Printf("Retry batch delete failed for product %s: %v", productID, retryErr)
+            }
+        }
+
+        deletedCount += (end - i)
+    }
+
+    log.Printf("Successfully deleted %d/%d reviews from review_pending", deletedCount, len(reviewIDs))
+    return deletedCount, nil
 }

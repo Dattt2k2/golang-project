@@ -58,7 +58,7 @@ func main() {
 	h := handlers.NewReviewHandler(service)
 
 	// Initialize Kafka Producer
-	kafkaBrokers := strings.Split(config.Get("KAFKA_BROKERS", ""), ",")
+	kafkaBrokers := strings.Split(config.Get("KAFKA_BROKER", ""), ",")
 	kafkaProducer := kafka.NewProducer(kafkaBrokers, config.Get("KAFKA_RATING_TOPIC", "product_rating_updates"))
 	defer kafkaProducer.Close()
 

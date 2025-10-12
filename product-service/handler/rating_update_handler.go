@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 
 	"product-service/kafka"
 )
@@ -30,67 +30,35 @@ func NewRatingUpdateHandler(db *dynamodb.DynamoDB, productTable string) *RatingU
 		productTable: productTable,
 	}
 }
-
-func (h *RatingUpdateHandler) HandleRatingUpdate(ctx context.Context, message kafka.RatingUpdateMessage) error {
-	// 1. Lấy product hiện tại
-	product, err := h.getProduct(ctx, message.ProductID)
-	if err != nil {
-		return fmt.Errorf("failed to get product: %w", err)
+func (h *RatingUpdateHandler) HandleRatingUpdate(ctx context.Context, msg kafka.RatingUpdateMessage) error {
+	if msg.ProductID == "" {
+		return fmt.Errorf("empty product_id in rating message")
+	}
+	if msg.NewReviewsCount <= 0 {
+		log.Printf("Skipping rating update for product %s: new review count %d", msg.ProductID, msg.NewReviewsCount)
+		return nil
+	}
+	if msg.NewReviewsSum < 0 {
+		return fmt.Errorf("invalid new reviews sum: %.2f", msg.NewReviewsSum)
 	}
 
-	// 2. Tính rating mới
-	// Công thức: (rating_hiện_tại * số_review_hiện_tại + tổng_rating_mới) / (số_review_hiện_tại + số_review_mới)
-	currentTotalRating := product.Rating * float64(product.ReviewCount)
-	newTotalRating := currentTotalRating + message.NewReviewsSum
-	newReviewCount := product.ReviewCount + message.NewReviewsCount
-	newAverageRating := newTotalRating / float64(newReviewCount)
+	log.Printf("Received rating update: product=%s count=%d sum=%.2f",
+		msg.ProductID, msg.NewReviewsCount, msg.NewReviewsSum)
 
-	log.Printf("Product %s: Current rating %.2f (%d reviews) -> New rating %.2f (%d reviews)",
-		message.ProductID, product.Rating, product.ReviewCount, newAverageRating, newReviewCount)
-
-	// 3. Update product
-	err = h.updateProductRating(ctx, message.ProductID, newAverageRating, newReviewCount, message.Timestamp)
-	if err != nil {
-		return fmt.Errorf("failed to update product rating: %w", err)
+	if err := h.updateProductRating(ctx, msg.ProductID, msg.NewReviewsSum, msg.NewReviewsCount, time.Now().Format(time.RFC3339)); err != nil {
+		log.Printf("Error applying rating update for product %s: %v", msg.ProductID, err)
+		return err
 	}
 
-	log.Printf("Successfully updated rating for product %s", message.ProductID)
+	log.Printf("Successfully applied rating update for product %s", msg.ProductID)
 	return nil
-}
-
-func (h *RatingUpdateHandler) getProduct(ctx context.Context, productID string) (*Product, error) {
-	input := &dynamodb.GetItemInput{
-		TableName: aws.String(h.productTable),
-		Key: map[string]*dynamodb.AttributeValue{
-			"product_id": {
-				S: aws.String(productID),
-			},
-		},
-	}
-
-	result, err := h.dynamoDB.GetItemWithContext(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-
-	if result.Item == nil {
-		return nil, fmt.Errorf("product not found: %s", productID)
-	}
-
-	var product Product
-	err = dynamodbattribute.UnmarshalMap(result.Item, &product)
-	if err != nil {
-		return nil, err
-	}
-
-	return &product, nil
 }
 
 func (h *RatingUpdateHandler) updateProductRating(ctx context.Context, productID string, rating float64, reviewCount int, timestamp string) error {
 	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(h.productTable),
 		Key: map[string]*dynamodb.AttributeValue{
-			"product_id": {
+			"id": {
 				S: aws.String(productID),
 			},
 		},
