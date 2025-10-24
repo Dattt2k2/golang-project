@@ -8,17 +8,19 @@ import (
 	"review-service/internal/models"
 	"review-service/internal/services"
 	logger "review-service/log"
+	pb "module/gRPC-Order/service"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 type ReviewHandler struct {
-	service services.ReviewService
+	service    services.ReviewService
+	orderClient pb.OrderServcieClient
 }
 
-func NewReviewHandler(service services.ReviewService) *ReviewHandler {
-	return &ReviewHandler{service: service}
+func NewReviewHandler(service services.ReviewService, orderClient pb.OrderServcieClient) *ReviewHandler {
+	return &ReviewHandler{service: service, orderClient: orderClient}
 }
 
 func (h *ReviewHandler) CreateReview() gin.HandlerFunc {
@@ -30,6 +32,25 @@ func (h *ReviewHandler) CreateReview() gin.HandlerFunc {
 		}
 
 		productID := c.Param("product_id")
+		userID := c.GetHeader("X-User-Id")
+
+		req := &pb.HasPurchasedRequest{
+			UserId:    userID,
+			ProductId: productID,
+		}
+
+		resp, err := h.orderClient.HasPurchased(context.Background(), req)
+		if err != nil {
+			logger.Error("gRPC call to OrderService failed: ", zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+
+		if !resp.GetPurchased() {
+			c.JSON(http.StatusForbidden, gin.H{"error": "user has not purchased this product"})
+			return
+		}
+
 		if productID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "product_id required"})
 			return

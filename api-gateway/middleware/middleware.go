@@ -40,7 +40,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization") // Để cho phép Authorization
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		// Nếu là yêu cầu OPTIONS, phản hồi thành công ngay lập tức
 		if c.Request.Method == "OPTIONS" {
@@ -55,24 +55,21 @@ func CORSMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		
-
 		c.Next()
 	}
 }
 
-
 func RequireUserRole(role string) gin.HandlerFunc {
-	return func (c *gin.Context) {
+	return func(c *gin.Context) {
 		userRole, exists := c.Get("role")
 		if !exists || userRole != role {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "You do not have permission"})
 			c.Abort()
-			return 
+			return
 		}
+		c.Next()
 	}
 }
-
 
 func DeviceInfoMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -192,14 +189,14 @@ func AuthMiddleware() gin.HandlerFunc {
 						// Tiếp tục với token mới
 						tokenString = newToken
 						claims, msg = helper.ValidateToken(newToken)
-						
+
 						if msg != "" {
 							logger.Debug("Token validation failed after refresh", logger.Str("error", msg))
 							c.JSON(http.StatusUnauthorized, gin.H{"error": "Your session has expired, please log in again"})
 							c.Abort()
 							return
 						}
-						
+
 						logger.DebugE("Token refreshed successfully", nil, logger.Str("email", claims.Email))
 					} else {
 						logger.DebugE("Failed to refresh token", nil, logger.Str("error", refreshMsg))
@@ -228,27 +225,26 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-
 func RBACMiddleware(allowedRoles ...string) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        userRole, exists := c.Get("role")
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("role")
 		logger.Info("User role from context:", logger.Str("role", userRole.(string)))
-        if !exists {
-            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-            return
-        }
-        
-        role := userRole.(string)
-        
-        for _, allowedRole := range allowedRoles {
-            if role == allowedRole {
-                c.Next()
-                return
-            }
-        }
-        
-        c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
-    }
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		role := userRole.(string)
+
+		for _, allowedRole := range allowedRoles {
+			if role == allowedRole {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+	}
 }
 
 func RateLimitMiddleware(rdb *redis.Client, maxRequest int64, window time.Duration, prefix string) gin.HandlerFunc {
@@ -258,7 +254,7 @@ func RateLimitMiddleware(rdb *redis.Client, maxRequest int64, window time.Durati
 
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
-		if 	ip == "" {
+		if ip == "" {
 			ip = "unknown"
 		}
 
@@ -269,7 +265,7 @@ func RateLimitMiddleware(rdb *redis.Client, maxRequest int64, window time.Durati
 		if err != nil {
 			logger.Error("Redis INCR error")
 			c.Next()
-			return 
+			return
 		}
 
 		if n == 1 {

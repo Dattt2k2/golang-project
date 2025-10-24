@@ -2,11 +2,12 @@ syntax = "proto3";
 
 package order;
 
-option go_package = "./module/gRPC-order/service";
+option go_package = "./module/gRPC-Order/service";
 
 service OrderServcie {
     rpc CreateOrder (OrderRequest) returns (OrderResponse);
     rpc GetOrder (GetOrderRequest) returns (OrderResponse);
+    rpc HasPurchased (HasPurchasedRequest) returns (HasPurchasedResponse);
 }
 
 message OrderRequest {
@@ -30,4 +31,13 @@ message OrderResponse {
     string status = 2;
     float total_price = 3;
     repeated OrderItem items = 4;
+}
+
+message HasPurchasedRequest {
+    string user_id = 1;
+    string product_id = 2;
+}
+
+message HasPurchasedResponse {
+    bool purchased = 1;
 }

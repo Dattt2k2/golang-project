@@ -74,6 +74,13 @@ func (r *OrderRepository) FindOrdersByUserID(ctx context.Context, userID string,
 	return orders, total, nil
 }
 
+func (r *OrderRepository) GetUserOrderWithProductID(ctx context.Context, userID, productID string) (models.Order, error) {
+	var order models.Order
+
+	r.db.Model(&models.Order{}).Where("user_id = ? AND product_id = ?", userID, productID).First(&order)
+	return order, nil
+}
+
 // GetOrderItems retrieves items for a specific order
 func (r *OrderRepository) GetOrderItems(ctx context.Context, orderID uint) (datatypes.JSON, error) {
 	var order models.Order

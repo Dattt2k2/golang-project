@@ -116,7 +116,7 @@ import (
 type Product struct {
     ID          string    `json:"id" dynamodbav:"id"`                         // Thay đổi từ ObjectID sang string
     Name        string    `json:"name" dynamodbav:"name"`
-    ImagePath   string    `json:"image_path" dynamodbav:"image_path"`
+    ImagePath   []string    `json:"image_path" dynamodbav:"image_path"`
     Category    string    `json:"category" dynamodbav:"category"`
     Description string    `json:"description" dynamodbav:"description"`
     Quantity    int       `json:"quantity" dynamodbav:"quantity"`
@@ -125,16 +125,18 @@ type Product struct {
     Created_at  time.Time `json:"created_at" dynamodbav:"created_at"`
     Updated_at  time.Time `json:"updated_at" dynamodbav:"updated_at"`
     UserID      string    `json:"user_id" dynamodbav:"user_id"`
+    Status      string    `json:"status" dynamodbav:"status"`
 }
 
 // CreateProductRequest - Request struct cho tạo product mới
 type CreateProductRequest struct {
     Name        string  `json:"name" binding:"required,min=2,max=100"`
-    ImagePath   string  `json:"image_path,omitempty"` // Optional - có thể empty hoặc có URL từ presigned upload
+    ImagePath   []string  `json:"image_path,omitempty"` // Optional - có thể empty hoặc có URL từ presigned upload
     Category    string  `json:"category" binding:"required"`
     Description string  `json:"description" binding:"required,min=2,max=500"`
     Quantity    int     `json:"quantity" binding:"required,min=1"`
     Price       float64 `json:"price" binding:"required,gt=0"`
+    Status      string  `json:"status" binding:"required,oneof=onsale offsale unavailable"` 
 }
 
 // CreateProductWithImageRequest - Request struct khi upload ảnh cùng lúc
@@ -150,11 +152,12 @@ type CreateProductWithImageRequest struct {
 // UpdateProductRequest - Request struct cho update product
 type UpdateProductRequest struct {
     Name        *string  `json:"name,omitempty" binding:"omitempty,min=2,max=100"`
-    ImagePath   *string  `json:"image_path,omitempty"` // Optional update
+    ImagePath   *[]string  `json:"image_path,omitempty"` // Optional update
     Category    *string  `json:"category,omitempty"`
     Description *string  `json:"description,omitempty" binding:"omitempty,min=2,max=500"`
     Quantity    *int     `json:"quantity,omitempty" binding:"omitempty,min=1"`
     Price       *float64 `json:"price,omitempty" binding:"omitempty,gt=0"`
+    Status      *string  `json:"status,omitempty" binding:"omitempty,oneof=onsale offsale unavailable"` 
 }
 
 // ProductResponse - Response struct cho API
@@ -162,7 +165,7 @@ type ProductResponse struct {
     ID          string    `json:"id"`
     VendorID    string    `json:"vendor_id"` 
     Name        string    `json:"name"`
-    ImagePath   string    `json:"image_path"`
+    ImagePath   []string  `json:"image_path"`
     Category    string    `json:"category"`
     Description string    `json:"description"`
     Quantity    int       `json:"quantity"`
@@ -170,6 +173,7 @@ type ProductResponse struct {
     SoldCount   int       `json:"sold_count"`
     Created_at  time.Time `json:"created_at"`
     Updated_at  time.Time `json:"updated_at"`
+    Status      string    `json:"status"`
 }
 
 type StockUpdateItem struct {
@@ -185,13 +189,15 @@ type ProductStockUpdater interface {
 
 // PresignedUploadRequest - Request để lấy presigned URL
 type PresignedUploadRequest struct {
-    Filename    string `json:"filename" binding:"required"`
-    ContentType string `json:"content_type" binding:"required"`
+    Filename    string `json:"fileName"`
+    ContentType string `json:"fileType,omitempty"`
 }
 
 // PresignedUploadResponse - Response chứa presigned URL
 type PresignedUploadResponse struct {
-    PresignedURL string `json:"presigned_url"` // URL để upload
-    PublicURL    string `json:"public_url"`    // URL sau khi upload thành công
-    ExpiresIn    int    `json:"expires_in"`    // Thời gian hết hạn (seconds)
+    PresignedURL string `json:"presigned_url"` 
+    S3Key        string `json:"s3_key"`         
+    Filename     string `json:"filename"`       
+    ExpiresAt    int64  `json:"expires_at"`    
+    ExpiresIn    int    `json:"expires_in"`    
 }

@@ -12,7 +12,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
 
+	pb "module/gRPC-Order/service"
 	"review-service/config"
 	"review-service/internal/cron"
 	"review-service/internal/handlers"
@@ -55,7 +57,15 @@ func main() {
 	repo := repository.NewReviewRepository(dynamoClient, reviewTable, pendingTable)
 	service := services.NewReviewService(repo)
 
-	h := handlers.NewReviewHandler(service)
+	 orderServiceAddress := config.Get("ORDER_SERVICE_ADDRESS", "order-service:8084")
+    conn, err := grpc.Dial(orderServiceAddress, grpc.WithInsecure())
+    if err != nil {
+        logger.Logger.Fatal("Failed to connect to order-service: " + err.Error())
+    }
+    defer conn.Close()
+	orderClient := pb.NewOrderServcieClient(conn)
+
+	h := handlers.NewReviewHandler(service, orderClient)
 
 	// Initialize Kafka Producer
 	kafkaBrokers := strings.Split(config.Get("KAFKA_BROKER", ""), ",")

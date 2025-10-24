@@ -30,6 +30,7 @@ type ProductRepository interface {
 	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetBestSellingProduct(ctx context.Context, limit int) ([]models.Product, error)
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
+    GetProductByCategory(ctx context.Context, category string, skip, limit int64) ([]models.Product, int64, error)
 }
 
 type ProductRepositoryImpl struct {
@@ -52,23 +53,23 @@ func (r *ProductRepositoryImpl) Insert(ctx context.Context, product models.Produ
 	product.Created_at = now
 	product.Updated_at = now
 	
-	item := map[string]types.AttributeValue{
-		"id": &types.AttributeValueMemberS{Value: product.ID},
-		"name": &types.AttributeValueMemberS{Value: product.Name},
-		"description": &types.AttributeValueMemberS{Value: product.Description},
-		"price": &types.AttributeValueMemberN{Value: strconv.FormatFloat(product.Price, 'f', 2, 64)},
-		"quantity": &types.AttributeValueMemberN{Value: strconv.FormatInt(int64(product.Quantity), 10)},
-		"category": &types.AttributeValueMemberS{Value: product.Category},
-		"image_path": &types.AttributeValueMemberS{Value: product.ImagePath},
-		"created_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
-		"updated_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
-		"user_id": &types.AttributeValueMemberS{Value: product.UserID},
-		"sold_count": &types.AttributeValueMemberN{Value: "0"},
-	}
+    item := map[string]types.AttributeValue{
+        "id": &types.AttributeValueMemberS{Value: product.ID},
+        "name": &types.AttributeValueMemberS{Value: product.Name},
+        "description": &types.AttributeValueMemberS{Value: product.Description},
+        "price": &types.AttributeValueMemberN{Value: strconv.FormatFloat(product.Price, 'f', 2, 64)},
+        "quantity": &types.AttributeValueMemberN{Value: strconv.FormatInt(int64(product.Quantity), 10)},
+        "category": &types.AttributeValueMemberS{Value: product.Category},
+        "image_path": &types.AttributeValueMemberSS{Value: product.ImagePath},
+        "created_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+        "updated_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+        "user_id": &types.AttributeValueMemberS{Value: product.UserID},
+        "sold_count": &types.AttributeValueMemberN{Value: "0"},
+    }
 
-	if product.ImagePath != "" {
-		item["image_path"] = &types.AttributeValueMemberS{Value: product.ImagePath}
-	}
+    if len(product.ImagePath) > 0 {
+        item["image_path"] = &types.AttributeValueMemberSS{Value: product.ImagePath}
+    }
 
 	_, err := r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
@@ -85,6 +86,15 @@ func (r *ProductRepositoryImpl) Update(ctx context.Context, id string, update ma
 	exprNames := make(map[string]string)
 	exprValues := make(map[string]types.AttributeValue)
 	clauses := make([]string, 0, len(update)+1)
+
+    if imagePath, ok := update["image_path"]; ok {
+        if paths, ok := imagePath.([]string); ok && len(paths) == 0 {
+            exprNames["#image_path"] = "image_path"
+            exprValues[":image_path"] = &types.AttributeValueMemberSS{Value: []string{}}
+            clauses = append(clauses, "#image_path = :image_path")
+            delete(update, "image_path")
+        }
+    }
 
 	for k, v := range update {
 		nameKey := "#" + k
@@ -184,19 +194,14 @@ func (r *ProductRepositoryImpl) FindByID(ctx context.Context, id string) (*model
         logger.Info("Product not found in DynamoDB", logger.Str("id", id))
         return nil, fmt.Errorf("product not found")
     }
-    
-    var product models.Product
-    err = attributevalue.UnmarshalMap(result.Item, &product)
+
+    prod, err := decodeProduct(result.Item)
     if err != nil {
-        logger.Err("Failed to unmarshal DynamoDB item", err)
+        logger.Err("Failed to decode product", err)
         return nil, err
     }
-    
-    logger.Info("Successfully found product", 
-        logger.Str("id", id),
-        logger.Str("name", product.Name))
-    
-    return &product, nil
+
+    return &prod, nil
 }
 
 // func (r *productRepositoryImpl) FindByName(ctx context.Context, name string) ([]models.Product, error) {
@@ -253,11 +258,11 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, skip, limit int64) 
 				break
 			}
 
-			var product models.Product
-			err = attributevalue.UnmarshalMap(item, &product)
-			if err != nil {
-				return nil, 0, err 
-			}
+			product, err := decodeProduct(item)
+            if err != nil {
+                logger.Err("unmarshal product", err)
+                continue
+            }
 
 			products = append(products, product)
 			scannedCount++
@@ -378,13 +383,12 @@ func (r *ProductRepositoryImpl) FindByUserID(ctx context.Context, userID string,
             if int64(len(products)) >= limit {
                 break
             }
-            var p models.Product
-            if err := attributevalue.UnmarshalMap(item, &p); err != nil {
-                // skip malformed item but continue
+            product, err := decodeProduct(item)
+            if err != nil {
                 logger.Err("unmarshal product", err)
                 continue
             }
-            products = append(products, p)
+            products = append(products, product)
         }
         if int64(len(products)) >= limit {
             break
@@ -392,4 +396,105 @@ func (r *ProductRepositoryImpl) FindByUserID(ctx context.Context, userID string,
     }
 
     return products, total, nil
+}
+
+func (r *ProductRepositoryImpl) GetProductByCategory(ctx context.Context, category string, skip, limit int64) ([]models.Product, int64, error) {
+    getItemInput := &dynamodb.QueryInput{
+        TableName: aws.String(r.tableName),
+        IndexName: aws.String("category-index"),
+        KeyConditionExpression: aws.String("#category = :cat"),
+        ExpressionAttributeNames: map[string]string{
+            "#category": "category",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":cat": &types.AttributeValueMemberS{Value: category},
+        },
+    }
+
+    var products []models.Product
+    var total int64 = 0
+
+    paginator := dynamodb.NewQueryPaginator(r.client, getItemInput)
+    for paginator.HasMorePages() {
+        page, err := paginator.NextPage(ctx)
+        if err != nil {
+            return nil, 0, err
+        }
+        for _, item := range page.Items {
+            product, err := decodeProduct(item)
+            if err != nil {
+                logger.Err("unmarshal product", err)
+                continue
+            }
+            products = append(products, product)
+            total++
+        }
+    }
+
+    for i := 0; i < len(products)-1; i++ {
+        for j := 0; j < len(products)-i-1; j++ {
+            if products[j].SoldCount < products[j+1].SoldCount {
+                products[j], products[j+1] = products[j+1], products[j]
+            }
+        }
+    }
+
+    if limit > int64(len(products)) {
+        limit = int64(len(products))
+    }
+
+    if len(products) == 0 {
+        return []models.Product{}, total, nil
+    }
+
+    return products, total, nil
+}
+
+func decodeProduct(item map[string]types.AttributeValue) (models.Product, error) {
+    var p models.Product
+
+    itemCopy := make(map[string]types.AttributeValue, len(item))
+    for k, v := range item {
+        if k == "image_path" {
+            continue
+        }
+        itemCopy[k] = v
+    }
+
+    if err := attributevalue.UnmarshalMap(itemCopy, &p); err != nil {
+        return p, err 
+    }
+
+    if av, ok := item["image_path"]; ok && av != nil {
+        switch v := av.(type) {
+        case *types.AttributeValueMemberSS:
+            p.ImagePath = v.Value
+        case *types.AttributeValueMemberS:
+            if v.Value == "" {
+                p.ImagePath = []string{}
+            } else if strings.Contains(v.Value, ",") {
+                parts := strings.Split(v.Value, ",")
+                for i := range parts {
+                    parts[i] = strings.TrimSpace(parts[i])
+                }
+                p.ImagePath = parts
+            } else {
+                p.ImagePath = []string{v.Value}
+            }
+        case *types.AttributeValueMemberL:
+            out := make([]string, 0, len(v.Value))
+            for _, elem := range v.Value {
+                if s, ok := elem.(*types.AttributeValueMemberS); ok {
+                    out = append(out, s.Value)
+                }
+            }
+            p.ImagePath = out
+        default:
+            p.ImagePath = []string{}
+        }
+    } else {
+        p.ImagePath = []string{}
+    }
+
+    return p, nil
 }

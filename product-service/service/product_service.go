@@ -28,6 +28,7 @@ type ProductService interface {
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetAllProductForIndex(ctx context.Context) ([]models.Product, error)
 	GetProductByUserID(ctx context.Context, userID string, page, limit int64) ([]models.Product, int64, int, bool, bool, error)
+	GetProductByCategory(ctx context.Context, category string, page, limit int64) ([]models.Product, int64, int, bool, bool, error)
 }
 
 type productServiceImpl struct {
@@ -114,11 +115,21 @@ func (s *productServiceImpl) GetProductByID(ctx context.Context, id string) (*mo
 	found, err := helper.GetCachedProductData(ctx, cacheKey, &product)
 	if err == nil && found {
 		log.Printf("Cache hit for product: %s", id)
-		if product.ImagePath != "" {
-			url, err := s.GetS3PathIfExist(product.ImagePath, 100*time.Minute)
-			if err == nil {
-				product.ImagePath = url 
+		if len(product.ImagePath) > 0 {
+			var urls []string
+			for _, key := range product.ImagePath {
+				if key == "" {
+					continue
+				}
+				url, err := s.GetS3PathIfExist(key, 100*time.Minute)
+				if err == nil && url != "" {
+					urls = append(urls, url)
+				} else {
+					// fallback to original key if presign fails
+					urls = append(urls, key)
+				}
 			}
+			product.ImagePath = urls
 		}
 		return &product, nil
 	}
@@ -147,24 +158,39 @@ func (s *productServiceImpl) GetProductByID(ctx context.Context, id string) (*mo
 // }
 
 func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product, int64, int, bool, bool, bool, error) {
-	cachedResult, found, err := helper.GetAllProductsFromCache(ctx, page, limit)
-
-	if err == nil && found && cachedResult != nil {
-		return cachedResult.Products, cachedResult.Total, cachedResult.Pages, cachedResult.HasNext, cachedResult.HasPrev, true, nil
+	// basic validation / defaults
+	if page < 1 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
 	}
 
+	// Try to fetch from repository (skip is offset)
 	skip := (page - 1) * limit
 	products, total, err := s.repo.FindAll(ctx, skip, limit)
 	if err != nil {
 		return nil, 0, 0, false, false, false, err
 	}
 
+	// Convert image keys to presigned URLs if ImagePath is a slice of keys.
+	// This follows the pattern used in GetProductByID where ImagePath is iterated.
 	for i := range products {
-		if products[i].ImagePath != "" {
-			url, err := s.GetS3PathIfExist(products[i].ImagePath, 100*time.Minute)
-			if err == nil {
-				products[i].ImagePath = url 
+		if len(products[i].ImagePath) > 0 {
+			var urls []string
+			for _, key := range products[i].ImagePath {
+				if key == "" {
+					continue
+				}
+				url, err := s.GetS3PathIfExist(key, 100*time.Minute)
+				if err == nil && url != "" {
+					urls = append(urls, url)
+				} else {
+					// fallback to original key if presign fails
+					urls = append(urls, key)
+				}
 			}
+			products[i].ImagePath = urls
 		}
 	}
 
@@ -172,15 +198,17 @@ func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int
 	hasNext := page < int64(pages)
 	hasPrev := page > 1
 
-	go func() {
+	// Cache the result asynchronously
+	go func(prods []models.Product, tot int64, pgs int, hn, hp bool) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := helper.CacheAllProducts(ctx, page, limit, products, total, pages, hasNext, hasPrev); err != nil {
+		if err := helper.CacheAllProducts(ctx, page, limit, prods, tot, pgs, hn, hp); err != nil {
 			log.Printf("Error caching all products: %v", err)
 		} else {
 			log.Printf("Cached all products for page=%d, limit=%d", page, limit)
 		}
-	}()
+	}(products, total, pages, hasNext, hasPrev)
+
 	return products, total, pages, hasNext, hasPrev, false, nil
 }
 
@@ -291,11 +319,54 @@ func (s *productServiceImpl) GetProductByUserID(ctx context.Context, userID stri
 	}
 
 	for i := range products {
-		if products[i].ImagePath != "" {
-			url, err := s.GetS3PathIfExist(products[i].ImagePath, 100*time.Minute)
-			if err == nil {
-				products[i].ImagePath = url 
+		if len(products[i].ImagePath) > 0 {
+			var urls []string
+			for _, key := range products[i].ImagePath {
+				if key == "" {
+					continue
+				}
+				url, err := s.GetS3PathIfExist(key, 100*time.Minute)
+				if err == nil && url != "" {
+					urls = append(urls, url)
+				} else {
+					// fallback to original key if presign fails
+					urls = append(urls, key)
+				}
 			}
+			products[i].ImagePath = urls
+		}
+	}
+
+	pages := int((total + limit - 1) / limit)
+	hasNext := page < int64(pages)
+	hasPrev := page > 1
+	
+	return products, total, pages, hasNext, hasPrev, nil
+}
+
+func (s *productServiceImpl) GetProductByCategory(ctx context.Context, category string, page, limit int64) ([]models.Product, int64, int, bool, bool, error) {
+	skip := (page - 1) * limit
+	products, total, err := s.repo.GetProductByCategory(ctx, category, skip, limit)
+	if err != nil {
+		return nil, 0, 0, false, false, err
+	}
+
+	for i := range products {
+		if len(products[i].ImagePath) > 0 {
+			var urls []string
+			for _, key := range products[i].ImagePath {
+				if key == "" {
+					continue
+				}
+				url, err := s.GetS3PathIfExist(key, 100*time.Minute)
+				if err == nil && url != "" {
+					urls = append(urls, url)
+				} else {
+					// fallback to original key if presign fails
+					urls = append(urls, key)
+				}
+			}
+			products[i].ImagePath = urls
 		}
 	}
 

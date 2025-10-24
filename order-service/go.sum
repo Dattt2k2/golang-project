@@ -1,9 +1,5 @@
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
-github.com/Dattt2k2/golang-project/module/gRPC-Product v0.0.0-20250922045211-7fe63f16207d h1:+BsamSaoAq6iXF5KxPdKcKCtlABQpAp3/QUMYkjUXGg=
-github.com/Dattt2k2/golang-project/module/gRPC-Product v0.0.0-20250922045211-7fe63f16207d/go.mod h1:J1F47p0jxt/CjFwChK3grh/2hxEe73PNmfs8qvqA3dw=
-github.com/Dattt2k2/golang-project/module/gRPC-cart v0.0.0-20250922045211-7fe63f16207d h1:Z5nrNyQKTDkgDjv335aRL8MYjjsK0IAGfqi2Q8wJCnc=
-github.com/Dattt2k2/golang-project/module/gRPC-cart v0.0.0-20250922045211-7fe63f16207d/go.mod h1:ParmBo0Z8mzComSuIAr9RJHKY+c8ymtCWqT3KmoV0mM=
 github.com/bytedance/sonic v1.11.6 h1:oUp34TzMlL+OY1OUWxHqsdkgC/Zfc85zGqw9siXjrc0=
 github.com/bytedance/sonic v1.11.6/go.mod h1:LysEHSvpvDySVdC2f87zGWf6CIKJcAvqab1ZaiQtds4=
 github.com/bytedance/sonic/loader v0.1.1 h1:c+e5Pt1k/cy5wMveRDyk2X4B9hF4g7an8N3zCYjJFNM=

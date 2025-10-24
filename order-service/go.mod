@@ -7,11 +7,11 @@ replace module/gRPC-cart => ../module/gRPC-cart
 
 replace module/gRPC-Product => ../module/gRPC-Product
 
+replace module/gRPC-Order => ../module/gRPC-Order
+
 replace golang-project/order-service => /order-service
 
 require (
-	github.com/Dattt2k2/golang-project/module/gRPC-Product v0.0.0-20250922045211-7fe63f16207d
-	github.com/Dattt2k2/golang-project/module/gRPC-cart v0.0.0-20250922045211-7fe63f16207d
 	github.com/gin-gonic/gin v1.10.1
 	github.com/joho/godotenv v1.5.1
 	github.com/segmentio/kafka-go v0.4.48
@@ -20,6 +20,7 @@ require (
 	gorm.io/datatypes v1.2.5
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
+	module/gRPC-Order v0.0.0-00010101000000-000000000000
 	module/gRPC-Product v0.0.0-00010101000000-000000000000
 	module/gRPC-cart v0.0.0-00010101000000-000000000000
 )

@@ -21,35 +21,41 @@ func NewUploadController() *UploadController {
 
 // GetPresignedUploadURL - API để lấy presigned URL cho upload
 func (ctrl *UploadController) GetPresignedUploadURL(c *gin.Context) {
-	var req models.PresignedUploadRequest
+	 var requests []models.PresignedUploadRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request",
-			"details": err.Error(),
-		})
-		return
-	}
+    if err := c.ShouldBindJSON(&requests); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error":   "Invalid request - expected array of file objects",
+            "details": err.Error(),
+            "example": []gin.H{
+                {"fileName": "image1.jpg", "fileType": "image/jpeg"},
+                {"fileName": "image2.png", "fileType": "image/png"},
+            },
+        })
+        return
+    }
 
-	presignedURL, publicURL, err := ctrl.s3Service.GeneratePresignedUploadURL(req.Filename, req.ContentType)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Failed to generate presigned URL",
-			"details": err.Error(),
-		})
-		return
-	}
+    if len(requests) == 0 {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error": "No files to upload",
+        })
+        return
+    }
 
-	response := models.PresignedUploadResponse{
-		PresignedURL: presignedURL,
-		PublicURL:    publicURL,
-		ExpiresIn:    900, // 15 minutes
-	}
+    responses, err := ctrl.s3Service.GenerateBatchPresignedUploadURLs(requests)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error":   "Failed to generate presigned URLs",
+            "details": err.Error(),
+        })
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    response,
-	})
+    c.JSON(http.StatusOK, gin.H{
+        "success": true,
+        "data":    responses,
+        "total":   len(responses),
+    })
 }
 
 // Example usage for direct file upload (optional - keep for compatibility)

@@ -188,7 +188,7 @@ func (ctrl *AuthController) ChangePassword() gin.HandlerFunc {
 			return
 		}
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			logger.Err("User ID not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
@@ -224,7 +224,7 @@ func (ctrl *AuthController) AdminChangePassword() gin.HandlerFunc {
 			return
 		}
 
-		adminID := c.GetHeader("user_id")
+		adminID := c.GetHeader("X-User-ID")
 		if adminID == "" {
 			logger.Err("Admin ID not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Admin ID not found"})
@@ -248,7 +248,7 @@ func (ctrl *AuthController) Logout() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		deviceID := c.GetHeader("device_id")
 
 		if userID == "" || deviceID == "" {
@@ -274,7 +274,7 @@ func (ctrl *AuthController) LogoutAll() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			logger.Err("User ID not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
@@ -297,7 +297,7 @@ func (ctrl *AuthController) LogoutAll() gin.HandlerFunc {
 func (ctrl *AuthController) GetDevices() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			logger.Err("User ID not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
@@ -394,21 +394,21 @@ func (ctrl *AuthController) ResendOTP() gin.HandlerFunc {
 
 func (ctrl *AuthController) UpdateUserRole() gin.HandlerFunc {
 	return func(c *gin.Context) {
-        var req struct {
-            UserID  string `json:"user_id"`
-            NewRole string `json:"new_role"`
-        }
-        if err := c.ShouldBindJSON(&req); err != nil {
-            c.JSON(400, gin.H{"error": "Invalid request"})
-            return
-        }
+		var req struct {
+			UserID  string `json:"user_id"`
+			NewRole string `json:"new_role"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request"})
+			return
+		}
 
-        err := ctrl.authService.UpdateUserRole(c.Request.Context(), req.UserID, req.NewRole)
-        if err != nil {
-            c.JSON(500, gin.H{"error": err.Error()})
-            return
-        }
+		err := ctrl.authService.UpdateUserRole(c.Request.Context(), req.UserID, req.NewRole)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
 
-        c.JSON(200, gin.H{"message": "User role updated successfully"})
-    }
+		c.JSON(200, gin.H{"message": "User role updated successfully"})
+	}
 }

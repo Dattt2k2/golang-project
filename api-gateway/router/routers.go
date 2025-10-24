@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+
 	// "net/url"
 	"strings"
 
@@ -102,19 +104,24 @@ func ForwardWebSocketToService(c *gin.Context, serviceURL string) {
 	}
 }
 
-// Thay thế toàn bộ function ForwardRequestToService:
+var productIDRe = regexp.MustCompile(`/products/[^/]+$`)
+var reviewIDRe = regexp.MustCompile(`/v1/products/[^/]+$`)
 
 func ForwardRequestToService(c *gin.Context, serviceURL string, method string, contentType string) {
-	logger.InfoE("ForwardRequestToService starting for: %s", nil, logger.Str("serviceURL", serviceURL))
-
 	// Handle public routes without auth
-	if strings.Contains(serviceURL, "/products/get") || strings.Contains(serviceURL, "/search") || strings.Contains(serviceURL, "/advanced-search") {
+	if strings.HasSuffix(serviceURL, "/products/get") || strings.HasSuffix(serviceURL, "/search") || strings.HasSuffix(serviceURL, "/advanced-search") || productIDRe.MatchString(serviceURL) || reviewIDRe.MatchString(serviceURL) {
 		client := &http.Client{Timeout: time.Second * 30}
 		req, err := http.NewRequest(method, serviceURL, nil)
 		if err != nil {
 			logger.Err("Error creating request", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
 			return
+		}
+
+		for k, v := range c.Request.Header {
+			for _, vv := range v {
+				req.Header.Add(k, vv)
+			}
 		}
 
 		req.Header.Set("Content-Type", contentType)
@@ -168,62 +175,74 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		return
 	}
 
-	client := &http.Client{Timeout: time.Second * 30}
+	// Convert to string
+	uidStr := fmt.Sprint(uid)
+	emailStr := fmt.Sprint(email)
+	roleStr := fmt.Sprint(role)
 
-	// if method == "GET" {
-	// 	// Handle GET request với query params
-	// 	reqURL, _ := url.Parse(serviceURL)
-	// 	q := reqURL.Query()
+	// Debug log context values
+	logger.Info("Context values before forwarding",
+		logger.Str("uid", uidStr),
+		logger.Str("email", emailStr),
+		logger.Str("role", roleStr),
+	)
 
-	// 	// Add original query params
-	// 	for key, values := range c.Request.URL.Query() {
-	// 		for _, value := range values {
-	// 			q.Add(key, value)
-	// 		}
-	// 	}
-
-	// 	reqURL.RawQuery = q.Encode()
-
-	// 	req, err := http.NewRequest(method, reqURL.String(), nil)
-	// 	if err != nil {
-	// 		logger.Err("Error creating GET request", err)
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
-	// 		return
-	// 	}
-
-	// 	req.Header.Set("Content-Type", contentType)
-	// 	authHeader := c.GetHeader("Authorization")
-	// 	if authHeader != "" {
-	// 		req.Header.Set("Authorization", authHeader)
-	// 	}
-
-	// 	resp, err := client.Do(req)
-	// 	if err != nil {
-	// 		logger.Err("Error in GET request", err)
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
-	// 		return
-	// 	}
-	// 	defer resp.Body.Close()
-
-	// 	bodyBytes, err := io.ReadAll(resp.Body)
-	// 	if err != nil {
-	// 		logger.Err("Error reading GET response", err)
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
-	// 		return
-	// 	}
-
-	// 	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
-	// 	return
-	// }
-
-	// Handle POST, PUT, DELETE - chỉ JSON
-	var requestBody map[string]interface{}
-
+	client := &http.Client{Timeout: time.Second * 30} // Đọc body một lần duy nhất
+	var bodyBytes []byte
 	if c.Request.Body != nil {
-		bodyBytes, _ := io.ReadAll(c.Request.Body)
-		if len(bodyBytes) > 0 {
-			json.Unmarshal(bodyBytes, &requestBody)
+		bodyBytes, _ = io.ReadAll(c.Request.Body)
+	}
+
+	// Xử lý đặc biệt cho presigned URL - giữ nguyên format array
+	if strings.Contains(serviceURL, "/upload/presigned-url") {
+		req, err := http.NewRequest(method, serviceURL, bytes.NewBuffer(bodyBytes))
+		if err != nil {
+			logger.Err("Error creating request", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create request"})
+			return
 		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-User-Id", uidStr)
+		req.Header.Set("X-Email", emailStr)
+		req.Header.Set("X-Role", roleStr)
+
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			req.Header.Set("Authorization", authHeader)
+		}
+
+		// Debug log outgoing headers
+		logger.Info("Forwarding presigned URL request",
+			logger.Str("to", serviceURL),
+			logger.Str("X-User-Id", req.Header.Get("X-User-Id")),
+			logger.Str("X-Email", req.Header.Get("X-Email")),
+			logger.Str("X-Role", req.Header.Get("X-Role")),
+		)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			logger.Err("Error in request", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to connect to service"})
+			return
+		}
+		defer resp.Body.Close()
+
+		responseBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			logger.Err("Error reading response", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
+			return
+		}
+
+		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), responseBytes)
+		return
+	}
+
+	// Xử lý bình thường cho các endpoint khác
+	var requestBody map[string]interface{}
+	if len(bodyBytes) > 0 {
+		json.Unmarshal(bodyBytes, &requestBody)
 	}
 
 	if requestBody == nil {
@@ -240,16 +259,22 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-
-	// SỬA PHẦN NÀY - SET VÀO REQUEST HEADER THAY VÌ RESPONSE HEADER
-	req.Header.Set("user_id", uid.(string)) // Thay vì c.Header()
-	req.Header.Set("email", email.(string)) // Thay vì c.Header()
-	req.Header.Set("role", role.(string))   // Thay vì c.Header()
+	req.Header.Set("X-User-Id", uidStr)
+	req.Header.Set("X-Email", emailStr)
+	req.Header.Set("X-Role", roleStr)
 
 	authHeader := c.GetHeader("Authorization")
 	if authHeader != "" {
 		req.Header.Set("Authorization", authHeader)
 	}
+
+	// Debug log outgoing headers
+	logger.Info("Forwarding request to service",
+		logger.Str("to", serviceURL),
+		logger.Str("X-User-Id", req.Header.Get("X-User-Id")),
+		logger.Str("X-Email", req.Header.Get("X-Email")),
+		logger.Str("X-Role", req.Header.Get("X-Role")),
+	)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -259,14 +284,14 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	responseBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Err("Error reading response", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
 		return
 	}
 
-	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), bodyBytes)
+	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), responseBytes)
 }
 
 func SetupRouter(router *gin.Engine) {
@@ -463,13 +488,19 @@ func SetupRouter(router *gin.Engine) {
 			ForwardRequestToService(c, "http://product-service:8082/products/get", "GET", "application/json")
 		})
 		publicRoutes.GET("/products/search", func(c *gin.Context) {
-			ForwardRequestToService(c, "http://product-service:8082/products/search?name"+c.Query("name"), "GET", "application/json")
+			ForwardRequestToService(c, "http://product-service:8082/products/search?name="+c.Query("name"), "GET", "application/json")
+		})
+		publicRoutes.GET("/products-info/:id", func(c *gin.Context) {
+			ForwardRequestToService(c, "http://product-service:8082/products/"+c.Param("id"), "GET", "application/json")
 		})
 		publicRoutes.GET("/search", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://search-service:8086/search?query="+c.Query("query"), "GET", "application/json")
 		})
 		publicRoutes.GET("/advanced-search", func(c *gin.Context) {
 			ForwardRequestToService(c, "http://search-service:8086/advanced-search?query="+c.Query("query")+"&category="+c.Query("category")+"&brand="+c.Query("brand"), "GET", "application/json")
+		})
+		publicRoutes.GET("/products/category/:category", func(c *gin.Context) {
+			ForwardRequestToService(c, "http://product-service:8082/products/category/"+c.Param("category"), "GET", "application/json")
 		})
 	}
 
@@ -493,6 +524,18 @@ func SetupRouter(router *gin.Engine) {
 			})
 			userGroup.POST("/users/logout-all", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://auth-service:8081/users/logout-all", "GET", "application/json")
+			})
+
+			userGroup.GET("/users", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://user-service:8085/users", "GET", "application/json")
+			})
+
+			userGroup.PUT("/users/update", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://user-service:8085/users/update", "PUT", "application/json")
+			})
+
+			userGroup.DELETE("/users/delete", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://user-service:8085/users/delete", "DELETE", "application/json")
 			})
 
 			// Cart routes
@@ -522,15 +565,18 @@ func SetupRouter(router *gin.Engine) {
 
 			// Review routes
 			userGroup.POST("/product/review/:product_id", func(c *gin.Context) {
-				ForwardRequestToService(c, "http://review-service:8094/v1/products/"+c.Param("product_id")+"/reviews", "POST", "application/json")
+				ForwardRequestToService(c, "http://review-service:8089/v1/products/"+c.Param("product_id")+"/reviews", "POST", "application/json")
 			})
 			userGroup.GET("/product/review/:product_id", func(c *gin.Context) {
-				ForwardRequestToService(c, "http://review-service:8094/v1/products/"+c.Param("product_id")+"/reviews", "GET", "application/json")
+				ForwardRequestToService(c, "http://review-service:8089/v1/products/"+c.Param("product_id")+"/reviews", "GET", "application/json")
+			})
+			userGroup.POST("/upload/presigned-url", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://product-service:8082/upload/presigned-url", "POST", "application/json")
 			})
 		}
 		sellerGroup := protected.Group("/seller")
 		// sellerGroup.Use(middleware.RBACMiddleware("SELLER"))
-		sellerGroup.Use(middleware.RequireUserRole("SELLER"))
+		sellerGroup.Use(middleware.RequireUserRole("USER"))
 		{
 			// User routes
 			sellerGroup.GET("/get-users", func(c *gin.Context) {
@@ -542,12 +588,12 @@ func SetupRouter(router *gin.Engine) {
 			})
 
 			// Product routes
-			sellerGroup.POST("/products/add", func(c *gin.Context) {
+			sellerGroup.POST("/products", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://product-service:8082/products/add", "POST", "application/json")
 			})
 
-			sellerGroup.GET("/products/user", func(c *gin.Context) {
-				ForwardRequestToService(c, "http://product-service:8082/products/user","GET", "application/json")
+			sellerGroup.GET("/products", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://product-service:8082/products/user", "GET", "application/json")
 			})
 
 			sellerGroup.DELETE("/products/delete/:id", func(c *gin.Context) {

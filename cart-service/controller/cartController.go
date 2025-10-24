@@ -88,7 +88,7 @@
 
 // 		requestedQuantity := requestBody.Quantity
 
-// 		uid := c.GetHeader("user_id")
+// 		uid := c.GetHeader("X-User-ID")
 
 // 		userID, err := primitive.ObjectIDFromHex(uid)
 // 		if err != nil{
@@ -269,7 +269,7 @@
 // // 		ctx, cancel := context.WithTimeout(c.Request.Context(), 100*time.Second)
 // // 		defer cancel()
 
-// // 		userID := c.GetHeader("user_id")
+// // 		userID := c.GetHeader("X-User-ID")
 // // 		if userID == ""{
 // // 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get userID"})
 // // 			return
@@ -330,7 +330,7 @@
 // 			return
 // 		}
 
-// 		uid := c.GetHeader("user_id")
+// 		uid := c.GetHeader("X-User-ID")
 // 		if uid == ""{
 // 			log.Printf("User id not found")
 // 			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
@@ -372,7 +372,7 @@
 // 		var ctx, cancel = context.WithTimeout(c.Request.Context(), 100*time.Second)
 // 		defer cancel()
 
-// 		userID := c.GetHeader("user_id")
+// 		userID := c.GetHeader("X-User-ID")
 // 		if userID == ""{
 // 			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
 // 			return
@@ -510,7 +510,7 @@ func (ctrl *CartController) AddToCart() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.GetHeader("user_id")
+		uid := c.GetHeader("X-User-ID")
 		if uid == "" {
 			logger.Err("User id not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
@@ -578,7 +578,7 @@ func (ctrl *CartController) GetCart() gin.HandlerFunc {
 			return
 		}
 
-		uid := c.GetHeader("user_id")
+		uid := c.GetHeader("X-User-ID")
 		if uid == "" {
 			logger.Err("User id not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
@@ -608,7 +608,7 @@ func (ctrl *CartController) GetCart() gin.HandlerFunc {
 func (ctrl *CartController) DeleteProductFromCart() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			logger.Err("User id not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
@@ -646,7 +646,7 @@ func (ctrl *CartController) DeleteProductFromCart() gin.HandlerFunc {
 
 func (ctrl *CartController) ClearCart() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		uid := c.GetHeader("user_id")
+		uid := c.GetHeader("X-User-ID")
 		if uid == "" {
 			logger.Err("User id not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
