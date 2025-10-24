@@ -16,10 +16,10 @@ import (
 
 type ReviewHandler struct {
 	service    services.ReviewService
-	orderClient pb.OrderServcieClient
+	orderClient pb.OrderServiceClient
 }
 
-func NewReviewHandler(service services.ReviewService, orderClient pb.OrderServcieClient) *ReviewHandler {
+func NewReviewHandler(service services.ReviewService, orderClient pb.OrderServiceClient) *ReviewHandler {
 	return &ReviewHandler{service: service, orderClient: orderClient}
 }
 

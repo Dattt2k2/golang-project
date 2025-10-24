@@ -57,13 +57,13 @@ func main() {
 	repo := repository.NewReviewRepository(dynamoClient, reviewTable, pendingTable)
 	service := services.NewReviewService(repo)
 
-	 orderServiceAddress := config.Get("ORDER_SERVICE_ADDRESS", "order-service:8084")
+	 orderServiceAddress := config.Get("ORDER_SERVICE_ADDRESS", "order-service:8100")
     conn, err := grpc.Dial(orderServiceAddress, grpc.WithInsecure())
     if err != nil {
         logger.Logger.Fatal("Failed to connect to order-service: " + err.Error())
     }
     defer conn.Close()
-	orderClient := pb.NewOrderServcieClient(conn)
+	orderClient := pb.NewOrderServiceClient(conn)
 
 	h := handlers.NewReviewHandler(service, orderClient)
 
@@ -85,7 +85,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8093"
+		port = "8094"
 	}
 
 	log.Printf("review-service listening on :%s with cronjob scheduler", port)

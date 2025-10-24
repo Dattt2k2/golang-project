@@ -77,7 +77,16 @@ func (r *OrderRepository) FindOrdersByUserID(ctx context.Context, userID string,
 func (r *OrderRepository) GetUserOrderWithProductID(ctx context.Context, userID, productID string) (models.Order, error) {
 	var order models.Order
 
-	r.db.Model(&models.Order{}).Where("user_id = ? AND product_id = ?", userID, productID).First(&order)
+	// Query orders where user_id matches and items JSONB contains the product_id
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Where("items::text LIKE ?", "%"+productID+"%").
+		First(&order).Error
+	
+	if err != nil {
+		return models.Order{}, err
+	}
+	
 	return order, nil
 }
 
