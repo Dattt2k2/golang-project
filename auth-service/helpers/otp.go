@@ -34,9 +34,6 @@ func GenerateAndStoreOTP(email string, expire time.Duration) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Log OTP and email
-	logger.Logger.Infof("Generated OTP for %s: %s", email, otp)
-	logger.Logger.Infof("Storing OTP in Redis: key=otp:%s, value=%s", email, otp)
 	return otp, nil
 }
 
@@ -47,8 +44,6 @@ func GetOTP(email string) (string, error) {
 		logger.Logger.Errorf("Failed to retrieve OTP for %s: %v", email, err)
 		return "", err
 	}
-	// Log OTP and email
-	logger.Logger.Infof("Retrieved OTP for %s: %s", email, otp)
 	return otp, nil
 }
 
@@ -66,7 +61,5 @@ func ResendOTP(email string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Log new OTP
-	logger.Logger.Infof("Resent OTP for %s: %s", email, otp)
 	return otp, nil
 }

@@ -174,10 +174,7 @@ func (r *ProductRepositoryImpl) Delete(ctx context.Context, id, userID string) e
 // 	}
 // 	return &product, nil
 // }
-func (r *ProductRepositoryImpl) FindByID(ctx context.Context, id string) (*models.Product, error) {
-    // Debug log
-    logger.Info("Finding product by ID in DynamoDB", logger.Str("id", id))
-    
+func (r *ProductRepositoryImpl) FindByID(ctx context.Context, id string) (*models.Product, error) {    
     result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
         TableName: aws.String(r.tableName),
         Key: map[string]types.AttributeValue{
@@ -191,7 +188,6 @@ func (r *ProductRepositoryImpl) FindByID(ctx context.Context, id string) (*model
     }
     
     if result.Item == nil {
-        logger.Info("Product not found in DynamoDB", logger.Str("id", id))
         return nil, fmt.Errorf("product not found")
     }
 

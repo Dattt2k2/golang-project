@@ -105,7 +105,6 @@ func (ctrl *AuthController) Login() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, response)
-		logger.Info("User logged in successfully", logger.Str("email", *credential.Email))
 	}
 }
 
@@ -147,7 +146,6 @@ func (ctrl *AuthController) GetUsers() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, users)
-		logger.Info("Users retrieved successfully")
 	}
 }
 
@@ -171,7 +169,6 @@ func (ctrl *AuthController) GetUser() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, user)
-		logger.Info("User retrieved successfully")
 	}
 }
 
@@ -203,7 +200,6 @@ func (ctrl *AuthController) ChangePassword() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
-		logger.Info("Password changed successfully", logger.Str("user_id", userID))
 	}
 }
 
@@ -239,7 +235,6 @@ func (ctrl *AuthController) AdminChangePassword() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
-		logger.Info("Password changed successfully", logger.Str("admin_id", adminID), logger.Str("user_id", request.UserID))
 	}
 }
 
@@ -265,7 +260,6 @@ func (ctrl *AuthController) Logout() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
-		logger.Info("User logged out successfully", logger.Str("user_id", userID), logger.Str("device_id", deviceID))
 	}
 }
 
@@ -290,7 +284,6 @@ func (ctrl *AuthController) LogoutAll() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{"message": "Logged out from all devices successfully"})
 
-		logger.Info("User logged out from all devices successfully", logger.Str("user_id", userID))
 	}
 }
 
@@ -312,7 +305,6 @@ func (ctrl *AuthController) GetDevices() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, devices)
-		logger.Info("Devices retrieved successfully", logger.Str("user_id", userID))
 	}
 }
 

@@ -43,12 +43,10 @@ func InitOrderSuccessProducer(brokers []string) {
 		Topic:    OrderSuccessTopic,
 		Balancer: &kafka.LeastBytes{},
 	}
-	logger.Logger.Infof("Order success producer initialized with brokers: %v", brokers)
 }
 
 func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
 	if orderSuccessWriter == nil {
-		logger.Info("Order success producer not initialized")
 		return fmt.Errorf("Order success producer not initialized")
 	}
 
@@ -80,7 +78,6 @@ func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
 		return err
 	}
 
-	logger.Logger.Infof("Order success event produced", orderEvent)
 	return nil
 }
 
@@ -99,7 +96,6 @@ func InitOrderReturnedProducer(brokers []string) {
 		Topic:    OrderReturnedTopic,
 		Balancer: &kafka.LeastBytes{},
 	}
-	logger.Logger.Infof("Order returned producer initialized with brokers: %v", brokers)
 }
 
 func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
@@ -136,6 +132,5 @@ func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 		return err
 	}
 
-	logger.Logger.Infof("Order returned event produced", orderEvent)
 	return nil
 }

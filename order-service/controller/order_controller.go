@@ -183,7 +183,6 @@ func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc {
 			"has_prev": hasPrev,
 		})
 
-		logger.Info("Admin get orders successfully", logger.Str("page", strconv.Itoa(page)), logger.Str("limit", strconv.Itoa(limit)))
 	}
 }
 
@@ -247,7 +246,6 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc {
 			"has_prev": hasPrev,
 		})
 
-		logger.Info("Get user orders successfully", logger.Str("user_id", uid), logger.Str("page", strconv.Itoa(page)), logger.Str("limit", strconv.Itoa(limit)))
 	}
 }
 
@@ -317,7 +315,6 @@ func (ctrl *OrderController) HandlePaymentSuccess() gin.HandlerFunc {
 			return
 		}
 
-		logger.Logger.Infof("Payment success processed for order %d", orderID)
 		c.JSON(http.StatusOK, gin.H{
 			"message":  "Payment success processed",
 			"order_id": orderID,
@@ -361,7 +358,6 @@ func (ctrl *OrderController) HandlePaymentFailure() gin.HandlerFunc {
 			return
 		}
 
-		logger.Logger.Infof("Payment failure processed for order %d, reason: %s", orderID, req.Reason)
 		c.JSON(http.StatusOK, gin.H{
 			"message":  "Payment failure processed",
 			"order_id": orderID,
@@ -395,7 +391,6 @@ func (ctrl *OrderController) ConfirmDelivery() gin.HandlerFunc {
 			return
 		}
 
-		logger.Logger.Infof("Delivery confirmed for order %d by user %s", orderID, userID)
 		c.JSON(http.StatusOK, gin.H{
 			"message":  "Delivery confirmed successfully",
 			"order_id": orderID,
@@ -436,7 +431,6 @@ func (ctrl *OrderController) MarkAsShipped() gin.HandlerFunc {
 			return
 		}
 
-		logger.Logger.Infof("Order %d marked as shipped by vendor %s", orderID, vendorID)
 		c.JSON(http.StatusOK, gin.H{
 			"message":  "Order marked as shipped successfully",
 			"order_id": orderID,
@@ -518,7 +512,6 @@ func (ctrl *OrderController) ReleasePaymentManually() gin.HandlerFunc {
 			return
 		}
 
-		logger.Logger.Infof("Payment manually released for order %d", orderID)
 		c.JSON(http.StatusOK, gin.H{
 			"message":  "Payment released to vendor successfully",
 			"order_id": orderID,

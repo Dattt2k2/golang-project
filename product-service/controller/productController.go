@@ -39,7 +39,6 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 		}
 
 		userID := c.GetHeader("X-User-ID")
-		logger.Info("User ID from header:", zap.String("userID", userID))
 		if userID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
 			return

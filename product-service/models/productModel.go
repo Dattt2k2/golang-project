@@ -126,6 +126,8 @@ type Product struct {
     Updated_at  time.Time `json:"updated_at" dynamodbav:"updated_at"`
     UserID      string    `json:"user_id" dynamodbav:"user_id"`
     Status      string    `json:"status" dynamodbav:"status"`
+    Rating      float64   `json:"rating" dynamodbav:"rating"`
+    RatingCount int       `json:"rating_count" dynamodbav:"rating_count"`
 }
 
 // CreateProductRequest - Request struct cho tạo product mới
@@ -174,6 +176,8 @@ type ProductResponse struct {
     Created_at  time.Time `json:"created_at"`
     Updated_at  time.Time `json:"updated_at"`
     Status      string    `json:"status"`
+    Rating      float64   `json:"rating"`
+    RatingCount int       `json:"rating_count"`
 }
 
 type StockUpdateItem struct {

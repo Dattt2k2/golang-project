@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 
-	"search-service/log"
 	"search-service/database"
 	"search-service/models"
 )
@@ -159,7 +158,6 @@ func (r *searchRepository) IndexProduct(product *models.Product) error {
 
 	data, _ := json.Marshal(product)
 
-	logger.Info("Indexing product :", logger.Str("data", string(data)))
 
 	_, err := database.ES.Index(
 		os.Getenv("ELASTICSEARCH_INDEX"),

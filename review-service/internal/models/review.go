@@ -4,8 +4,8 @@ import "time"
 
 type Review struct {
 	ID        string    `json:"id" dynamodbav:"id"`
-	ProductID string    `json:"product_id" binding:"required" dynamodbav:"product_id"`
-	UserID    string    `json:"user_id" binding:"required" dynamodbav:"user_id"`
+	ProductID string    `json:"product_id" dynamodbav:"product_id"`
+	UserID    string    `json:"user_id" dynamodbav:"user_id"`
 	Rating    int       `json:"rating" binding:"required,min=1,max=5" dynamodbav:"rating"`
 	Title     string    `json:"title,omitempty" dynamodbav:"title"`
 	Body      string    `json:"body_review,omitempty" dynamodbav:"body"`

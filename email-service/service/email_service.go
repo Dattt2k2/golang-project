@@ -8,7 +8,6 @@ import (
 	"net/smtp"
 	"os"
 
-	"email-service/logger"
 )
 
 type EmailService struct {
@@ -31,7 +30,6 @@ func NewEmailService() *EmailService {
 
 func (s *EmailService) SendEmail(to, subject, templatePath string, data interface{}) error {
 
-	logger.Info("Sending email", logger.Str("templatePath", templatePath), logger.Str("data", fmt.Sprintf("%v", data)))
 	tmpl, err := template.ParseFiles(templatePath)
 	if err != nil {
 		return err
@@ -67,6 +65,5 @@ func (s *EmailService) SendEmail(to, subject, templatePath string, data interfac
 	if err := smtp.SendMail(addr, auth, s.From, []string{to}, msg); err != nil {
 		return err
 	}
-	logger.Info("Email sent successfully")
 	return nil
 }

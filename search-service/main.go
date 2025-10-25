@@ -23,7 +23,6 @@ func waitForElasticsearch(url string, retries int, delay time.Duration) error {
 		if err == nil && resp.StatusCode == 200 {
 			return nil
 		}
-		logger.Info("Waiting for Elasticsearch...")
 		time.Sleep(delay)
 	}
 	return fmt.Errorf("Elasticsearch not available at %s", url)
@@ -66,8 +65,6 @@ func main() {
 	err = svc.SyncProductFromProductService()
 	if err != nil {
 		logger.Err("Failed to sync products from product service: %v", err)
-	}else{
-		logger.Info("Successfully synced products from product service")
 	}
 
 	port := os.Getenv("PORT")
@@ -75,6 +72,5 @@ func main() {
 		port = "8086"
 	}
 
-	logger.Logger.Info("Search service running on :%s", port)
 	router.Run(":" + port)
 }

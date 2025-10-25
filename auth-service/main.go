@@ -24,8 +24,6 @@ func initBloomFilter(db *gorm.DB) {
 
 	if err := userBloomFilter.Init(db); err != nil {
 		logger.Error("Error initializing bloom filter", logger.ErrField(err))
-	} else {
-		logger.Info("Bloom filter initialized")
 	}
 
 	go func() {
@@ -34,9 +32,7 @@ func initBloomFilter(db *gorm.DB) {
 
 			if err := userBloomFilter.Init(db); err != nil {
 				logger.Error("Error updating bloom filter", logger.ErrField(err))
-			} else {
-				logger.Info("Bloom filter updated")
-			}
+			} 
 		}
 	}()
 }
@@ -57,7 +53,6 @@ func main() {
 
 	database.InitRedis()
 	defer database.RedisClient.Close()
-	logger.Info("Connected to Redis")
 
 	// userCollection := database.OpenCollection(database.Client, "user")
 	db := database.InitDB()

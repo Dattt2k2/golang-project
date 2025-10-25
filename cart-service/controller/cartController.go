@@ -520,12 +520,14 @@ func (ctrl *CartController) AddToCart() gin.HandlerFunc {
 		err := ctrl.cartService.AddToCart(c, uid, productID, requestBody.Quantity)
 		if err != nil {
 			logger.Err("Failed to add product to cart", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product to cart"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": false,
+				"error": err.Error(),
+			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Item added to cart successfully"})
-		logger.Info("Item added to cart successfully", logger.Str("product_id", productID), logger.Str("user_id", uid))
 	}
 }
 
@@ -548,8 +550,6 @@ func (ctrl *CartController) GetCartSeller() gin.HandlerFunc {
 			limit = 10
 		}
 
-		logger.Info("Pagination", logger.Int("page", page), logger.Int("limit", limit))
-
 		carts, total, pages, hasNext, hasPrev, err := ctrl.cartService.GetAllCarts(c, page, limit)
 		if err != nil {
 			logger.Err("Error fetching carts", err)
@@ -567,7 +567,6 @@ func (ctrl *CartController) GetCartSeller() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, response)
-		logger.Info("Sending response with carts", logger.Int("cart_count", len(carts)))
 	}
 }
 
@@ -588,7 +587,6 @@ func (ctrl *CartController) GetCart() gin.HandlerFunc {
 		cart, err := ctrl.cartService.GetUserCart(c, uid)
 		if err != nil {
 			if err.Error() == "mmongo: no documents in result" {
-				logger.Info("Cart is empty", logger.Str("user_id", uid))
 				c.JSON(http.StatusOK, gin.H{"message": "Cart is empty"})
 				return
 			}
@@ -597,7 +595,6 @@ func (ctrl *CartController) GetCart() gin.HandlerFunc {
 			return
 		}
 
-		logger.Info("Sending cart data", logger.Str("user_id", uid), logger.Int("cart_item_count", len(cart.Items)))
 		c.JSON(http.StatusOK, gin.H{
 			"user_id":  uid,
 			"products": cart.Items,
@@ -630,7 +627,6 @@ func (ctrl *CartController) DeleteProductFromCart() gin.HandlerFunc {
 		err := ctrl.cartService.DeleteProductFromCart(c, userID, productID)
 		if err != nil {
 			if err.Error() == "product not found in cart" {
-				logger.Info("Product not found in cart", logger.Str("user_id", userID), logger.Str("product_id", productID))
 				c.JSON(http.StatusNotFound, gin.H{"error": "Product not found in cart"})
 			} else {
 				logger.Err("Failed to delete product from cart", err)
@@ -640,7 +636,6 @@ func (ctrl *CartController) DeleteProductFromCart() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Product deleted from cart successfully"})
-		logger.Info("Product deleted from cart successfully", logger.Str("user_id", userID), logger.Str("product_id", productID))
 	}
 }
 
@@ -666,7 +661,6 @@ func (ctrl *CartController) ClearCart() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Cart cleared successfully"})
-		logger.Info("Cart cleared successfully", logger.Str("user_id", uid))
 	}
 }
 

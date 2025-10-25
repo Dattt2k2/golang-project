@@ -180,13 +180,6 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 	emailStr := fmt.Sprint(email)
 	roleStr := fmt.Sprint(role)
 
-	// Debug log context values
-	logger.Info("Context values before forwarding",
-		logger.Str("uid", uidStr),
-		logger.Str("email", emailStr),
-		logger.Str("role", roleStr),
-	)
-
 	client := &http.Client{Timeout: time.Second * 30} // Đọc body một lần duy nhất
 	var bodyBytes []byte
 	if c.Request.Body != nil {
@@ -203,7 +196,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		}
 
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-User-Id", uidStr)
+		req.Header.Set("X-User-ID", uidStr)
 		req.Header.Set("X-Email", emailStr)
 		req.Header.Set("X-Role", roleStr)
 
@@ -211,14 +204,6 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 		if authHeader != "" {
 			req.Header.Set("Authorization", authHeader)
 		}
-
-		// Debug log outgoing headers
-		logger.Info("Forwarding presigned URL request",
-			logger.Str("to", serviceURL),
-			logger.Str("X-User-Id", req.Header.Get("X-User-Id")),
-			logger.Str("X-Email", req.Header.Get("X-Email")),
-			logger.Str("X-Role", req.Header.Get("X-Role")),
-		)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -259,7 +244,7 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-Id", uidStr)
+	req.Header.Set("X-User-ID", uidStr)
 	req.Header.Set("X-Email", emailStr)
 	req.Header.Set("X-Role", roleStr)
 
@@ -267,14 +252,6 @@ func ForwardRequestToService(c *gin.Context, serviceURL string, method string, c
 	if authHeader != "" {
 		req.Header.Set("Authorization", authHeader)
 	}
-
-	// Debug log outgoing headers
-	logger.Info("Forwarding request to service",
-		logger.Str("to", serviceURL),
-		logger.Str("X-User-Id", req.Header.Get("X-User-Id")),
-		logger.Str("X-Email", req.Header.Get("X-Email")),
-		logger.Str("X-Role", req.Header.Get("X-Role")),
-	)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -356,9 +333,6 @@ func SetupRouter(router *gin.Engine) {
 			defer resp.Body.Close()
 
 			responseBytes, _ := io.ReadAll(resp.Body)
-			logger.Info("Auth response:", logger.Int("statusCode", resp.StatusCode))
-			logger.Info("Auth response body:", logger.Str("responseBody", string(responseBytes)))
-			logger.Info("Auth response content-type:", logger.Str("contentType", resp.Header.Get("Content-Type")))
 
 			if resp.StatusCode != http.StatusOK {
 				c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), responseBytes)
@@ -399,7 +373,6 @@ func SetupRouter(router *gin.Engine) {
 			// c.SetCookie("auth_token", loginResponse.Token, 60*60*24*7, "/", "", c.Request.TLS != nil, true)
 			// c.SetCookie("refresh_token", loginResponse.RefreshToken, 60*60*24*30, "/", "", c.Request.TLS != nil, true)
 
-			logger.Info("Login successful", logger.Str("uid", loginResponse.Uid))
 
 			c.JSON(http.StatusOK, gin.H{
 				"message":       "Login successful",
@@ -542,7 +515,7 @@ func SetupRouter(router *gin.Engine) {
 			userGroup.POST("/cart/add/:id", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://cart-service:8083/cart/add/"+c.Param("id"), "POST", "application/json")
 			})
-			userGroup.GET("/cart/get/", func(c *gin.Context) {
+			userGroup.GET("/cart/get", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://cart-service:8083/cart/user/get/", "GET", "application/json")
 			})
 			userGroup.DELETE("/cart/delete/:id", func(c *gin.Context) {

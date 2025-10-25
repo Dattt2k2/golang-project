@@ -102,7 +102,6 @@ func (kp *KafkaProducer) SendMessageToTopic(ctx context.Context, topic string, m
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("Message sent to topic %s successfully", topic))
 	return nil
 }
 

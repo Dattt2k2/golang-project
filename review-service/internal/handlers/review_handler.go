@@ -5,17 +5,17 @@ import (
 	"net/http"
 	"strconv"
 
+	pb "module/gRPC-Order/service"
 	"review-service/internal/models"
 	"review-service/internal/services"
 	logger "review-service/log"
-	pb "module/gRPC-Order/service"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 type ReviewHandler struct {
-	service    services.ReviewService
+	service     services.ReviewService
 	orderClient pb.OrderServiceClient
 }
 
@@ -32,7 +32,7 @@ func (h *ReviewHandler) CreateReview() gin.HandlerFunc {
 		}
 
 		productID := c.Param("product_id")
-		userID := c.GetHeader("X-User-Id")
+		userID := c.GetHeader("X-User-ID")
 
 		req := &pb.HasPurchasedRequest{
 			UserId:    userID,
@@ -56,6 +56,7 @@ func (h *ReviewHandler) CreateReview() gin.HandlerFunc {
 			return
 		}
 		input.ProductID = productID
+		input.UserID = userID
 
 		ctx := context.Background()
 		if err := h.service.Save(ctx, &input); err != nil {

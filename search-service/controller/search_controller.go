@@ -21,7 +21,6 @@ func NewSearchController(service service.SearchService) *SearchController {
 
 func (ctrl *SearchController) BasicSearch(query string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		logger.Logger.Infof("RawQuery: %s", c.Request.URL.RawQuery)
 		query := c.Query("query")
 		if query == "" {
 			query = c.Query("q")
@@ -38,13 +37,11 @@ func (ctrl *SearchController) BasicSearch(query string) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, products)
-		logger.Logger.Infof("Search results for query '%s': %v", query, products)
 	}
 }
 
 func (ctrl *SearchController) AdvancedSearch(query string, filters map[string]interface{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		logger.Logger.Infof("RawQuery: %s", c.Request.URL.RawQuery)
 		query := c.Query("query")
 		if query == "" {
 			query = c.Query("q")
@@ -55,11 +52,9 @@ func (ctrl *SearchController) AdvancedSearch(query string, filters map[string]in
 			return
 		}
 		if price := c.Query("price"); price != "" {
-			logger.Logger.Infof("Price filter applied: %s", price)
 			filters["price"] = map[string]interface{}{"lte": price}
 		}
 		if category := c.Query("category"); category != "" {
-			logger.Logger.Infof("Category filter applied: %s", category)
 			filters["category"] = category
 		}
 		products, err := ctrl.service.AdvancedSearch(query, filters)
@@ -68,6 +63,5 @@ func (ctrl *SearchController) AdvancedSearch(query string, filters map[string]in
 			return
 		}
 		c.JSON(http.StatusOK, products)
-		logger.Logger.Infof("Search results for query '%s' with filters %v: %v", query, filters, products)
 	}
 }

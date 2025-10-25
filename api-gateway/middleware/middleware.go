@@ -220,6 +220,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("email", claims.Email)
 		c.Set("role", claims.UserType)
 		c.Set("uid", claims.Uid)
+		c.Request.Header.Set("X-User-ID", claims.Uid)
 
 		c.Next()
 	}
@@ -228,7 +229,6 @@ func AuthMiddleware() gin.HandlerFunc {
 func RBACMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole, exists := c.Get("role")
-		logger.Info("User role from context:", logger.Str("role", userRole.(string)))
 		if !exists {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
