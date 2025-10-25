@@ -59,7 +59,6 @@ func (g *GRPCClients) initConnections() {
     g.productConn = productConn
     g.ProductClient = productPb.NewProductServiceClient(productConn)
 
-    logger.Info("All gRPC connections initialized successfully")
 }
 
 func (g *GRPCClients) createConnection(address, serviceName string) (*grpc.ClientConn, error) {
@@ -80,7 +79,6 @@ func (g *GRPCClients) createConnection(address, serviceName string) (*grpc.Clien
         return nil, err
     }
 
-    logger.Logger.Infof("Connected to %s at %s", serviceName, address)
     return conn, nil
 }
 
@@ -117,14 +115,12 @@ func (g *GRPCClients) CloseConnections() {
         if err := g.cartConn.Close(); err != nil {
             logger.Err("Error closing cart service connection", err)
         }
-        logger.Info("Cart service connection closed")
     }
 
     if g.productConn != nil {
         if err := g.productConn.Close(); err != nil {
             logger.Err("Error closing product service connection", err)
         }
-        logger.Info("Product service connection closed")
     }
 }
 

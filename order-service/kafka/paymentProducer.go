@@ -72,7 +72,6 @@ func InitPaymentProducer(broker []string) {
 		Topic:    VendorPaymentTopic,
 		Balancer: &kafka.LeastBytes{},
 	}
-	logger.Logger.Infof("Payment request producer initialized with brokers: %v", broker)
 }
 
 func ProducePaymentRequestEvent(ctx context.Context, request PaymentRequestEvent) error {
@@ -105,7 +104,6 @@ func ProducePaymentRequestEvent(ctx context.Context, request PaymentRequestEvent
 
 func ProducePaymentCaptureEvent(ctx context.Context, capture PaymentCaptureEvent) error {
     if paymentRequestWriter == nil {
-        logger.Info("Payment request producer not initialized")
         return fmt.Errorf("payment request producer not initialized")
     }
 
@@ -136,13 +134,11 @@ func ProducePaymentCaptureEvent(ctx context.Context, capture PaymentCaptureEvent
         return err
     }
 
-    logger.Logger.Infof("Payment capture event produced for order: %s", capture.OrderID)
     return nil
 }
 
 func ProducePaymentCancelEvent(ctx context.Context, cancel PaymentCancelEvent) error {
     if paymentRequestWriter == nil {
-        logger.Info("Payment request producer not initialized")
         return fmt.Errorf("payment request producer not initialized")
     }
 
@@ -171,13 +167,11 @@ func ProducePaymentCancelEvent(ctx context.Context, cancel PaymentCancelEvent) e
         return err
     }
 
-    logger.Logger.Infof("Payment cancel event produced for order: %s", cancel.OrderID)
     return nil
 }
 
 func ProduceVendorPaymentEvent(ctx context.Context, event VendorPaymentEvent) error {
     if vendorPaymentWriter == nil {
-        logger.Info("Vendor payment producer not initialized")
         return fmt.Errorf("vendor payment producer not initialized")
     }
 
@@ -201,9 +195,6 @@ func ProduceVendorPaymentEvent(ctx context.Context, event VendorPaymentEvent) er
         logger.Err("Failed to write vendor payment message", err)
         return err
     }
-
-    logger.Logger.Infof("Vendor payment event produced for order: %s, vendor: %s, amount: %.2f", 
-        event.OrderID, event.VendorID, event.Amount)
     return nil
 }
 

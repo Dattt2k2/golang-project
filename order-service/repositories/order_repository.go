@@ -74,6 +74,22 @@ func (r *OrderRepository) FindOrdersByUserID(ctx context.Context, userID string,
 	return orders, total, nil
 }
 
+func (r *OrderRepository) GetUserOrderWithProductID(ctx context.Context, userID, productID string) (models.Order, error) {
+	var order models.Order
+
+	// Query orders where user_id matches and items JSONB contains the product_id
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Where("items::text LIKE ?", "%"+productID+"%").
+		First(&order).Error
+
+	if err != nil {
+		return models.Order{}, err
+	}
+
+	return order, nil
+}
+
 // GetOrderItems retrieves items for a specific order
 func (r *OrderRepository) GetOrderItems(ctx context.Context, orderID uint) (datatypes.JSON, error) {
 	var order models.Order
@@ -106,19 +122,19 @@ func (r *OrderRepository) UpdatePaymentStatus(ctx context.Context, orderID uint,
 }
 
 func (r *OrderRepository) UpdateOrderPaymentStatus(ctx context.Context, orderID uint, paymentStatus string, paymentIntentID *string) error {
-    updates := map[string]interface{}{
-        "payment_status": paymentStatus,
-        "updated_at":     time.Now(),
-    }
-    
-    if paymentIntentID != nil {
-        updates["payment_intent_id"] = *paymentIntentID
-    }
-    
-    return r.db.WithContext(ctx).
-        Model(&models.Order{}).
-        Where("id = ?", orderID).
-        Updates(updates).Error
+	updates := map[string]interface{}{
+		"payment_status": paymentStatus,
+		"updated_at":     time.Now(),
+	}
+
+	if paymentIntentID != nil {
+		updates["payment_intent_id"] = *paymentIntentID
+	}
+
+	return r.db.WithContext(ctx).
+		Model(&models.Order{}).
+		Where("id = ?", orderID).
+		Updates(updates).Error
 }
 
 // FindOrderByID retrieves a specific order by ID
@@ -132,7 +148,6 @@ func (r *OrderRepository) GetOrderByID(ctx context.Context, orderID uint) (*mode
 	return &order, nil
 }
 
-
 func (r *OrderRepository) UpdatePaymentIntentID(ctx context.Context, orderID uint, paymentIntentID string) error {
 	return r.db.WithContext(ctx).Model(&models.Order{}).
 		Where("id = ?", orderID).
@@ -140,9 +155,8 @@ func (r *OrderRepository) UpdatePaymentIntentID(ctx context.Context, orderID uin
 }
 
 func (r *OrderRepository) UpdateOrderFields(ctx context.Context, orderID uint, updates map[string]interface{}) error {
-    return r.db.WithContext(ctx).
-        Model(&models.Order{}).
-        Where("id = ?", orderID).
-        Updates(updates).Error
+	return r.db.WithContext(ctx).
+		Model(&models.Order{}).
+		Where("id = ?", orderID).
+		Updates(updates).Error
 }
-

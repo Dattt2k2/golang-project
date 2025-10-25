@@ -26,7 +26,6 @@ func main() {
 
 	redisdb.InitRedis()
 	defer redisdb.RedisClient.Close()
-	logger.Info("Connected to Redis")
 
 	ginrouter := gin.Default()
 	ginrouter.Use(middleware.CORSMiddleware())
@@ -43,7 +42,6 @@ func main() {
 	router.SetupRouter(ginrouter)
 
 	port := "8080"
-	logger.Info(fmt.Sprintf("Starting API Gateway on port: %s", port))
 
 	if err := ginrouter.Run(fmt.Sprintf(":%s", port)); err != nil {
 		logger.Err("Failed to start API Gateway", err)

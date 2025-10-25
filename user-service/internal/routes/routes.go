@@ -10,8 +10,8 @@ func Register(r *gin.Engine, h *handlers.UserHandler) {
 	users := r.Group("/users")
 	{
 		users.POST("/", h.CreateUser)
-		users.GET(":id", h.GetUser)
-		users.PUT(":id", h.UpdateUser)
-		users.DELETE(":id", h.DeleteUser)
+		users.GET("/", h.GetUser)
+		users.PUT("/", h.UpdateUser)
+		users.DELETE("/", h.DeleteUser)
 	}
 }

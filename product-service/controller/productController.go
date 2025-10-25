@@ -38,13 +38,11 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			return
 		}
 
-
-		userID := c.GetHeader("user_id")
-		logger.Info("User ID from header:", zap.String("userID", userID))
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
 			return
-		} 
+		}
 		var req models.CreateProductRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
@@ -101,7 +99,7 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 		var req models.UpdateProductRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
-			return 
+			return
 		}
 
 		update := make(map[string]interface{})
@@ -147,7 +145,7 @@ func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
 			return
@@ -302,7 +300,7 @@ func (ctrl *ProductController) GetProductByUserID() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		page, err := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
 		if err != nil || page < 1 {
 			log.Printf("Invalid page parameter, using default: %v", err)
@@ -315,6 +313,73 @@ func (ctrl *ProductController) GetProductByUserID() gin.HandlerFunc {
 			limit = 10
 		}
 		products, total, pages, hasNext, hasPrev, err := ctrl.service.GetProductByUserID(ctx, userID, page, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		response := gin.H{
+			"data":     products,
+			"total":    total,
+			"page":     page,
+			"pages":    pages,
+			"has_next": hasNext,
+			"has_prev": hasPrev,
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
+func (ctrl *ProductController) GetProductByID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		id := c.Param("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID not found"})
+			return
+		}
+
+		product, err := ctrl.service.GetProductByID(ctx, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if product == nil {
+			c.JSON(http.StatusNotFound, gin.H{"message": "Product not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, product)
+	}
+}
+
+func (ctrl *ProductController) GetProductByCategory() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		category := c.Param("category")
+		if category == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Category not found"})
+			return
+		}
+
+		page, err := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
+		if err != nil || page < 1 {
+			log.Printf("Invalid page parameter, using default: %v", err)
+			page = 1
+		}
+
+		limit, err := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
+		if err != nil || limit < 1 {
+			log.Printf("Invalid limit parameter, using default: %v", err)
+			limit = 10
+		}
+
+		products, total, pages, hasNext, hasPrev, err := ctrl.service.GetProductByCategory(ctx, category, page, limit)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -381,4 +446,3 @@ func (ctrl *ProductController) GetProductByUserID() gin.HandlerFunc {
 // 		"message": "Product created successfully",
 // 	})
 // }
-

@@ -32,7 +32,6 @@ func InitProductEventProducer(brokers []string) {
 		Topic:    ProductEventTopic,
 		Balancer: &kafka.LeastBytes{},
 	}
-	logger.Logger.Infof("Product event producer initialized with brokers: %v", brokers)
 }
 
 func ProduceProductEvent(ctx context.Context, eventType string, product *models.Product, id string) error  {
@@ -63,14 +62,12 @@ func ProduceProductEvent(ctx context.Context, eventType string, product *models.
 		return err 
 	}
 
-	logger.Logger.Infof("Product event produced: %s", eventType)
 	return nil 
 }
 
 
 func CloseProductEventProducer() {
 	if productEventWriter != nil {
-		logger.Info("Closing product event writer")
 		productEventWriter.Close()
 	}
 }

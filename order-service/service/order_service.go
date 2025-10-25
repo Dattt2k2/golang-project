@@ -308,13 +308,9 @@ func (s *OrderService) ReleasePaymentToVendor(ctx context.Context, orderID uint)
 		if err := kafka.ProduceVendorPaymentEvent(ctx, vendorPaymentEvent); err != nil {
 			logger.Err("Failed to produce vendor payment event for vendor "+vendorID, err)
 			// Continue với vendors khác nếu 1 vendor fail
-		} else {
-			logger.Logger.Infof("Payment released to vendor %s for order %d, amount: %.2f",
-				vendorID, orderID, amounts["vendor_amount"])
 		}
 	}
 
-	logger.Logger.Infof("Payment released to all vendors for order %d", orderID)
 	return nil
 }
 
@@ -616,7 +612,6 @@ func (s *OrderService) HandlePaymentSuccess(ctx context.Context, orderID uint, p
 		return NewServiceError("Payment successful but failed to update inventory")
 	}
 
-	logger.Logger.Infof("Order %d payment held in escrow, vendor amount: %.2f", orderID, vendorAmount)
 	return nil
 }
 
@@ -629,7 +624,6 @@ func (s *OrderService) HandlePaymentFailure(ctx context.Context, orderID uint, r
 		return err
 	}
 
-	logger.Logger.Infof("Order %d payment failed. Reason: %s", orderID, reason)
 	return nil
 }
 
@@ -667,7 +661,6 @@ func (s *OrderService) ConfirmDelivery(ctx context.Context, orderID uint, userID
 		s.ReleasePaymentToVendor(context.Background(), orderID)
 	}()
 
-	logger.Logger.Infof("Order %d delivery confirmed, payment will be released to vendor", orderID)
 	return nil
 }
 
@@ -702,7 +695,6 @@ func (s *OrderService) MarkAsShipped(ctx context.Context, orderID uint, vendorID
 		return err
 	}
 
-	logger.Logger.Infof("Order %d marked as shipped by vendor %s", orderID, vendorID)
 	return nil
 }
 

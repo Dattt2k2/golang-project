@@ -28,8 +28,6 @@ func InitRedis(){
 
 	if _, err := RedisClient.Ping(ctx).Result(); err != nil{
 		logger.Err("Failed to connect to Redis", err)
-	} else {
-		logger.Info("Connected to Redis")
 	}
 }
 

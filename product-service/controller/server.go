@@ -3,10 +3,12 @@ package controllers
 import (
 	"context"
 	"log"
+	"strings"
 
-	"product-service/log"
 	pb "module/gRPC-Product/service"
+	"product-service/log"
 	"product-service/service"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -132,12 +134,17 @@ func (s *ProductServer) GetProductInfo(ctx context.Context, req *pb.ProductReque
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
 
+	imageUrls := ""
+	if len(product.ImagePath) > 0 {
+		imageUrls = strings.Join(product.ImagePath, ",")
+	}
+
 	return &pb.ProductResponse{
 		Id: product.ID,
 		Name: product.Name,
 		Price: float32(product.Price),
 		Description: product.Description,
-		ImageUrl: product.ImagePath,
+		ImageUrl: imageUrls,
 		Quantity: int32(product.Quantity),
 	}, nil 
 }
@@ -190,12 +197,16 @@ func (s *ProductServer) GetAllProducts(ctx context.Context, req *pb.Empty) (*pb.
 
 	var pbProducts []*pb.Product 
 	for _, p := range products {
+		imageUrls := ""
+		if len(p.ImagePath) > 0 {
+			imageUrls = strings.Join(p.ImagePath, ",")
+		}
 		pbProducts = append(pbProducts, &pb.Product{
 			Id: p.ID,
 			Name: p.Name,
 			Price: float32(p.Price),
 			Description: p.Description,
-			ImageUrl: p.ImagePath,
+			ImageUrl: imageUrls,
 			Category: p.Category,
 		})
 	}

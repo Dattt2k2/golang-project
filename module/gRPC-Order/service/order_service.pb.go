@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        v4.25.3
-// source: module/gRPC-Order/order_service.proto
+// source: order_service.proto
 
 package service
 
@@ -32,7 +32,7 @@ type OrderRequest struct {
 
 func (x *OrderRequest) Reset() {
 	*x = OrderRequest{}
-	mi := &file_module_gRPC_Order_order_service_proto_msgTypes[0]
+	mi := &file_order_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *OrderRequest) String() string {
 func (*OrderRequest) ProtoMessage() {}
 
 func (x *OrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_module_gRPC_Order_order_service_proto_msgTypes[0]
+	mi := &file_order_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *OrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderRequest.ProtoReflect.Descriptor instead.
 func (*OrderRequest) Descriptor() ([]byte, []int) {
-	return file_module_gRPC_Order_order_service_proto_rawDescGZIP(), []int{0}
+	return file_order_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *OrderRequest) GetUserId() string {
@@ -92,7 +92,7 @@ type OrderItem struct {
 
 func (x *OrderItem) Reset() {
 	*x = OrderItem{}
-	mi := &file_module_gRPC_Order_order_service_proto_msgTypes[1]
+	mi := &file_order_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -104,7 +104,7 @@ func (x *OrderItem) String() string {
 func (*OrderItem) ProtoMessage() {}
 
 func (x *OrderItem) ProtoReflect() protoreflect.Message {
-	mi := &file_module_gRPC_Order_order_service_proto_msgTypes[1]
+	mi := &file_order_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -117,7 +117,7 @@ func (x *OrderItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderItem.ProtoReflect.Descriptor instead.
 func (*OrderItem) Descriptor() ([]byte, []int) {
-	return file_module_gRPC_Order_order_service_proto_rawDescGZIP(), []int{1}
+	return file_order_service_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *OrderItem) GetProductId() string {
@@ -150,7 +150,7 @@ type GetOrderRequest struct {
 
 func (x *GetOrderRequest) Reset() {
 	*x = GetOrderRequest{}
-	mi := &file_module_gRPC_Order_order_service_proto_msgTypes[2]
+	mi := &file_order_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -162,7 +162,7 @@ func (x *GetOrderRequest) String() string {
 func (*GetOrderRequest) ProtoMessage() {}
 
 func (x *GetOrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_module_gRPC_Order_order_service_proto_msgTypes[2]
+	mi := &file_order_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -175,7 +175,7 @@ func (x *GetOrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrderRequest.ProtoReflect.Descriptor instead.
 func (*GetOrderRequest) Descriptor() ([]byte, []int) {
-	return file_module_gRPC_Order_order_service_proto_rawDescGZIP(), []int{2}
+	return file_order_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetOrderRequest) GetOrderId() string {
@@ -197,7 +197,7 @@ type OrderResponse struct {
 
 func (x *OrderResponse) Reset() {
 	*x = OrderResponse{}
-	mi := &file_module_gRPC_Order_order_service_proto_msgTypes[3]
+	mi := &file_order_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -209,7 +209,7 @@ func (x *OrderResponse) String() string {
 func (*OrderResponse) ProtoMessage() {}
 
 func (x *OrderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_module_gRPC_Order_order_service_proto_msgTypes[3]
+	mi := &file_order_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -222,7 +222,7 @@ func (x *OrderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderResponse.ProtoReflect.Descriptor instead.
 func (*OrderResponse) Descriptor() ([]byte, []int) {
-	return file_module_gRPC_Order_order_service_proto_rawDescGZIP(), []int{3}
+	return file_order_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *OrderResponse) GetOrderId() string {
@@ -253,11 +253,107 @@ func (x *OrderResponse) GetItems() []*OrderItem {
 	return nil
 }
 
-var File_module_gRPC_Order_order_service_proto protoreflect.FileDescriptor
+type HasPurchasedRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ProductId     string                 `protobuf:"bytes,2,opt,name=product_id,json=productId,proto3" json:"product_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_module_gRPC_Order_order_service_proto_rawDesc = "" +
+func (x *HasPurchasedRequest) Reset() {
+	*x = HasPurchasedRequest{}
+	mi := &file_order_service_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HasPurchasedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HasPurchasedRequest) ProtoMessage() {}
+
+func (x *HasPurchasedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_order_service_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HasPurchasedRequest.ProtoReflect.Descriptor instead.
+func (*HasPurchasedRequest) Descriptor() ([]byte, []int) {
+	return file_order_service_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *HasPurchasedRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *HasPurchasedRequest) GetProductId() string {
+	if x != nil {
+		return x.ProductId
+	}
+	return ""
+}
+
+type HasPurchasedResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Purchased     bool                   `protobuf:"varint,1,opt,name=purchased,proto3" json:"purchased,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HasPurchasedResponse) Reset() {
+	*x = HasPurchasedResponse{}
+	mi := &file_order_service_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HasPurchasedResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HasPurchasedResponse) ProtoMessage() {}
+
+func (x *HasPurchasedResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_order_service_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HasPurchasedResponse.ProtoReflect.Descriptor instead.
+func (*HasPurchasedResponse) Descriptor() ([]byte, []int) {
+	return file_order_service_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *HasPurchasedResponse) GetPurchased() bool {
+	if x != nil {
+		return x.Purchased
+	}
+	return false
+}
+
+var File_order_service_proto protoreflect.FileDescriptor
+
+const file_order_service_proto_rawDesc = "" +
 	"\n" +
-	"%module/gRPC-Order/order_service.proto\x12\x05order\"p\n" +
+	"\x13order_service.proto\x12\x05order\"p\n" +
 	"\fOrderRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12&\n" +
 	"\x05items\x18\x02 \x03(\v2\x10.order.OrderItemR\x05items\x12\x1f\n" +
@@ -275,64 +371,75 @@ const file_module_gRPC_Order_order_service_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1f\n" +
 	"\vtotal_price\x18\x03 \x01(\x02R\n" +
 	"totalPrice\x12&\n" +
-	"\x05items\x18\x04 \x03(\v2\x10.order.OrderItemR\x05items2\x82\x01\n" +
-	"\fOrderServcie\x128\n" +
+	"\x05items\x18\x04 \x03(\v2\x10.order.OrderItemR\x05items\"M\n" +
+	"\x13HasPurchasedRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"product_id\x18\x02 \x01(\tR\tproductId\"4\n" +
+	"\x14HasPurchasedResponse\x12\x1c\n" +
+	"\tpurchased\x18\x01 \x01(\bR\tpurchased2\xcb\x01\n" +
+	"\fOrderService\x128\n" +
 	"\vCreateOrder\x12\x13.order.OrderRequest\x1a\x14.order.OrderResponse\x128\n" +
-	"\bGetOrder\x12\x16.order.GetOrderRequest\x1a\x14.order.OrderResponseB\x1dZ\x1b./module/gRPC-order/serviceb\x06proto3"
+	"\bGetOrder\x12\x16.order.GetOrderRequest\x1a\x14.order.OrderResponse\x12G\n" +
+	"\fHasPurchased\x12\x1a.order.HasPurchasedRequest\x1a\x1b.order.HasPurchasedResponseB\x1dZ\x1b./module/gRPC-Order/serviceb\x06proto3"
 
 var (
-	file_module_gRPC_Order_order_service_proto_rawDescOnce sync.Once
-	file_module_gRPC_Order_order_service_proto_rawDescData []byte
+	file_order_service_proto_rawDescOnce sync.Once
+	file_order_service_proto_rawDescData []byte
 )
 
-func file_module_gRPC_Order_order_service_proto_rawDescGZIP() []byte {
-	file_module_gRPC_Order_order_service_proto_rawDescOnce.Do(func() {
-		file_module_gRPC_Order_order_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_module_gRPC_Order_order_service_proto_rawDesc), len(file_module_gRPC_Order_order_service_proto_rawDesc)))
+func file_order_service_proto_rawDescGZIP() []byte {
+	file_order_service_proto_rawDescOnce.Do(func() {
+		file_order_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_order_service_proto_rawDesc), len(file_order_service_proto_rawDesc)))
 	})
-	return file_module_gRPC_Order_order_service_proto_rawDescData
+	return file_order_service_proto_rawDescData
 }
 
-var file_module_gRPC_Order_order_service_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_module_gRPC_Order_order_service_proto_goTypes = []any{
-	(*OrderRequest)(nil),    // 0: order.OrderRequest
-	(*OrderItem)(nil),       // 1: order.OrderItem
-	(*GetOrderRequest)(nil), // 2: order.GetOrderRequest
-	(*OrderResponse)(nil),   // 3: order.OrderResponse
+var file_order_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_order_service_proto_goTypes = []any{
+	(*OrderRequest)(nil),         // 0: order.OrderRequest
+	(*OrderItem)(nil),            // 1: order.OrderItem
+	(*GetOrderRequest)(nil),      // 2: order.GetOrderRequest
+	(*OrderResponse)(nil),        // 3: order.OrderResponse
+	(*HasPurchasedRequest)(nil),  // 4: order.HasPurchasedRequest
+	(*HasPurchasedResponse)(nil), // 5: order.HasPurchasedResponse
 }
-var file_module_gRPC_Order_order_service_proto_depIdxs = []int32{
+var file_order_service_proto_depIdxs = []int32{
 	1, // 0: order.OrderRequest.items:type_name -> order.OrderItem
 	1, // 1: order.OrderResponse.items:type_name -> order.OrderItem
-	0, // 2: order.OrderServcie.CreateOrder:input_type -> order.OrderRequest
-	2, // 3: order.OrderServcie.GetOrder:input_type -> order.GetOrderRequest
-	3, // 4: order.OrderServcie.CreateOrder:output_type -> order.OrderResponse
-	3, // 5: order.OrderServcie.GetOrder:output_type -> order.OrderResponse
-	4, // [4:6] is the sub-list for method output_type
-	2, // [2:4] is the sub-list for method input_type
+	0, // 2: order.OrderService.CreateOrder:input_type -> order.OrderRequest
+	2, // 3: order.OrderService.GetOrder:input_type -> order.GetOrderRequest
+	4, // 4: order.OrderService.HasPurchased:input_type -> order.HasPurchasedRequest
+	3, // 5: order.OrderService.CreateOrder:output_type -> order.OrderResponse
+	3, // 6: order.OrderService.GetOrder:output_type -> order.OrderResponse
+	5, // 7: order.OrderService.HasPurchased:output_type -> order.HasPurchasedResponse
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_module_gRPC_Order_order_service_proto_init() }
-func file_module_gRPC_Order_order_service_proto_init() {
-	if File_module_gRPC_Order_order_service_proto != nil {
+func init() { file_order_service_proto_init() }
+func file_order_service_proto_init() {
+	if File_order_service_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_module_gRPC_Order_order_service_proto_rawDesc), len(file_module_gRPC_Order_order_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_order_service_proto_rawDesc), len(file_order_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_module_gRPC_Order_order_service_proto_goTypes,
-		DependencyIndexes: file_module_gRPC_Order_order_service_proto_depIdxs,
-		MessageInfos:      file_module_gRPC_Order_order_service_proto_msgTypes,
+		GoTypes:           file_order_service_proto_goTypes,
+		DependencyIndexes: file_order_service_proto_depIdxs,
+		MessageInfos:      file_order_service_proto_msgTypes,
 	}.Build()
-	File_module_gRPC_Order_order_service_proto = out.File
-	file_module_gRPC_Order_order_service_proto_goTypes = nil
-	file_module_gRPC_Order_order_service_proto_depIdxs = nil
+	File_order_service_proto = out.File
+	file_order_service_proto_goTypes = nil
+	file_order_service_proto_depIdxs = nil
 }

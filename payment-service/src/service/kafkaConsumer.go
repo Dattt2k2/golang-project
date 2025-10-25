@@ -97,7 +97,6 @@ func (pc *PaymentConsumer) StartConsumer(brokers []string) {
 	// Start payment action consumer (capture, cancel)
 	go pc.consumePaymentActions(brokers)
 
-	logger.Info("Payment consumers started with Stripe Connect support")
 }
 
 func (pc *PaymentConsumer) consumePaymentRequests(brokers []string) {
@@ -151,10 +150,8 @@ func (pc *PaymentConsumer) consumePaymentActions(brokers []string) {
 }
 
 func (pc *PaymentConsumer) handlePaymentRequestWithConnect(req PaymentRequestEvent) {
-	logger.Info("Processing Stripe Connect payment request for Order ID: " + req.OrderID)
 
 	if req.PaymentMethod != "stripe" {
-		logger.Info("Skipping non-stripe payment for order: " + req.OrderID)
 		return
 	}
 
@@ -167,7 +164,6 @@ func (pc *PaymentConsumer) handlePaymentRequestWithConnect(req PaymentRequestEve
 
 	if req.VendorStripeAccountID != "" {
 		// Multi-vendor payment với Stripe Connect
-		logger.Info(fmt.Sprintf("Creating Connect PaymentIntent for order %s with vendor %s", req.OrderID, req.VendorID))
 
 		paymentIntent, err = pc.paymentService.CreatePaymentIntentWithConnect(
 			ctx,
@@ -180,7 +176,6 @@ func (pc *PaymentConsumer) handlePaymentRequestWithConnect(req PaymentRequestEve
 		)
 	} else {
 		// Standard payment
-		logger.Info(fmt.Sprintf("Creating standard PaymentIntent for order %s", req.OrderID))
 
 		paymentIntent, err = pc.paymentService.CreatePaymentIntent(
 			ctx,
@@ -196,7 +191,6 @@ func (pc *PaymentConsumer) handlePaymentRequestWithConnect(req PaymentRequestEve
 		return
 	}
 
-	logger.Info("PaymentIntent created for order " + req.OrderID + ", ID: " + paymentIntent.ID)
 
 	// Notify order service about payment held in escrow
 	pc.notifyPaymentStatus(req.OrderID, paymentIntent.ID, req.Amount, "held", req.VendorAmount, req.PlatformFee, "")
@@ -231,7 +225,6 @@ func (pc *PaymentConsumer) handleCaptureEvent(data interface{}) {
 	paymentID := captureData["payment_id"].(string)
 	amount := captureData["amount"].(float64)
 
-	logger.Info("Processing payment capture for Order ID: " + orderID)
 
 	// Capture the payment (release funds from escrow)
 	capturedPayment, err := pc.paymentService.CapturePaymentIntent(context.Background(), paymentID, orderID)
@@ -261,7 +254,6 @@ func (pc *PaymentConsumer) handleCancelEvent(data interface{}) {
 	paymentID := cancelData["payment_id"].(string)
 	reason := cancelData["reason"].(string)
 
-	logger.Info("Processing payment cancellation for Order ID: " + orderID)
 
 	err := pc.paymentService.CancelPaymentIntent(context.Background(), paymentID)
 	if err != nil {
@@ -271,12 +263,10 @@ func (pc *PaymentConsumer) handleCancelEvent(data interface{}) {
 	}
 
 	pc.notifyPaymentStatus(orderID, paymentID, 0, "cancelled", 0, 0, reason)
-	logger.Info("Payment cancelled for order " + orderID + " - Reason: " + reason)
 }
 
 // Process vendor transfers after payment capture
 func (pc *PaymentConsumer) processVendorTransfers(orderID string, paymentIntent *stripe.PaymentIntent) {
-	logger.Info("Processing vendor transfers for order: " + orderID)
 
 	// Parse vendor breakdown from metadata
 	vendorBreakdownStr := paymentIntent.Metadata["vendor_breakdown"]
@@ -314,7 +304,6 @@ func (pc *PaymentConsumer) processVendorTransfers(orderID string, paymentIntent 
 			continue
 		}
 
-		logger.Info(fmt.Sprintf("Transfer created for vendor %s, order %s: %s", vendorID, orderID, transferResult.ID))
 		pc.notifyVendorPaymentResult(orderID, vendorID, vendorAmount, platformFee, transferResult.ID, "transferred", "")
 	}
 }
@@ -398,7 +387,5 @@ func (pc *PaymentConsumer) sendHTTPNotification(url string, payload interface{})
 
 	if resp.StatusCode != http.StatusOK {
 		logger.Error("Order-service notification failed with status: " + strconv.Itoa(resp.StatusCode))
-	} else {
-		logger.Info("Successfully notified order-service at: " + url)
 	}
 }

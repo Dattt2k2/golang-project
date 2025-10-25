@@ -63,14 +63,6 @@ func InitDB() *gorm.DB {
         )
     }
 
-    // 2. Log trước khi connect
-    logger.Logger.Info("Connecting to Postgres",
-        zap.String("host", host),
-        zap.String("port", port),
-        zap.String("user", user),
-        zap.String("dbname", dbname),
-        zap.String("sslmode", ssl),
-    )
 
     dsn := fmt.Sprintf(
         "host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",

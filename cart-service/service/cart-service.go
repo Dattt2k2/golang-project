@@ -63,17 +63,20 @@ func (s *cartServiceImpl) AddToCart(ctx context.Context, userID string, productI
 	basicInfo, err := s.productClient.GetBasicInfo(ctx, productReq)
 	if err != nil {
 		log.Printf("Failed to get product info: %v", err)
-		return errors.New("Failed to get product info")
+		return errors.New("failed to get product info")
 	}
 
+	if basicInfo.VendorId == userID {
+		return errors.New("cannot add your own product to cart")
+	}
 
 	checkStock, err := s.productClient.CheckStock(ctx, productReq)
 	if err != nil {
-		return errors.New("Failed to check product stock")
+		return errors.New("failed to check product stock")
 	}
 	avaiableQuantity := int(checkStock.AvailableQuantity)
 	if quantity > avaiableQuantity {
-		return errors.New("Not enough stock available")
+		return errors.New("not enough stock available")
 	}
 
 

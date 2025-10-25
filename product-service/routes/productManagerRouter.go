@@ -57,8 +57,11 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine, productSvc service.Product
 	authorized.GET("/products/user", productController.GetProductByUserID())
 	// search product
 	// authorized.GET("/products/search", productController.GetProductByName())
+	authorized.GET("/products/:id", productController.GetProductByID())
 
 	authorized.GET("/best-selling", productController.GetBestSellingProducts())
+
+	authorized.GET("/products/category/:category", productController.GetProductByCategory())
 
 	// Static file server for images
 	incomingRoutes.StaticFS("/static-images", gin.Dir("product-service/uploads/images", true))

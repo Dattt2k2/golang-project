@@ -105,7 +105,6 @@ func (ctrl *AuthController) Login() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, response)
-		logger.Info("User logged in successfully", logger.Str("email", *credential.Email))
 	}
 }
 
@@ -147,7 +146,6 @@ func (ctrl *AuthController) GetUsers() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, users)
-		logger.Info("Users retrieved successfully")
 	}
 }
 
@@ -171,7 +169,6 @@ func (ctrl *AuthController) GetUser() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, user)
-		logger.Info("User retrieved successfully")
 	}
 }
 
@@ -188,7 +185,7 @@ func (ctrl *AuthController) ChangePassword() gin.HandlerFunc {
 			return
 		}
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			logger.Err("User ID not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
@@ -203,7 +200,6 @@ func (ctrl *AuthController) ChangePassword() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
-		logger.Info("Password changed successfully", logger.Str("user_id", userID))
 	}
 }
 
@@ -224,7 +220,7 @@ func (ctrl *AuthController) AdminChangePassword() gin.HandlerFunc {
 			return
 		}
 
-		adminID := c.GetHeader("user_id")
+		adminID := c.GetHeader("X-User-ID")
 		if adminID == "" {
 			logger.Err("Admin ID not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Admin ID not found"})
@@ -239,7 +235,6 @@ func (ctrl *AuthController) AdminChangePassword() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
-		logger.Info("Password changed successfully", logger.Str("admin_id", adminID), logger.Str("user_id", request.UserID))
 	}
 }
 
@@ -248,7 +243,7 @@ func (ctrl *AuthController) Logout() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		deviceID := c.GetHeader("device_id")
 
 		if userID == "" || deviceID == "" {
@@ -265,7 +260,6 @@ func (ctrl *AuthController) Logout() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
-		logger.Info("User logged out successfully", logger.Str("user_id", userID), logger.Str("device_id", deviceID))
 	}
 }
 
@@ -274,7 +268,7 @@ func (ctrl *AuthController) LogoutAll() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			logger.Err("User ID not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
@@ -290,14 +284,13 @@ func (ctrl *AuthController) LogoutAll() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{"message": "Logged out from all devices successfully"})
 
-		logger.Info("User logged out from all devices successfully", logger.Str("user_id", userID))
 	}
 }
 
 func (ctrl *AuthController) GetDevices() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		userID := c.GetHeader("user_id")
+		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			logger.Err("User ID not found", nil)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
@@ -312,7 +305,6 @@ func (ctrl *AuthController) GetDevices() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, devices)
-		logger.Info("Devices retrieved successfully", logger.Str("user_id", userID))
 	}
 }
 
@@ -394,21 +386,21 @@ func (ctrl *AuthController) ResendOTP() gin.HandlerFunc {
 
 func (ctrl *AuthController) UpdateUserRole() gin.HandlerFunc {
 	return func(c *gin.Context) {
-        var req struct {
-            UserID  string `json:"user_id"`
-            NewRole string `json:"new_role"`
-        }
-        if err := c.ShouldBindJSON(&req); err != nil {
-            c.JSON(400, gin.H{"error": "Invalid request"})
-            return
-        }
+		var req struct {
+			UserID  string `json:"user_id"`
+			NewRole string `json:"new_role"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request"})
+			return
+		}
 
-        err := ctrl.authService.UpdateUserRole(c.Request.Context(), req.UserID, req.NewRole)
-        if err != nil {
-            c.JSON(500, gin.H{"error": err.Error()})
-            return
-        }
+		err := ctrl.authService.UpdateUserRole(c.Request.Context(), req.UserID, req.NewRole)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
 
-        c.JSON(200, gin.H{"message": "User role updated successfully"})
-    }
+		c.JSON(200, gin.H{"message": "User role updated successfully"})
+	}
 }

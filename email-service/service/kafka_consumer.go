@@ -17,7 +17,6 @@ type EmailKafkaMessage struct {
 }
 
 func StartKafkaConsumer(emailService *EmailService) error {
-	logger.Info("Starting Kafka consumer for email service...")
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{os.Getenv("KAFKA_BROKER")},
 		Topic:   "email_topic",

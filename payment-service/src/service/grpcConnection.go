@@ -9,11 +9,11 @@ import (
 )
 
 // NewOrderServiceClient creates a new gRPC client for the OrderService.
-func NewOrderServiceClient(address string) (orderPb.OrderServcieClient, error) {
+func NewOrderServiceClient(address string) (orderPb.OrderServiceClient, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("Failed to connect to Order service: %v", err)
 		return nil, err
 	}
-	return orderPb.NewOrderServcieClient(conn), nil
+	return orderPb.NewOrderServiceClient(conn), nil
 }

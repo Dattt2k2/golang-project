@@ -8,6 +8,7 @@ import (
 
 	"user-service/internal/models"
 	"user-service/internal/repository"
+	logger "user-service/log"
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
@@ -37,6 +38,17 @@ func StartUserCreatedConsumer(brokers []string, topic string, repo repository.Us
 			}
 
 			// Build user model (simple mapping, adjust as needed)
+			var uid uuid.UUID
+			if v, ok := payload["id"].(string); ok {
+				if parsed, perr := uuid.Parse(v); perr == nil {
+					uid = parsed
+				} else {
+					logger.Error("invalid uuid in payload.id")
+					return 
+				}
+			} else {
+				return 
+			}
 			email, _ := payload["email"].(string)
 			firstName, _ := payload["first_name"].(string)
 			lastName, _ := payload["last_name"].(string)
@@ -44,7 +56,7 @@ func StartUserCreatedConsumer(brokers []string, topic string, repo repository.Us
 			userType, _ := payload["user_type"].(string)
 
 			u := &models.User{
-				ID:        uuid.New(),
+				ID:        uid,
 				Email:     &email,
 				FirstName: &firstName,
 				LastName:  &lastName,
