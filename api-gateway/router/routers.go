@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-
 	// "net/url"
 	"strings"
 
@@ -504,7 +503,7 @@ func SetupRouter(router *gin.Engine) {
 			})
 
 			userGroup.PUT("/users/update", func(c *gin.Context) {
-				ForwardRequestToService(c, "http://user-service:8085/users/update", "PUT", "application/json")
+				ForwardRequestToService(c, "http://user-service:8085/users", "PUT", "application/json")
 			})
 
 			userGroup.DELETE("/users/delete", func(c *gin.Context) {
@@ -545,6 +544,20 @@ func SetupRouter(router *gin.Engine) {
 			})
 			userGroup.POST("/upload/presigned-url", func(c *gin.Context) {
 				ForwardRequestToService(c, "http://product-service:8082/upload/presigned-url", "POST", "application/json")
+			})
+
+			// Address routes
+			userGroup.POST("/address", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://user-service:8085/users/addresses", "POST", "application/json")
+			})
+			userGroup.GET("/address", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://user-service:8085/users/addresses", "GET", "application/json")
+			})
+			userGroup.PUT("/address/:address_id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://user-service:8085/users/addresses/"+c.Param("address_id"), "PUT", "application/json")
+			})
+			userGroup.DELETE("/address/:address_id", func(c *gin.Context) {
+				ForwardRequestToService(c, "http://user-service:8085/users/addresses/"+c.Param("address_id"), "DELETE", "application/json")
 			})
 		}
 		sellerGroup := protected.Group("/seller")

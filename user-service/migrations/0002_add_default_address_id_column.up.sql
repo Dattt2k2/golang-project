@@ -1,0 +1,2 @@
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS default_address_id UUID REFERENCES user_addresses(id) ON DELETE SET NULL;

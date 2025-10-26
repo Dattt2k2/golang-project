@@ -13,6 +13,7 @@ type User struct {
 	FirstName *string   `gorm:"type:varchar(100)" json:"first_name"`
 	LastName  *string   `gorm:"type:varchar(100)" json:"last_name"`
 	UserType  *string   `gorm:"type:varchar(50);default:'USER'" json:"user_type" validate:"required,eq=ADMIN|eq=USER|eq=SELLER"`
+	DefaultAddressID *uuid.UUID `gorm:"type:uuid" json:"default_address_id"`
 	Phone     *string   `gorm:"type:varchar(15)" json:"phone"`
 	Address   []UserAddress `gorm:"foreignKey:UserID" json:"address"`
 	CreatedAt time.Time `json:"created_at"`
