@@ -55,3 +55,19 @@ func (s *UserService) UpdateUserService(user *models.User) error {
 func (s *UserService) DeleteUserService(id uuid.UUID) error {
 	return s.repo.DeleteUser(id)
 }
+
+func (s *UserService) AddAddressService(address *models.UserAddress) error {
+	return s.repo.CreateAddress(address)
+}
+
+func (s *UserService) UpdateAddressService(address *models.UserAddress) error {
+	return s.repo.UpdateAddress(address)
+}
+
+func (s *UserService) GetUserAddressesService(userID uuid.UUID, limit, offset int) ([]models.UserAddress, error) {
+	return s.repo.GetAddresses(userID, limit, offset)
+}
+
+func (s *UserService) DeleteAddressService(addressID uuid.UUID) error {
+	return s.repo.DeleteAddress(addressID)
+}

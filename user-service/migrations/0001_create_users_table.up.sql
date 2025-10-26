@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(100),
     user_type VARCHAR(50) DEFAULT 'USER' CHECK (user_type IN ('ADMIN', 'USER', 'SELLER')),
     phone VARCHAR(15),
+    default_address_id UUID REFERENCES user_addresses(id) ON DELETE SET NULL,
     is_verify BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
