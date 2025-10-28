@@ -1,0 +1,5 @@
+experimental:
+  plugins:
+    jwt-validator:
+      moduleName: "github.com/Dattt2k2/golang-project/jwt-validator"
+      version: "v0.1.0"

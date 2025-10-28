@@ -1,0 +1,7 @@
+http:
+  middlewares:
+    jwt-validation:
+      plugin:
+        jwt-validator:
+          secret: "your-secret-key"   # Secret key để xác thực JWT
+          headerName: "X-User-ID" 

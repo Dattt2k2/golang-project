@@ -2,32 +2,55 @@ version: "3.8"
 
 services:
   # API Gateway - Custom Gateway thay thế Kong
-  api-gateway:
-    build:
-      context: .
-      dockerfile: ./api-gateway/Dockerfile.dev
+#   api-gateway:
+#     build:
+#       context: .
+#       dockerfile: ./api-gateway/Dockerfile.dev
+#     ports:
+#       - "8080:8080"
+#     env_file:
+#       - ./api-gateway/.env
+#     volumes:
+#       - ./api-gateway:/app/api-gateway:cached
+#  # - ./go.mod:/app/go.mod:ro
+#       # - ./go.sum:/app/go.sum:ro
+#     depends_on:
+#       - auth-service
+#       - product-service
+#       - cart-service
+#       - order-service
+#       - search-service
+#     networks:
+#       - default    
+#     logging:
+#       driver: "json-file"
+#       options:
+#         max-size: "10m"
+#         max-file: "3"
+#     command: ["air", "-c", ".air.toml"]
+
+  traefik:
+    image: traefik:v3.5
+    container_name: traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--experimental.plugins.jwt-validator.modulename=github.com/Dattt2k2/golang-project/jwt-validator"
+      - "--experimental.plugins.jwt-validator.version=v0.1.0"
     ports:
-      - "8080:8080"
-    env_file:
-      - ./api-gateway/.env
+      - "80:80"
+      - "443:443"
+      - "8085:8080"
     volumes:
-      - ./api-gateway:/app/api-gateway:cached
- # - ./go.mod:/app/go.mod:ro
-      # - ./go.sum:/app/go.sum:ro
-    depends_on:
-      - auth-service
-      - product-service
-      - cart-service
-      - order-service
-      - search-service
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik-config:/etc/traefik/dynamic:ro" 
+      - "./traefik-plugins:/plugins-local"
     networks:
-      - default    
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    command: ["air", "-c", ".air.toml"]
+      - traefik-net
 
   auth-service:
     build:
@@ -44,7 +67,11 @@ services:
     depends_on:
       - postgres-auth
     networks:
-      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth-service.rule=Host(`api.example.com`) && PathPrefix(`/auth`)"
+      - "traefik.http.services.auth-service.loadbalancer.server.port=8081"
     logging:
       driver: "json-file"
       options:
@@ -57,7 +84,6 @@ services:
       context: .
       dockerfile: ./user-service/Dockerfile.dev
     ports:
-      - "8085:8085"
       - "8095:8095"
     env_file:
       - ./user-service/.env
@@ -68,7 +94,12 @@ services:
       - kafka
       - postgres-user
     networks:
-      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user-service.rule=Host(`api.example.com`) && PathPrefix(`/user`)"
+      - "traefik.http.services.user-service.loadbalancer.server.port=8095"
+      - "traefik.http.routers.user-service.middlewares=jwt-validation"
     logging:
       driver: "json-file"
       options:
@@ -94,7 +125,18 @@ services:
       - kafka
       - redis
     networks:
-      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.product-public.rule=Host(`api.example.com`) && PathPrefix(`/products/get`)"
+      - "traefik.http.routers.product-public.priority=100" 
+      - "traefik.http.routers.product-public.middlewares=" 
+      - "traefik.http.routers.product-by-id.rule=Host(`api.example.com`) && PathPrefix(`/products/`) && Path(`/products/{id:[0-9]+}`)"
+      - "traefik.http.routers.product-by-id.priority=100"
+      - "traefik.http.routers.product-by-id.middlewares="
+      - "traefik.http.routers.product-service.rule=Host(`api.example.com`) && PathPrefix(`/products`)"
+      - "traefik.http.routers.product-service.middlewares=jwt-validation"
+      - "traefik.http.services.product-service.loadbalancer.server.port=8082"
     logging:
       driver: "json-file"
       options:
@@ -118,7 +160,12 @@ services:
     depends_on:
       - kafka
     networks:
-      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cart-service.rule=Host(`api.example.com`) && PathPrefix(`/cart`)"
+      - "traefik.http.services.cart-service.loadbalancer.server.port=8083"
+      - "traefik.http.routers.cart-service.middlewares=jwt-validation"
     logging:
       driver: "json-file"
       options:
@@ -143,7 +190,12 @@ services:
       - postgres-order
   # Database variables are provided via env files (./order-service/.env and ./.env)
     networks:
-      - default
+      - traefik-net
+    labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.cart-service.rule=Host(`api.example.com`) && PathPrefix(`/cart`)"
+    - "traefik.http.services.cart-service.loadbalancer.server.port=8084"
+    - "traefik.http.routers.cart-service.middlewares=jwt-validation"
     logging:
       driver: "json-file"
       options:
@@ -166,7 +218,11 @@ services:
       - kafka
       - elasticsearch
     networks:
-      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.search-service.rule=Host(`api.example.com`) && PathPrefix(`/search`)"
+      - "traefik.http.services.search-service.loadbalancer.server.port=8086"
     logging:
       driver: "json-file"
       options:
@@ -186,7 +242,16 @@ services:
  # - ./go.mod:/app/go.mod:ro
       # - ./go.sum:/app/go.sum:ro
     networks:
-      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.email-service.rule=Host(`api.example.com`) && PathPrefix(`/email`)"
+      - "traefik.http.services.email-service.loadbalancer.server.port=8087"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     command: ["air", "-c", ".air.toml"]
   
   review-service:
@@ -203,7 +268,18 @@ services:
     depends_on:
       - kafka
     networks:
-      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+   
+      - "traefik.http.routers.review-public.rule=Host(`api.example.com`) && PathPrefix(`/reviews/`) && Path(`/reviews/{id:[0-9]+}`)"
+      - "traefik.http.routers.review-public.priority=100"
+      - "traefik.http.routers.review-public.middlewares=" 
+
+     
+      - "traefik.http.routers.review-service.rule=Host(`api.example.com`) && PathPrefix(`/reviews`)"
+      - "traefik.http.routers.review-service.middlewares=jwt-validation"
+      - "traefik.http.services.review-service.loadbalancer.server.port=8089"
     logging:
       driver: "json-file"
       options:
@@ -230,7 +306,12 @@ services:
       KAFKA_BROKER: ${KAFKA_BROKER}
       KAFKA_TOPIC: ${KAFKA_TOPIC}
     networks:
-      - default
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.payment-service.rule=Host(`api.example.com`) && PathPrefix(`/payments`)"
+      - "traefik.http.services.payment-service.loadbalancer.server.port=8088"
+      - "traefik.http.routers.payment-service.middlewares=jwt-validation"
     logging:
       driver: "json-file"
       options:
@@ -270,25 +351,12 @@ services:
     ports:
       - "9200:9200"
     networks:
-      - default
+      - traefik-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    env_file:
-      - ./.env
-    environment:
-      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
-      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME}
-    networks:
-      - default
 
   kafka:
     # image: confluentinc/cp-kafka:latest
@@ -302,41 +370,20 @@ services:
       KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
       KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
       KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
-    depends_on:
-      - zookeeper
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true" # Tự động tạo topic nếu không tồn tại
+    volumes:
+    - kafka_data:/tmp/kraft-combined-logs
+    - ./create-topics.sh:/usr/bin/create-topics.sh # Mount script vào container
+    entrypoint: ["/bin/bash", "-c", "/etc/confluent/docker/run & /usr/bin/create-topics.sh && wait"]
     networks:
-      - default
-
-  kafka-setup:
-    image: confluentinc/cp-kafka:latest
-    container_name: kafka-setup
-    depends_on:
-      - kafka
-    command: >
-      bash -c "
-        echo -e 'Waiting for Kafka to be ready...' &&
-        cub kafka-ready -b ${KAFKA_BROKER} 1 120 &&
-        echo -e 'Creating Kafka topics...' &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic payment &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic payment_events &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic payment_requests &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic order_success &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic order_returned &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic vendor_payment_processed &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic vendor_account_updates &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic vendor_payments &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic bank_payouts &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic product-events &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic email-events &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 3 --replication-factor 1 --topic user.created &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic user.created.dlq &&
-        kafka-topics --create --if-not-exists --bootstrap-server ${KAFKA_BROKER} --partitions 1 --replication-factor 1 --topic product_rating_updates &&
-        echo -e 'Successfully created the following topics:' &&
-        kafka-topics --list --bootstrap-server ${KAFKA_BROKER}
-      "
-    networks:
-      - default
+      - traefik-net
 
   redis:
     image: redis:latest
@@ -347,7 +394,7 @@ services:
       - redis_data:/data
     restart: always
     networks:
-      - default
+      - traefik-net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -371,7 +418,7 @@ services:
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
     networks:
-      - default
+      - traefik-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 30s
@@ -391,7 +438,7 @@ services:
     volumes:
       - postgres_user_data:/var/lib/postgresql/data
     networks:
-      - default
+      - traefik-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 30s
@@ -407,7 +454,7 @@ services:
     volumes:
       - postgres_payment_data:/var/lib/postgresql/data
     networks:
-      - default
+      - traefik-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 30s
@@ -423,7 +470,7 @@ services:
     volumes:
       - postgres_order_data:/var/lib/postgresql/data
     networks:
-      - default
+      - traefik-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 30s
@@ -443,27 +490,7 @@ services:
     depends_on:
       - postgres-auth
     networks:
-      - default
-  # Optional: Add api-gateway for development if needed (without Kong)
-  # api-gateway:
-  #   build:
-  #     context: .
-  #     dockerfile: ./api-gateway/Dockerfile.dev
-  #   ports:
-  #     - "8080:8080"
-  #   env_file:
-  #     - ./api-gateway/.env
-  #   volumes:
-  #     - ./api-gateway:/app/api-gateway:cached
-  #     - ./go.mod:/app/go.mod:ro
-  #     - ./go.sum:/app/go.sum:ro
-  #   networks:
-  #     - default
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "10m"
-  #       max-file: "3"
+      - traefik-net
 
 volumes:
   redis_data:
@@ -475,5 +502,5 @@ volumes:
   postgres_user_data:
 
 networks:
-  default:
+  traefik-net:
     driver: bridge
