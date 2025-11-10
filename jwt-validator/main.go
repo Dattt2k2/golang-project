@@ -1,4 +1,4 @@
-package jwtvalidator
+package jwt_validator
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Config struct {
@@ -17,7 +17,7 @@ type Config struct {
 
 func CreateConfig() *Config {
 	return &Config{
-		Secret:    os.Getenv("SECRET"),
+		Secret:    os.Getenv("JWT_SECRET"),
 		HeaderName: "X-User-ID",
 	}
 }
@@ -70,7 +70,7 @@ func (p *JWTValidator) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
         return
     }
 
-    userID, ok := claims["user_id"].(string)
+    userID, ok := claims["uid"].(string)
     if !ok {
         http.Error(rw, "Missing user_id in token", http.StatusUnauthorized)
         return

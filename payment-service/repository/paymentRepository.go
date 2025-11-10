@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"log"
 )
 
 type PaymentRepository struct {
@@ -21,6 +22,7 @@ func (r *PaymentRepository) Migrate() error {
 }
 
 func (r *PaymentRepository) SavePayment(payment *models.Payment) error {
+	log.Println("Saving payment record: ", payment)
 	return r.DB.Create(payment).Error
 }
 
@@ -45,18 +47,41 @@ func (r *PaymentRepository) GetTransactionByID(transactionID string) (*models.Tr
 }
 
 func (r *PaymentRepository) MarkAuthByOrderID(orderID, providerID string) error {
+	return r.MarkAuthByOrderIDWithAmount(orderID, providerID, 0, "")
+}
+
+func (r *PaymentRepository) MarkAuthByOrderIDWithAmount(orderID, providerID string, amount float64, currency string) error {
 	// create or update payment and transaction
 	return r.DB.Transaction(func(tx *gorm.DB) error {
 		// upsert payment
 		var p models.Payment
 		if err := tx.Where("order_id = ?", orderID).First(&p).Error; err != nil {
-			// create
-			p = models.Payment{OrderID: orderID, Status: "authorized", ProviderID: &providerID, TransactionID: providerID}
+			// create new payment record
+			p = models.Payment{
+				OrderID:       orderID,
+				Status:        "authorized",
+				ProviderID:    &providerID,
+				TransactionID: providerID,
+				Amount:        amount,
+				Currency:      currency,
+			}
 			if err := tx.Create(&p).Error; err != nil {
 				return err
 			}
 		} else {
-			if err := tx.Model(&models.Payment{}).Where("order_id = ?", orderID).Updates(map[string]interface{}{"status": "authorized", "provider_id": providerID, "transaction_id": providerID}).Error; err != nil {
+			// update existing payment
+			updates := map[string]interface{}{
+				"status":         "authorized",
+				"provider_id":    providerID,
+				"transaction_id": providerID,
+			}
+			if amount > 0 {
+				updates["amount"] = amount
+			}
+			if currency != "" {
+				updates["currency"] = currency
+			}
+			if err := tx.Model(&models.Payment{}).Where("order_id = ?", orderID).Updates(updates).Error; err != nil {
 				return err
 			}
 		}

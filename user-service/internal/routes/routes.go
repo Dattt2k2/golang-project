@@ -7,18 +7,18 @@ import (
 )
 
 func Register(r *gin.Engine, h *handlers.UserHandler) {
-	users := r.Group("/users")
+	users := r.Group("/me")
 	{
-		users.POST("/", h.CreateUser)
-		users.GET("/", h.GetUser)
-		users.PUT("/", h.UpdateUser)
-		users.DELETE("/", h.DeleteUser)
+		users.POST("", h.CreateUser)
+		users.GET("", h.GetUser)
+		users.PUT("", h.UpdateUser)
+		users.DELETE("", h.DeleteUser)
 
 		addresses := users.Group("/addresses")
 		{
-			addresses.POST("/", h.AddAddress)
+			addresses.POST("", h.AddAddress)
 			addresses.PUT("/:address_id", h.UpdateAddress)
-			addresses.GET("/", h.GetUserAddresses)
+			addresses.GET("", h.GetUserAddresses)
 			addresses.DELETE("/:address_id", h.DeleteAddress)
 		}
 	}

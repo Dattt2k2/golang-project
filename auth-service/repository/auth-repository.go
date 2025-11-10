@@ -74,7 +74,7 @@ func (r *userRepositoryImpl) GetUserType(ctx context.Context, userID string) (st
     if err := r.db.WithContext(ctx).Select("user_type").Where("id = ?", userID).First(&user).Error; err != nil {
         return "", err
     }
-	return *user.UserType, nil
+	return user.UserType, nil
 }
 
 func (r *userRepositoryImpl) UpdateVerificationStatus(ctx context.Context, email string, isVerified bool) error {

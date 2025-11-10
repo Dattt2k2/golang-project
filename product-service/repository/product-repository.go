@@ -65,6 +65,7 @@ func (r *ProductRepositoryImpl) Insert(ctx context.Context, product models.Produ
         "updated_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
         "user_id": &types.AttributeValueMemberS{Value: product.UserID},
         "sold_count": &types.AttributeValueMemberN{Value: "0"},
+        "status": &types.AttributeValueMemberS{Value: product.Status},
     }
 
     if len(product.ImagePath) > 0 {
@@ -78,7 +79,6 @@ func (r *ProductRepositoryImpl) Insert(ctx context.Context, product models.Produ
 	return err
 }
 func (r *ProductRepositoryImpl) Update(ctx context.Context, id string, update map[string]interface{}) error {
-	// Build expression attribute names, values and update expression from the update map
 	if update == nil {
 		update = map[string]interface{}{}
 	}
@@ -87,16 +87,24 @@ func (r *ProductRepositoryImpl) Update(ctx context.Context, id string, update ma
 	exprValues := make(map[string]types.AttributeValue)
 	clauses := make([]string, 0, len(update)+1)
 
-    if imagePath, ok := update["image_path"]; ok {
-        if paths, ok := imagePath.([]string); ok && len(paths) == 0 {
-            exprNames["#image_path"] = "image_path"
-            exprValues[":image_path"] = &types.AttributeValueMemberSS{Value: []string{}}
-            clauses = append(clauses, "#image_path = :image_path")
-            delete(update, "image_path")
-        }
-    }
+	// Handle empty image_path explicitly before the general loop
+	if imagePath, ok := update["image_path"]; ok {
+		if paths, ok := imagePath.([]string); ok && len(paths) == 0 {
+			exprNames["#image_path"] = "image_path"
+			exprValues[":image_path"] = &types.AttributeValueMemberSS{Value: []string{}}
+			clauses = append(clauses, "#image_path = :image_path")
+			delete(update, "image_path")
+		}
+	}
+
+	// Remove updated_at from update map if it exists (we'll add it ourselves)
+	delete(update, "updated_at")
 
 	for k, v := range update {
+		if k == "image_path" {
+			continue
+		}
+
 		nameKey := "#" + k
 		valKey := ":" + k
 		exprNames[nameKey] = k
@@ -109,7 +117,7 @@ func (r *ProductRepositoryImpl) Update(ctx context.Context, id string, update ma
 		clauses = append(clauses, fmt.Sprintf("%s = %s", nameKey, valKey))
 	}
 
-	// always update updated_at
+	// Always update updated_at
 	exprNames["#updated_at"] = "updated_at"
 	updatedAtVal, err := attributevalue.Marshal(time.Now().Format(time.RFC3339))
 	if err != nil {

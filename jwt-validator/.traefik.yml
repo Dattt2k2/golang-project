@@ -1,0 +1,8 @@
+displayName: JWT Validator
+type: middleware
+import: github.com/Dattt2k2/golang-project/jwt-validator
+
+summary: Validates JWT tokens for microservices
+
+testData:
+  secret: test-secret-key

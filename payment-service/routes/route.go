@@ -21,7 +21,7 @@ func SetupRoutes(repo *repository.PaymentRepository, vendorRepo *repository.Vend
 	vendorHandler := handlers.NewVendorHandler(vendorService)
 
 	// API routes
-	api := r.Group("/api/v1")
+	api := r.Group("")
 	{
 		// Payment routes
 		api.POST("/payments", handler.ProcessPaymentHandler())
@@ -51,8 +51,9 @@ func SetupRoutes(repo *repository.PaymentRepository, vendorRepo *repository.Vend
 	// Webhook routes
 	webhook := r.Group("/webhook")
 	{
-		webhook.POST("/payment", handler.PaymentWebhook())
-		webhook.POST("/refund", handler.RefundWebhook())
+		webhook.POST("/payment", handler.InternalPaymentWebhook()) // Internal webhook (custom signature)
+		webhook.POST("/refund", handler.RefundWebhook())           // Internal webhook (custom signature)
+		webhook.POST("/stripe", handler.StripeWebhook())           // Official Stripe webhook (Stripe signature)
 		webhook.POST("/stripe/connect", vendorHandler.StripeConnectWebhook())
 	}
 

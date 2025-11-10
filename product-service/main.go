@@ -182,6 +182,7 @@ func main() {
 	// Pass productSvc to routes
 	routes.ProductManagerRoutes(router, productSvc)
 	routes.UploadRoutes(router)
+	routes.ProductUploadRoutes(router)
 
 	// Graceful shutdown
 	go func() {

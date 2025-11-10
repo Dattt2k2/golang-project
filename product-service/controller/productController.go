@@ -54,6 +54,7 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 		price := req.Price
 		category := req.Category
 		imagePath := req.ImagePath
+		status := req.Status
 
 		product := models.Product{
 			Name:        name,
@@ -63,6 +64,7 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			Quantity:    quantity,
 			ImagePath:   imagePath,
 			UserID:      userID,
+			Status:      status,
 		}
 
 		if err := ctrl.service.AddProduct(ctx, product); err != nil {
@@ -98,6 +100,7 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 
 		var req models.UpdateProductRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
+			logger.Error("Error binding JSON for EditProduct", zap.Error(err))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
 			return
 		}
@@ -121,13 +124,18 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 		if req.Price != nil {
 			update["price"] = *req.Price
 		}
+		if req.Status != nil {
+			update["status"] = *req.Status
+		}
 
 		if len(update) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
+			logger.Error("Failed to update product: no fields provided")
 			return
 		}
 
 		if err := ctrl.service.EditProduct(ctx, id, update); err != nil {
+			logger.Error("Error updating product", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
 			return
 		}

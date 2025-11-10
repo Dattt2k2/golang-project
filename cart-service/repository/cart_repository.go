@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -37,6 +38,19 @@ func (r *cartRepositoryImpl) AddItem(ctx context.Context, userID string, item mo
 	itemAV, err := attributevalue.MarshalMap(item)
 	if err != nil {
 		return err 
+	}
+
+	cart, err := r.FindByUserID(ctx, userID)
+	if err != nil {
+		return err 
+	}
+
+	if cart != nil {
+		for _, cartItem := range cart.Items {
+			if cartItem.ProductID == item.ProductID {
+				return errors.New("item already exists in cart")
+			}
+		}
 	}
 
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
