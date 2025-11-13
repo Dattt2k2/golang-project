@@ -71,7 +71,7 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 			// Decrease stock (trừ số lượng tồn kho)
 			for _, item := range stockItems {
 				log.Printf("⬇️ Decreasing stock for product %s by %d", item.ProductID, item.Quantity)
-				if err := updater.UpdateProductStock(context.Background(), item.ProductID, -item.Quantity); err != nil {
+				if err := updater.UpdateProductStock(context.Background(), item.ProductID, item.Quantity); err != nil {
 					log.Printf("❌ Error updating product stock: %v", err)
 				} else {
 					log.Printf("✅ Stock decreased for product %s", item.ProductID)

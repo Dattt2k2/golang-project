@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -56,14 +57,43 @@ func main() {
 		Timeout:               20 * time.Second, // Timeout for client responses
 	}
 
+	// Enforcement policy to prevent resource exhaustion
+	keepAliveEnforcementPolicy := keepalive.EnforcementPolicy{
+		MinTime:             5 * time.Second, // Minimum time a client should wait before sending a keepalive ping
+		PermitWithoutStream: true,            // Allow pings even when there are no active streams
+	}
+
 	grpcServer := grpc.NewServer(
 		grpc.KeepaliveParams(keepAliveParams),
+		grpc.KeepaliveEnforcementPolicy(keepAliveEnforcementPolicy),
+		grpc.MaxConcurrentStreams(1000),   // Increase max concurrent streams
+		grpc.MaxRecvMsgSize(10*1024*1024), // 10MB max receive message size
+		grpc.MaxSendMsgSize(10*1024*1024), // 10MB max send message size
+		grpc.NumStreamWorkers(100),        // Increase number of workers
+		// Add interceptors for rate limiting and logging
+		grpc.UnaryInterceptor(service.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(service.StreamServerInterceptor()),
 	)
 
 	service.CartServiceConnection()
 	service.ProductServiceConnection()
 
-	pb.RegisterOrderServiceServer(grpcServer, &pb.UnimplementedOrderServiceServer{})
+	// Initialize order repository and service
+	orderRepo := repositories.NewOrderRepository(db)
+	orderServiceGRPC := &service.OrderServiceServer{
+		OrderRepo: orderRepo,
+	}
+
+	// Register the actual implementation instead of UnimplementedOrderServiceServer
+	pb.RegisterOrderServiceServer(grpcServer, orderServiceGRPC)
+
+	// Initialize and register health check service
+	healthServer := service.InitHealthCheck()
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+
+	// Start health monitoring in background
+	go service.MonitorServiceHealth(healthServer)
+
 	go func() {
 		listener, err := net.Listen("tcp", ":"+grpcPort)
 		if err != nil {
@@ -82,7 +112,6 @@ func main() {
 	kafka.InitOrderReturnedProducer(brokers)
 	kafka.InitPaymentProducer(brokers)
 	// Start payment consumer to listen for payment status updates
-	orderRepo := repositories.NewOrderRepository(db)
 	orderService := service.NewOrderService(orderRepo)
 	kafka.StartPaymentConsumer(brokers, orderRepo, orderService)
 

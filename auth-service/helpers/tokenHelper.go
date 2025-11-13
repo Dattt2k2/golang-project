@@ -133,7 +133,7 @@ func GenerateToken(email, firstname, lastname, userType, uid string, duration ti
 } 
 
 func GenerateAllToken(email, firstname, lastname, userType, uid string) (string, string,  error){
-	accessToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Hour * 24)
+	accessToken, err := GenerateToken(email, firstname, lastname, userType, uid, time.Minute * 15)
 	if err != nil{
 		return "", "", err 
 	}
@@ -190,6 +190,11 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 func RefreshToken(refreshToken string) (newAccessToken string, msg string) {
 	claims, msg := ValidateToken(refreshToken)
 	if msg != "" {
+		return "", msg
+	}
+
+	if claims.ExpiresAt.Before(time.Now()) {
+		msg = "refresh token is expired"
 		return "", msg
 	}
 

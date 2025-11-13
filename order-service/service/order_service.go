@@ -164,6 +164,20 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 	return createdOrder, nil
 }
 
+func (s *OrderService) AdminUpdateOrderStatus(ctx context.Context, orderID string, vendorID string, status string) error {
+	err := s.orderRepo.UpdateOrderStatusByVendorID(ctx, orderID, vendorID, status)
+	if err != nil {
+		logger.Err("Failed to update order status", err,
+			logger.Str("orderID", orderID),
+			logger.Str("vendorID", vendorID),
+			logger.Str("status", status),
+		)
+		return err
+	}
+
+	return nil
+}
+
 func determinePrimaryVendor(orderItems []OrderItem) string {
 	vendorAmounts := make(map[string]float64)
 
@@ -388,41 +402,41 @@ func (s *OrderService) CancelPayment(ctx context.Context, orderID string, paymen
 }
 
 func (s *OrderService) CancelOrder(ctx context.Context, orderID string, userID string) error {
-    order, err := s.orderRepo.GetOrderByID(ctx, orderID)
-    if err != nil {
-        return NewServiceError("Failed to get order")
-    }
+	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		return NewServiceError("Failed to get order")
+	}
 
-    if order.Status == "CANCELED" {
-        return NewServiceError("Order already canceled")
-    }
+	if order.Status == "CANCELED" {
+		return NewServiceError("Order already canceled")
+	}
 
-    if order.Status == "DELIVERED" || order.Status == "DELIVERING" {
-        return NewServiceError("Order already delivered or delivering")
-    }
+	if order.Status == "DELIVERED" || order.Status == "DELIVERING" {
+		return NewServiceError("Order already delivered or delivering")
+	}
 
-    if order.Status == "CONFIRMED" {
-        if err := kafka.ProduceOrderReturnedEvent(ctx, *order); err != nil {
-            logger.Err("Failed to produce order returned event", err)
-        }
-    }
+	if order.Status == "CONFIRMED" {
+		if err := kafka.ProduceOrderReturnedEvent(ctx, *order); err != nil {
+			logger.Err("Failed to produce order returned event", err)
+		}
+	}
 
-    if order.PaymentMethod == "STRIPE" && order.PaymentIntentID != nil {
-        paymentID := *order.PaymentIntentID
-        if err := s.CancelPayment(ctx, order.OrderID, paymentID, "Order canceled by user"); err != nil {
-            logger.Err("Failed to send payment cancel event", err)
-            // Continue with order cancellation even if payment cancel fails
-        }
-    }
+	if order.PaymentMethod == "STRIPE" && order.PaymentIntentID != nil {
+		paymentID := *order.PaymentIntentID
+		if err := s.CancelPayment(ctx, order.OrderID, paymentID, "Order canceled by user"); err != nil {
+			logger.Err("Failed to send payment cancel event", err)
+			// Continue with order cancellation even if payment cancel fails
+		}
+	}
 
-    err = s.orderRepo.UpdateOrderStatus(ctx, orderID, "CANCELED")
-    if err != nil {
-        return err
-    }
+	err = s.orderRepo.UpdateOrderStatus(ctx, orderID, "CANCELED")
+	if err != nil {
+		return err
+	}
 
-    order, _ = s.orderRepo.GetOrderByID(ctx, orderID)
-    _ = kafka.ProduceOrderReturnedEvent(ctx, *order)
-    return nil
+	order, _ = s.orderRepo.GetOrderByID(ctx, orderID)
+	_ = kafka.ProduceOrderReturnedEvent(ctx, *order)
+	return nil
 }
 
 type OrderDirectRequest struct {
@@ -560,7 +574,7 @@ func (s *OrderService) AdminGetOrders(ctx context.Context, page, limit int) ([]m
 }
 
 func (s *OrderService) GetOrdersByVendor(ctx context.Context, vendorID string, page, limit int, status string, month int, year int) ([]models.Order, int64, float64, error) {
-    return s.orderRepo.FindOrdersByVendorID(ctx, vendorID, page, limit, status, month, year)
+	return s.orderRepo.FindOrdersByVendorID(ctx, vendorID, page, limit, status, month, year)
 }
 
 // GetUserOrders retrieves orders for a specific user with pagination
@@ -586,47 +600,47 @@ func (s *OrderService) GetUserOrders(ctx context.Context, userID string, page, l
 }
 
 func (s *OrderService) HandlePaymentSuccess(ctx context.Context, orderID string, paymentIntentID string) error {
-    order, err := s.orderRepo.GetOrderByID(ctx, orderID)
-    if err != nil {
-        log.Printf("❌ Failed to get order %s: %v", orderID, err)
-        return err
-    }
+	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		log.Printf("❌ Failed to get order %s: %v", orderID, err)
+		return err
+	}
 
-    platformFeeRate := 0.05
-    platformFee := order.TotalPrice * platformFeeRate
-    vendorAmount := order.TotalPrice - platformFee
+	platformFeeRate := 0.05
+	platformFee := order.TotalPrice * platformFeeRate
+	vendorAmount := order.TotalPrice - platformFee
 
-    updates := map[string]interface{}{
-        "payment_status":    "HELD",
-        "payment_intent_id": paymentIntentID,
-        "status":            "PAYMENT_HELD",
-        "platform_fee":      platformFee,
-        "vendor_amount":     vendorAmount,
-        "updated_at":        time.Now(),
-    }
+	updates := map[string]interface{}{
+		"payment_status":    "HELD",
+		"payment_intent_id": paymentIntentID,
+		"status":            "PAYMENT_HELD",
+		"platform_fee":      platformFee,
+		"vendor_amount":     vendorAmount,
+		"updated_at":        time.Now(),
+	}
 
-    if err := s.orderRepo.UpdateOrderFields(ctx, orderID, updates); err != nil {
-        log.Printf("❌ Failed to update order: %v", err)
-        return err
-    }
+	if err := s.orderRepo.UpdateOrderFields(ctx, orderID, updates); err != nil {
+		log.Printf("❌ Failed to update order: %v", err)
+		return err
+	}
 
-    // 🔥 GET UPDATED ORDER - QUAN TRỌNG!
-    updatedOrder, err := s.orderRepo.GetOrderByID(ctx, orderID)
-    if err != nil {
-        log.Printf("❌ Failed to get updated order: %v", err)
-        return err
-    }
+	// 🔥 GET UPDATED ORDER - QUAN TRỌNG!
+	updatedOrder, err := s.orderRepo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		log.Printf("❌ Failed to get updated order: %v", err)
+		return err
+	}
 
-    log.Printf("📤 Sending order_success event for order %s", orderID)
-    
-    if err := kafka.ProduceOrderSuccessEvent(ctx, *updatedOrder); err != nil {
-        log.Printf("❌ Failed to produce order_success event: %v", err)
-        logger.Err("Failed to produce order success event after payment", err)
-        return NewServiceError("Payment successful but failed to update inventory")
-    }
+	log.Printf("📤 Sending order_success event for order %s", orderID)
 
-    log.Printf("✅ Successfully sent order_success event for order %s", orderID)
-    return nil
+	if err := kafka.ProduceOrderSuccessEvent(ctx, *updatedOrder); err != nil {
+		log.Printf("❌ Failed to produce order_success event: %v", err)
+		logger.Err("Failed to produce order success event after payment", err)
+		return NewServiceError("Payment successful but failed to update inventory")
+	}
+
+	log.Printf("✅ Successfully sent order_success event for order %s", orderID)
+	return nil
 }
 
 func (s *OrderService) HandlePaymentFailure(ctx context.Context, orderID string, reason string) error {
@@ -758,9 +772,9 @@ func (e *ServiceError) Error() string {
 
 // PaymentEvent represents the structure of payment events sent by payment-service
 type PaymentEvent struct {
-	OrderID string  `json:"order_id"`
-	Amount  float64 `json:"amount"`
-	Status  string  `json:"status"`
+	OrderID         string  `json:"order_id"`
+	Amount          float64 `json:"amount"`
+	Status          string  `json:"status"`
 	PaymentIntentID string  `json:"payment_intent_id"`
 }
 
@@ -796,31 +810,31 @@ func (s *OrderService) StartKafkaConsumer(brokers []string, topic string, groupI
 }
 
 func (s *OrderService) processPaymentEvent(event PaymentEvent) {
-    log.Printf("[OrderService] Processing payment event for OrderID: %s, Status: %s", event.OrderID, event.Status)
+	log.Printf("[OrderService] Processing payment event for OrderID: %s, Status: %s", event.OrderID, event.Status)
 
-    ctx := context.Background()
+	ctx := context.Background()
 
-    switch event.Status {
-    case "checkout_completed":
-        log.Printf("✅ [OrderService] Payment successful, calling HandlePaymentSuccess for order: %s", event.OrderID)
-        
-        if err := s.HandlePaymentSuccess(ctx, event.OrderID, event.PaymentIntentID); err != nil {
-            log.Printf("❌ [OrderService] Failed to handle payment success: %v", err)
-        } else {
-            log.Printf("✅ [OrderService] Successfully handled payment success for order: %s", event.OrderID)
-        }
+	switch event.Status {
+	case "checkout_completed":
+		log.Printf("✅ [OrderService] Payment successful, calling HandlePaymentSuccess for order: %s", event.OrderID)
 
-        log.Printf("🔄 [OrderService] Updating order status to SUCCESS for order: %s", event.OrderID)
-        if err := s.orderRepo.UpdateOrderStatus(ctx, event.OrderID, "SUCCESS"); err != nil {
-            log.Printf("❌ [OrderService] Failed to update order status: %v", err)
-        } else {
-            log.Printf("✅ [OrderService] Successfully updated order status to SUCCESS")
-        }
+		if err := s.HandlePaymentSuccess(ctx, event.OrderID, event.PaymentIntentID); err != nil {
+			log.Printf("❌ [OrderService] Failed to handle payment success: %v", err)
+		} else {
+			log.Printf("✅ [OrderService] Successfully handled payment success for order: %s", event.OrderID)
+		}
 
-    case "checkout_failed":
-        log.Printf("❌ [OrderService] Payment failed for order: %s", event.OrderID)
-        if err := s.orderRepo.UpdateOrderStatus(ctx, event.OrderID, "PAYMENT_FAILED"); err != nil {
-            log.Printf("❌ [OrderService] Failed to update order status: %v", err)
-        }
-    }
+		log.Printf("🔄 [OrderService] Updating order status to SUCCESS for order: %s", event.OrderID)
+		if err := s.orderRepo.UpdateOrderStatus(ctx, event.OrderID, "SUCCESS"); err != nil {
+			log.Printf("❌ [OrderService] Failed to update order status: %v", err)
+		} else {
+			log.Printf("✅ [OrderService] Successfully updated order status to SUCCESS")
+		}
+
+	case "checkout_failed":
+		log.Printf("❌ [OrderService] Payment failed for order: %s", event.OrderID)
+		if err := s.orderRepo.UpdateOrderStatus(ctx, event.OrderID, "PAYMENT_FAILED"); err != nil {
+			log.Printf("❌ [OrderService] Failed to update order status: %v", err)
+		}
+	}
 }

@@ -299,8 +299,10 @@ services:
     env_file:
       - ./payment-service/.env
     environment:
-      # Non-DB variables remain; DB variables are loaded from ./.env or service env file
+      # Stripe configuration
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      # Non-DB variables remain; DB variables are loaded from ./.env or service env file
       PORT: ${PAYMENT_SERVICE_PORT}
       PAYMENT_GATEWAY_URL: ${PAYMENT_GATEWAY_URL}
       PAYMENT_GATEWAY_KEY: ${PAYMENT_GATEWAY_KEY}
@@ -322,11 +324,33 @@ services:
       - "traefik.http.routers.stripe-webhook.middlewares=stripe-webhook-passthrough@file"
       - "traefik.http.routers.stripe-webhook.service=payment-service"
 
+      # Router cho webhook Stripe Connect
+      - "traefik.http.routers.stripe-connect-webhook.rule=PathPrefix(`/webhook/stripe/connect`)"
+      - "traefik.http.routers.stripe-connect-webhook.entrypoints=web,websecure"
+      - "traefik.http.routers.stripe-connect-webhook.priority=200"
+      - "traefik.http.routers.stripe-connect-webhook.middlewares=stripe-webhook-passthrough@file"
+      - "traefik.http.routers.stripe-connect-webhook.service=payment-service"
+
       # Router cho payment API
       - "traefik.http.routers.payment-api.rule=Host(`api.example.com`) && PathPrefix(`/payments/`)"
       - "traefik.http.routers.payment-api.entrypoints=web"
       - "traefik.http.routers.payment-api.middlewares=jwt-validation@file"
       - "traefik.http.routers.payment-api.service=payment-service"
+
+      # Router cho vendor registration (cần auth - chỉ user đã login mới đăng ký vendor)
+      - "traefik.http.routers.vendor-register.rule=Host(`api.example.com`) && PathPrefix(`/vendors`)"
+      - "traefik.http.routers.vendor-register.entrypoints=web"
+      - "traefik.http.routers.vendor-register.priority=100"
+      - "traefik.http.routers.vendor-register.middlewares=jwt-validation@file"
+      - "traefik.http.routers.vendor-register.service=payment-service"
+
+
+
+      # Router cho public vendor onboarding redirects
+      - "traefik.http.routers.vendor-public.rule=Host(`api.example.com`) && PathPrefix(`/public/vendor/`)"
+      - "traefik.http.routers.vendor-public.entrypoints=web"
+      - "traefik.http.routers.vendor-public.priority=100"
+      - "traefik.http.routers.vendor-public.service=payment-service"
 
     logging:
       driver: "json-file"

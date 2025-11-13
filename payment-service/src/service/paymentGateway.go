@@ -24,9 +24,9 @@ import (
 )
 
 type PaymentMessage struct {
-	OrderID        string  `json:"order_id"`
-	Amount         float64 `json:"amount"`
-	Status         string  `json:"status"`
+	OrderID         string  `json:"order_id"`
+	Amount          float64 `json:"amount"`
+	Status          string  `json:"status"`
 	PaymentIntentID string  `json:"payment_intent_id"`
 }
 
@@ -37,8 +37,12 @@ type PaymentService struct {
 }
 
 func NewPaymentService(repo *repository.PaymentRepository, signinSecret string) *PaymentService {
-	if k := os.Getenv("PAYMENT_GATEWAY_KEY"); k != "" {
+	// Use STRIPE_SECRET_KEY (sk_test_...) for API calls, NOT publishable key
+	if k := os.Getenv("STRIPE_SECRET_KEY"); k != "" {
 		stripe.Key = k
+		fmt.Printf("[PaymentService] Stripe API key configured: %s... (length: %d)\n", k[:min(10, len(k))], len(k))
+	} else {
+		fmt.Println("[PaymentService] WARNING: STRIPE_SECRET_KEY not set!")
 	}
 
 	fmt.Printf("[PaymentService] Initializing with secret: %s... (length: %d)\n", signinSecret[:min(20, len(signinSecret))], len(signinSecret))
@@ -558,10 +562,10 @@ func (s *PaymentService) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 			} // Send event to order-service via Kafka
 			if s.Producer != nil {
 				event := PaymentMessage{
-					OrderID: orderID,
-					Amount:  float64(session.AmountTotal) / 100.0,
+					OrderID:         orderID,
+					Amount:          float64(session.AmountTotal) / 100.0,
 					PaymentIntentID: session.PaymentIntent.ID,
-					Status:  "checkout_completed",
+					Status:          "checkout_completed",
 				}
 				if err := s.Producer.SendMessage(context.Background(), event); err != nil {
 					fmt.Printf("[Webhook ERROR] Failed to send Kafka message: %v\n", err)

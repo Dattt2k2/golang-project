@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"payment-service/src/service"
 
@@ -21,13 +22,15 @@ func NewVendorHandler(vendorService *service.VendorService) *VendorHandler {
 func (h *VendorHandler) RegisterVendor() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req service.VendorRegistrationRequest
+		vendorID := c.GetHeader("X-User-ID")
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 			return
 		}
-
+		req.VendorID = vendorID
 		resp, err := h.VendorService.RegisterVendor(c.Request.Context(), req)
 		if err != nil {
+			log.Printf("Error registering vendor: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -39,7 +42,7 @@ func (h *VendorHandler) RegisterVendor() gin.HandlerFunc {
 // Get vendor information
 func (h *VendorHandler) GetVendor() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		vendorID := c.Param("vendor_id")
+		vendorID := c.GetHeader("X-User-ID")
 		if vendorID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id is required"})
 			return

@@ -352,8 +352,8 @@ func safeStringValue(s *string) string {
 
 // Request models
 type VendorRegistrationRequest struct {
-	VendorID     string `json:"vendor_id" validate:"required"`
-	Email        string `json:"email" validate:"required,email"`
+	VendorID     string `json:"vendor_id"`
+	Email        string `json:"email"`
 	Country      string `json:"country" validate:"required,len=2"` // ISO country code
 	BusinessName string `json:"business_name"`
 	BusinessURL  string `json:"business_url"`

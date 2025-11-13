@@ -253,9 +253,9 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string)
 		return "", errors.New(msg)
 	}
 
-	accessToken, err := helpers.GenerateToken(claims.Email, claims.FirstName, claims.LastName, claims.UserType, claims.Uid, time.Hour*24)
-	if err != nil {
-		return "", errors.New("error generating new access token")
+	accessToken, msg := helpers.RefreshToken(refreshToken)
+	if msg != "" {
+		return "", errors.New(msg)
 	}
 	return accessToken, nil
 }

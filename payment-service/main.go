@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"payment-service/database"
+	"payment-service/database/migration"
 	"payment-service/repository"
 	"payment-service/routes"
 
@@ -17,8 +18,10 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Auto-migrate tables - you may want to add this function to database package
-	// For now, we'll skip auto-migration
+	// Run database migrations
+	if err := migration.RunMigrations(db); err != nil {
+		log.Fatal("Failed to run migrations:", err)
+	}
 
 	// Initialize repositories
 	paymentRepo := repository.NewPaymentRepository(db)

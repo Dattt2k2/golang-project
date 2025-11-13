@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"payment-service/database/migration"
 	"payment-service/repository"
 	"payment-service/routes"
 
@@ -56,6 +57,12 @@ func main() {
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect to PostgreSQL database: %v", err)
+	}
+
+	// Run database migrations for all models
+	log.Println("Running database migrations...")
+	if err := migration.RunMigrations(db); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
 	// Initialize repository

@@ -33,7 +33,7 @@ func SetupRoutes(repo *repository.PaymentRepository, vendorRepo *repository.Vend
 
 		// Vendor routes
 		api.POST("/vendors/register", vendorHandler.RegisterVendor())
-		api.GET("/vendors/:vendor_id", vendorHandler.GetVendor())
+		api.GET("/vendors", vendorHandler.GetVendor())
 		api.POST("/vendors/:vendor_id/onboarding", vendorHandler.CreateOnboardingLink())
 		api.GET("/vendors/:vendor_id/onboarding/status", vendorHandler.GetOnboardingStatus())
 		api.GET("/vendors/:vendor_id/payout-methods", vendorHandler.GetPayoutMethods())

@@ -293,6 +293,40 @@ func (ctrl *OrderController) GetUserOrders() gin.HandlerFunc {
 	}
 }
 
+func (ctrl *OrderController) VendorUpdateOrderStatus() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		orderID := c.Param("id")
+		vendorID := c.GetHeader("X-User-ID")
+
+		type UpdateStatusRequest struct {
+			Status string `json:"status"`
+		}
+
+		var req UpdateStatusRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			logger.Err("Failed to bind JSON", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		logger.Info("Updating order status", logger.Str("order_id", orderID), logger.Str("vendor_id", vendorID), logger.Str("status", req.Status))
+
+		err := ctrl.orderService.AdminUpdateOrderStatus(ctx, orderID, vendorID, req.Status)
+		if err != nil {
+			logger.Err("Failed to update order status", err, logger.Str("order_id", orderID), logger.Str("vendor_id", vendorID))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Order status updated successfully",
+		})
+	}
+}
+
 // Cancel Order with ID
 func (ctrl *OrderController) CancelOrder() gin.HandlerFunc {
 	return func(c *gin.Context) {
