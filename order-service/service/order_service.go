@@ -178,6 +178,86 @@ func (s *OrderService) AdminUpdateOrderStatus(ctx context.Context, orderID strin
 	return nil
 }
 
+// UpdateOrderStatusWithPayout - Universal method with auto payout trigger
+func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID string, userID string, status string) error {
+	// Get order first to validate
+	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+
+	// Check if user is the order owner
+	isOrderOwner := order.UserID == userID
+
+	// Check if user is a vendor in this order
+	isVendor := false
+	vendorCheck, err := s.isVendorInOrder(orderID, userID)
+	if err == nil && vendorCheck {
+		isVendor = true
+	}
+	switch status {
+	case "CONFIRMED":
+		if !isVendor {
+			return NewServiceError("Only vendor can confirm order")
+		}
+		if order.Status != "PAYMENT_HELD" {
+			return NewServiceError("Order must be PAYMENT_HELD before confirming")
+		}
+
+	case "DELIVERING":
+		// Only vendor can set delivering status
+		if !isVendor {
+			return NewServiceError("Only vendor can mark order as delivering")
+		}
+		if order.Status != "CONFIRMED" && order.Status != "PAYMENT_HELD" {
+			return NewServiceError("Order must be CONFIRMED or PAYMENT_HELD before delivering")
+		}
+
+	case "DELIVERED":
+		// Only vendor can mark as delivered (package delivered to user)
+		if !isVendor {
+			return NewServiceError("Only vendor can mark order as delivered")
+		}
+		if order.Status != "DELIVERING" && order.Status != "CONFIRMED" {
+			return NewServiceError("Order must be DELIVERING or CONFIRMED before marking as delivered")
+		}
+
+	case "SHIPPED":
+		// User confirms they received the package (SHIPPED = received)
+		if !isOrderOwner {
+			return NewServiceError("Only order owner can confirm shipment received")
+		}
+		if order.Status != "DELIVERED" {
+			return NewServiceError("Order must be DELIVERED before user can confirm shipment")
+		}
+	}
+
+	// Update order status
+	updates := map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+
+	// Add delivery date when vendor marks as delivered
+	if status == "DELIVERED" {
+		updates["delivery_date"] = time.Now()
+	}
+
+	if err := s.orderRepo.UpdateOrderFields(ctx, orderID, updates); err != nil {
+		return err
+	}
+
+	// Auto-trigger payout when user confirms SHIPPED (received package)
+	if status == "SHIPPED" {
+		logger.Info("🚀 Auto-triggering payout - User confirmed received order", logger.Str("order_id", orderID))
+		go func() {
+			s.ReleasePaymentToVendor(context.Background(), orderID)
+		}()
+	}
+
+	return nil
+}
+
 func determinePrimaryVendor(orderItems []OrderItem) string {
 	vendorAmounts := make(map[string]float64)
 
@@ -235,25 +315,18 @@ func (s *OrderService) requestPayment(ctx context.Context, order *models.Order, 
 	// Determine primary vendor for Stripe Connect (vendor with highest amount)
 	primaryVendor := determinePrimaryVendor(orderItems)
 
-	vendorStripeAccountID := ""
-	if primaryVendor != "" {
-		// TODO: Call payment-service API to get vendor's Stripe account ID
-		// For now, use placeholder format until vendor registration is complete
-		vendorStripeAccountID = "acct_" + primaryVendor
-	}
-
+	// Payment-service will lookup VendorStripeAccountID from its database using VendorID
 	paymentReq := kafka.PaymentRequestEvent{
-		OrderID:               order.OrderID,
-		UserID:                order.UserID,
-		Amount:                order.TotalPrice,
-		PaymentMethod:         order.PaymentMethod,
-		Currency:              "vnd",
-		Description:           "Payment for order #" + strconv.FormatUint(uint64(order.ID), 10),
-		VendorID:              primaryVendor,
-		VendorStripeAccountID: vendorStripeAccountID,
-		VendorAmount:          vendorAmount,
-		PlatformFee:           platformFee,
-		VendorBreakdown:       string(vendorBreakdownJSON),
+		OrderID:         order.OrderID,
+		UserID:          order.UserID,
+		Amount:          order.TotalPrice,
+		PaymentMethod:   order.PaymentMethod,
+		Currency:        "vnd",
+		Description:     "Payment for order #" + strconv.FormatUint(uint64(order.ID), 10),
+		VendorID:        primaryVendor,
+		VendorAmount:    vendorAmount,
+		PlatformFee:     platformFee,
+		VendorBreakdown: string(vendorBreakdownJSON),
 	}
 
 	return kafka.ProducePaymentRequestEvent(ctx, paymentReq)
@@ -265,9 +338,16 @@ func (s *OrderService) ReleasePaymentToVendor(ctx context.Context, orderID strin
 		return err
 	}
 
-	// Only release if order is delivered and payment is held
-	if order.Status != "DELIVERED" || order.PaymentStatus != "HELD" {
-		logger.Logger.Warnf("Cannot release payment for order %d: status=%s, payment_status=%s",
+	// Accept SHIPPED (user confirmed) or DELIVERED as trigger
+	if order.Status != "DELIVERED" && order.Status != "SHIPPED" {
+		logger.Logger.Warnf("Cannot release payment for order %s: status=%s, payment_status=%s",
+			orderID, order.Status, order.PaymentStatus)
+		return nil
+	}
+
+	// Accept HELD (correct) or checkout_completed (legacy from old events)
+	if order.PaymentStatus != "HELD" && order.PaymentStatus != "checkout_completed" {
+		logger.Logger.Warnf("Cannot release payment for order %s: status=%s, payment_status=%s",
 			orderID, order.Status, order.PaymentStatus)
 		return nil
 	}
@@ -423,10 +503,15 @@ func (s *OrderService) CancelOrder(ctx context.Context, orderID string, userID s
 
 	if order.PaymentMethod == "STRIPE" && order.PaymentIntentID != nil {
 		paymentID := *order.PaymentIntentID
+		log.Printf("🔄 Sending payment cancel event for order %s, payment %s", order.OrderID, paymentID)
 		if err := s.CancelPayment(ctx, order.OrderID, paymentID, "Order canceled by user"); err != nil {
 			logger.Err("Failed to send payment cancel event", err)
 			// Continue with order cancellation even if payment cancel fails
+		} else {
+			log.Printf("✅ Payment cancel event sent successfully for order %s", order.OrderID)
 		}
+	} else {
+		log.Printf("⚠️ Skip payment cancel: PaymentMethod=%s, HasPaymentIntent=%v", order.PaymentMethod, order.PaymentIntentID != nil)
 	}
 
 	err = s.orderRepo.UpdateOrderStatus(ctx, orderID, "CANCELED")
@@ -683,9 +768,8 @@ func (s *OrderService) ConfirmDelivery(ctx context.Context, orderID string, user
 		return err
 	}
 
-	// Trigger payment release after delivery confirmation (24h delay)
+	// Trigger payment release immediately after delivery confirmation
 	go func() {
-		time.Sleep(24 * time.Hour) // Auto-release after 24 hours
 		s.ReleasePaymentToVendor(context.Background(), orderID)
 	}()
 
@@ -824,12 +908,8 @@ func (s *OrderService) processPaymentEvent(event PaymentEvent) {
 			log.Printf("✅ [OrderService] Successfully handled payment success for order: %s", event.OrderID)
 		}
 
-		log.Printf("🔄 [OrderService] Updating order status to SUCCESS for order: %s", event.OrderID)
-		if err := s.orderRepo.UpdateOrderStatus(ctx, event.OrderID, "SUCCESS"); err != nil {
-			log.Printf("❌ [OrderService] Failed to update order status: %v", err)
-		} else {
-			log.Printf("✅ [OrderService] Successfully updated order status to SUCCESS")
-		}
+		// Don't override order status here - HandlePaymentSuccess already set it to PAYMENT_HELD
+		// and payment_status to HELD
 
 	case "checkout_failed":
 		log.Printf("❌ [OrderService] Payment failed for order: %s", event.OrderID)

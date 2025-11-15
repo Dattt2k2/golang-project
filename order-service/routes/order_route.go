@@ -1,24 +1,24 @@
 package routes
 
 import (
-	"order-service/database"
 	"order-service/controller"
+	"order-service/database"
 	"order-service/repositories"
 	orderService "order-service/service"
+
 	"github.com/gin-gonic/gin"
 )
+
 func SetupOrderController() *controller.OrderController {
 
 	db := database.InitDB() // This returns *gorm.DB
-    orderRepo := repositories.NewOrderRepository(db)
-    orderSvc := orderService.NewOrderService(orderRepo)
+	orderRepo := repositories.NewOrderRepository(db)
+	orderSvc := orderService.NewOrderService(orderRepo)
 
-    return controller.NewOrderController(orderSvc)
+	return controller.NewOrderController(orderSvc)
 }
 
-
-
-func OrderRoutes(incomming *gin.Engine){
+func OrderRoutes(incomming *gin.Engine) {
 	orderController := SetupOrderController()
 
 	authorized := incomming.Group("/")
@@ -29,14 +29,15 @@ func OrderRoutes(incomming *gin.Engine){
 	authorized.GET("orders", orderController.GetOrdersByVendor())
 	authorized.POST("order/cancel/:order_id", orderController.CancelOrder())
 	authorized.GET("order/:id", orderController.GetOrderByID())
-	authorized.POST("orders/:id/update-status", orderController.VendorUpdateOrderStatus())
+	authorized.POST("orders/:id/update-status", orderController.UpdateOrderStatus())
+	authorized.POST("orders/:id/vendor-update-status", orderController.VendorUpdateOrderStatus())
 
 	authorized.POST("orders/:id/confirm-delivery", orderController.ConfirmDelivery())
-    authorized.POST("orders/:id/mark-shipped", orderController.MarkAsShipped())
-    authorized.GET("orders/:id/status", orderController.GetOrderStatus())
-    authorized.POST("orders/:id/release-payment", orderController.ReleasePaymentManually())
-    
-    // Payment callback routes (for payment-service)
-    authorized.POST("orders/:id/payment/success", orderController.HandlePaymentSuccess())
-    authorized.POST("orders/:id/payment/failure", orderController.HandlePaymentFailure())
+	authorized.POST("orders/:id/mark-shipped", orderController.MarkAsShipped())
+	authorized.GET("orders/:id/status", orderController.GetOrderStatus())
+	authorized.POST("orders/:id/release-payment", orderController.ReleasePaymentManually())
+
+	// Payment callback routes (for payment-service)
+	authorized.POST("orders/:id/payment/success", orderController.HandlePaymentSuccess())
+	authorized.POST("orders/:id/payment/failure", orderController.HandlePaymentFailure())
 }

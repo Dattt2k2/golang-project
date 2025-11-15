@@ -224,7 +224,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.search-service.rule=Host(`api.example.com`) && PathPrefix(`/search`)"
       - "traefik.http.services.search-service.loadbalancer.server.port=8086"
-      - "traefik.http.routers.search-service.middlewares=jwt-validation@file"
     logging:
       driver: "json-file"
       options:
@@ -344,7 +343,7 @@ services:
       - "traefik.http.routers.vendor-register.middlewares=jwt-validation@file"
       - "traefik.http.routers.vendor-register.service=payment-service"
 
-
+ 
 
       # Router cho public vendor onboarding redirects
       - "traefik.http.routers.vendor-public.rule=Host(`api.example.com`) && PathPrefix(`/public/vendor/`)"

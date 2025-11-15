@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/stripe/stripe-go/v74/account"
 	"github.com/stripe/stripe-go/v74/accountlink"
 	pi "github.com/stripe/stripe-go/v74/paymentintent"
+	"github.com/stripe/stripe-go/v74/payout"
 	"github.com/stripe/stripe-go/v74/refund"
 	"github.com/stripe/stripe-go/v74/transfer"
 	"github.com/stripe/stripe-go/v74/webhook"
@@ -243,11 +245,36 @@ func (s *PaymentService) UpdateVendorAccount(ctx context.Context, accountID stri
 
 // CapturePaymentIntent captures a previously authorized PaymentIntent (release funds to seller)
 func (s *PaymentService) CapturePaymentIntent(ctx context.Context, paymentIntentID, orderID string) (*stripe.PaymentIntent, error) {
-	// capture
-	piObj, err := pi.Capture(paymentIntentID, nil)
+	// First, get the payment intent to check its status
+	piObj, err := pi.Get(paymentIntentID, nil)
 	if err != nil {
 		return nil, err
 	}
+
+	// Check if already captured
+	if piObj.Status == "succeeded" {
+		log.Printf("✅ Payment %s already in 'succeeded' state for order %s - treating as captured", paymentIntentID, orderID)
+		// Mark as captured in DB if not already done
+		_ = s.Repo.MarkCapturedByOrderID(orderID, piObj.ID)
+
+		// Still return the payment intent so vendor transfers can proceed
+		return piObj, nil
+	}
+
+	// Check if payment is in a capturable state
+	if piObj.Status != "requires_capture" {
+		return nil, fmt.Errorf("payment intent status is %s, cannot capture", piObj.Status)
+	}
+
+	log.Printf("🔄 Capturing payment %s for order %s", paymentIntentID, orderID)
+
+	// Capture the payment
+	piObj, err = pi.Capture(paymentIntentID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("✅ Payment %s captured successfully for order %s", paymentIntentID, orderID)
 
 	// mark captured in DB
 	_ = s.Repo.MarkCapturedByOrderID(orderID, piObj.ID)
@@ -578,6 +605,28 @@ func (s *PaymentService) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		} else {
 			fmt.Printf("[Webhook ERROR] Failed to unmarshal checkout.session: %v\n", err)
 		}
+
+	case "payout.paid":
+		var payoutObj stripe.Payout
+		if err := json.Unmarshal(event.Data.Raw, &payoutObj); err == nil {
+			fmt.Printf("[Webhook] Payout paid: ID=%s, Amount=%.2f %s, Status=%s\n",
+				payoutObj.ID, float64(payoutObj.Amount)/100.0, payoutObj.Currency, payoutObj.Status)
+
+			// TODO: Update payout status in database
+			// This will be handled by VendorRepository.UpdatePayoutStatus
+		}
+
+	case "payout.failed":
+		var payoutObj stripe.Payout
+		if err := json.Unmarshal(event.Data.Raw, &payoutObj); err == nil {
+			failureMsg := "Unknown error"
+			if payoutObj.FailureMessage != "" {
+				failureMsg = payoutObj.FailureMessage
+			}
+			fmt.Printf("[Webhook] Payout failed: ID=%s, Reason=%s\n", payoutObj.ID, failureMsg)
+
+			// TODO: Update payout status in database and notify vendor
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -662,4 +711,20 @@ func (s *PaymentService) ValidateWebhookSignature(payload []byte, signature, sec
 
 func (s *PaymentService) GetPaymentIntentByID(ctx context.Context, paymentIntentID string) (*stripe.PaymentIntent, error) {
 	return pi.Get(paymentIntentID, nil)
+}
+
+// CreateStripePayout creates a payout to a connected account
+func (s *PaymentService) CreateStripePayout(ctx context.Context, stripeAccountID string, amountInCents int64, currency string) (string, error) {
+	params := &stripe.PayoutParams{
+		Amount:   stripe.Int64(amountInCents),
+		Currency: stripe.String(currency),
+	}
+	params.SetStripeAccount(stripeAccountID)
+
+	payout, err := payout.New(params)
+	if err != nil {
+		return "", fmt.Errorf("failed to create payout: %w", err)
+	}
+
+	return payout.ID, nil
 }

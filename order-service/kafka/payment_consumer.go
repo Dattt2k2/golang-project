@@ -94,12 +94,12 @@ func StartPaymentConsumer(brokers []string, repo *repositories.OrderRepository, 
 				log.Printf("⚠️ Unknown payment status: %s for order: %s", ev.Status, ev.OrderID)
 			}
 
-			// Cập nhật trạng thái payment
-			if err := repo.UpdatePaymentStatus(context.Background(), ev.OrderID, ev.Status); err != nil {
-				log.Printf("⚠️ Failed to update payment status for order %s: %v", ev.OrderID, err)
-				// Không commit nếu DB update thất bại → retry sau
-				continue
-			}
+			// ❌ REMOVED: Don't override payment_status here
+			// HandlePaymentSuccess already sets the correct status ("HELD")
+			// if err := repo.UpdatePaymentStatus(context.Background(), ev.OrderID, ev.Status); err != nil {
+			// 	log.Printf("⚠️ Failed to update payment status for order %s: %v", ev.OrderID, err)
+			// 	continue
+			// }
 
 			// Commit message sau khi xử lý thành công
 			if err := r.CommitMessages(context.Background(), m); err != nil {

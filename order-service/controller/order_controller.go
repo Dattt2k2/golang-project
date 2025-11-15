@@ -122,8 +122,8 @@ func (ctrl *OrderController) OrderDirectly() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"message":          "Order placed successfully",
-			"id":         order.ID,
-			"order_id": order.OrderID,
+			"id":               order.ID,
+			"order_id":         order.OrderID,
 			"total_price":      order.TotalPrice,
 			"payment_method":   order.PaymentMethod,
 			"shipping_address": order.ShippingAddress,
@@ -188,46 +188,46 @@ func (ctrl *OrderController) AdminGetOrders() gin.HandlerFunc {
 }
 
 func (ctrl *OrderController) GetOrdersByVendor() gin.HandlerFunc {
-    return func(c *gin.Context) {
-        vendorID := c.GetHeader("X-User-ID")
-        if vendorID == "" {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id is required"})
-            return
-        }
+	return func(c *gin.Context) {
+		vendorID := c.GetHeader("X-User-ID")
+		if vendorID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id is required"})
+			return
+		}
 
-        page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-        if err != nil || page < 1 {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page number"})
-            return
-        }
+		page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+		if err != nil || page < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page number"})
+			return
+		}
 
-        limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
-        if err != nil || limit < 1 {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
-            return
-        }
+		limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+		if err != nil || limit < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
+			return
+		}
 
-        status := c.Query("status")
-        month, _ := strconv.Atoi(c.DefaultQuery("month", "0"))
-        year, _ := strconv.Atoi(c.DefaultQuery("year", "0"))
+		status := c.Query("status")
+		month, _ := strconv.Atoi(c.DefaultQuery("month", "0"))
+		year, _ := strconv.Atoi(c.DefaultQuery("year", "0"))
 
-        ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-        defer cancel()
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
 
-        orders, total, totalRevenue, err := ctrl.orderService.GetOrdersByVendor(ctx, vendorID, page, limit, status, month, year)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-            return
-        }
+		orders, total, totalRevenue, err := ctrl.orderService.GetOrdersByVendor(ctx, vendorID, page, limit, status, month, year)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 
-        c.JSON(http.StatusOK, gin.H{
-            "data":          orders,
-            "total":         total,
-            "total_revenue": totalRevenue,
-            "page":          page,
-            "limit":         limit,
-        })
-    }
+		c.JSON(http.StatusOK, gin.H{
+			"data":          orders,
+			"total":         total,
+			"total_revenue": totalRevenue,
+			"page":          page,
+			"limit":         limit,
+		})
+	}
 }
 
 // GetUserOrders retrieves orders for a specific user with pagination
@@ -312,7 +312,6 @@ func (ctrl *OrderController) VendorUpdateOrderStatus() gin.HandlerFunc {
 			return
 		}
 
-		logger.Info("Updating order status", logger.Str("order_id", orderID), logger.Str("vendor_id", vendorID), logger.Str("status", req.Status))
 
 		err := ctrl.orderService.AdminUpdateOrderStatus(ctx, orderID, vendorID, req.Status)
 		if err != nil {
@@ -323,6 +322,55 @@ func (ctrl *OrderController) VendorUpdateOrderStatus() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Order status updated successfully",
+		})
+	}
+}
+
+// UpdateOrderStatus - Universal endpoint for both user and vendor to update order status
+func (ctrl *OrderController) UpdateOrderStatus() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+		defer cancel()
+
+		orderID := c.Param("id")
+		userID := c.GetHeader("X-User-ID")
+
+		if userID == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			return
+		}
+
+		type UpdateStatusRequest struct {
+			Status string `json:"status" binding:"required"`
+		}
+
+		var req UpdateStatusRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			logger.Err("Failed to bind JSON", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+
+		// Call the universal update method
+		err := ctrl.orderService.UpdateOrderStatusWithPayout(ctx, orderID, userID, req.Status)
+		if err != nil {
+			logger.Err("Failed to update order status", err,
+				logger.Str("order_id", orderID),
+				logger.Str("user_id", userID))
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		responseMessage := "Order status updated successfully"
+		if req.Status == "DELIVERED" {
+			responseMessage = "Order delivered and payment will be processed to vendor"
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":  responseMessage,
+			"order_id": orderID,
+			"status":   req.Status,
 		})
 	}
 }
@@ -454,12 +502,6 @@ func (ctrl *OrderController) MarkAsShipped() gin.HandlerFunc {
 		orderID := c.Param("id")
 
 		vendorID := c.GetHeader("X-User-ID")
-		userType := c.GetHeader("user_type")
-
-		if userType != "VENDOR" && userType != "SELLER" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only vendors can mark orders as shipped"})
-			return
-		}
 
 		if vendorID == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Vendor authentication required"})
@@ -558,7 +600,7 @@ func (ctrl *OrderController) GetOrderStatus() gin.HandlerFunc {
 func (ctrl *OrderController) ReleasePaymentManually() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orderID := c.Param("id")
-		
+
 		userType := c.GetHeader("user_type")
 		if userType != "ADMIN" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can manually release payments"})

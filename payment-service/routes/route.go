@@ -39,6 +39,7 @@ func SetupRoutes(repo *repository.PaymentRepository, vendorRepo *repository.Vend
 		api.GET("/vendors/:vendor_id/payout-methods", vendorHandler.GetPayoutMethods())
 		api.PUT("/vendors/:vendor_id/bank-account", vendorHandler.UpdateBankAccount())
 		api.GET("/vendors/:vendor_id/bank-account", vendorHandler.GetBankAccount())
+		api.POST("/vendors/payout/order-complete", vendorHandler.ProcessOrderCompletionPayout())
 	}
 
 	// Public routes for Stripe redirects (no auth needed)

@@ -62,10 +62,6 @@ func main() {
 
 	database.InitElasticsearch()
 
-	err = svc.SyncProductFromProductService()
-	if err != nil {
-		logger.Err("Failed to sync products from product service: %v", err)
-	}
 
 	port := os.Getenv("PORT")
 	if port == "" {

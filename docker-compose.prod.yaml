@@ -1,0 +1,357 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    image: ${DOCKER_REGISTRY:-}api-gateway:${VERSION:-latest}
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - USER_SERVICE_URL=http://user-service:8082
+      - PRODUCT_SERVICE_URL=http://product-service:8083
+      - ORDER_SERVICE_URL=http://order-service:8084
+      - CART_SERVICE_URL=http://cart-service:8085
+      - PAYMENT_SERVICE_URL=http://payment-service:8086
+      - LOG_LEVEL=info
+    depends_on:
+      - redis
+      - auth-service
+    networks:
+      - microservices-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api-gateway.rule=PathPrefix(`/api`)"
+      - "traefik.http.services.api-gateway.loadbalancer.server.port=8080"
+
+  # Auth Service
+  auth-service:
+    image: ${DOCKER_REGISTRY:-}auth-service:${VERSION:-latest}
+    container_name: auth-service
+    restart: unless-stopped
+    environment:
+      - DB_HOST=${AUTH_DB_HOST}
+      - DB_PORT=5432
+      - DB_NAME=${AUTH_DB_NAME}
+      - DB_USER=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - KAFKA_BROKER=kafka:9092
+      - JWT_SECRET=${JWT_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - LOG_LEVEL=info
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # User Service
+  user-service:
+    image: ${DOCKER_REGISTRY:-}user-service:${VERSION:-latest}
+    container_name: user-service
+    restart: unless-stopped
+    environment:
+      - DB_HOST=${USER_DB_HOST}
+      - DB_PORT=5432
+      - DB_NAME=${USER_DB_NAME}
+      - DB_USER=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - KAFKA_BROKER=kafka:9092
+      - LOG_LEVEL=info
+    depends_on:
+      - kafka
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Product Service
+  product-service:
+    image: ${DOCKER_REGISTRY:-}product-service:${VERSION:-latest}
+    container_name: product-service
+    restart: unless-stopped
+    environment:
+      - DB_HOST=${PRODUCT_DB_HOST:-${AUTH_DB_HOST}}
+      - DB_PORT=5432
+      - DB_NAME=${PRODUCT_DB_NAME:-productdb}
+      - DB_USER=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - KAFKA_BROKER=kafka:9092
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - LOG_LEVEL=info
+    depends_on:
+      - kafka
+      - elasticsearch
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Cart Service
+  cart-service:
+    image: ${DOCKER_REGISTRY:-}cart-service:${VERSION:-latest}
+    container_name: cart-service
+    restart: unless-stopped
+    environment:
+      - DB_HOST=${CART_DB_HOST:-${AUTH_DB_HOST}}
+      - DB_PORT=5432
+      - DB_NAME=${CART_DB_NAME:-cartdb}
+      - DB_USER=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - KAFKA_BROKER=kafka:9092
+      - LOG_LEVEL=info
+    depends_on:
+      - kafka
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Order Service
+  order-service:
+    image: ${DOCKER_REGISTRY:-}order-service:${VERSION:-latest}
+    container_name: order-service
+    restart: unless-stopped
+    environment:
+      - DB_HOST=${ORDER_DB_HOST}
+      - DB_PORT=5432
+      - DB_NAME=${ORDER_DB_NAME}
+      - DB_USER=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - KAFKA_BROKER=kafka:9092
+      - LOG_LEVEL=info
+    depends_on:
+      - kafka
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Payment Service
+  payment-service:
+    image: ${DOCKER_REGISTRY:-}payment-service:${VERSION:-latest}
+    container_name: payment-service
+    restart: unless-stopped
+    environment:
+      - DB_HOST=${PAYMENT_DB_HOST}
+      - DB_PORT=5432
+      - DB_NAME=${PAYMENT_DB_NAME}
+      - DB_USER=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - LOG_LEVEL=info
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Search Service
+  search-service:
+    image: ${DOCKER_REGISTRY:-}search-service:${VERSION:-latest}
+    container_name: search-service
+    restart: unless-stopped
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - KAFKA_BROKER=kafka:9092
+      - LOG_LEVEL=info
+    depends_on:
+      - elasticsearch
+      - kafka
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Email Service
+  email-service:
+    image: ${DOCKER_REGISTRY:-}email-service:${VERSION:-latest}
+    container_name: email-service
+    restart: unless-stopped
+    environment:
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM}
+      - KAFKA_BROKER=kafka:9092
+      - LOG_LEVEL=info
+    depends_on:
+      - kafka
+    networks:
+      - microservices-network
+
+  # Review Service
+  review-service:
+    image: ${DOCKER_REGISTRY:-}review-service:${VERSION:-latest}
+    container_name: review-service
+    restart: unless-stopped
+    environment:
+      - DB_HOST=${REVIEW_DB_HOST:-${AUTH_DB_HOST}}
+      - DB_PORT=5432
+      - DB_NAME=${REVIEW_DB_NAME:-reviewdb}
+      - DB_USER=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - KAFKA_BROKER=kafka:9092
+      - LOG_LEVEL=info
+    depends_on:
+      - kafka
+    networks:
+      - microservices-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - microservices-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Kafka (KRaft mode - no Zookeeper needed)
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Traefik Reverse Proxy
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik-config:/etc/traefik
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  redis-data:
+  kafka-data:
+  elasticsearch-data:

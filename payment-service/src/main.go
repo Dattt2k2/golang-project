@@ -109,7 +109,7 @@ func main() {
 
 	// Start payment consumer to handle payment requests from order-service
 	if len(kafkaBrokers) > 0 && kafkaBrokers[0] != "" {
-		paymentConsumer := service.NewPaymentConsumer(paymentService, orderServiceURL)
+		paymentConsumer := service.NewPaymentConsumer(paymentService, vendorRepo, orderServiceURL)
 
 		// Start consumer in goroutine
 		go paymentConsumer.StartConsumer(kafkaBrokers)

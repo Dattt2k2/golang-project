@@ -18,6 +18,8 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Transaction{},
 		&models.VendorAccount{},
 		&models.VendorPayout{},
+		&models.VendorBalance{},
+		&models.VendorTransaction{},
 	)
 
 	if err != nil {

@@ -414,3 +414,42 @@ type VendorAccountUpdateEvent struct {
 	Status          string `json:"status"`
 	Event           string `json:"event"` // vendor_registered, vendor_updated, onboarding_completed
 }
+
+// CreateVendorPayout creates a payout to vendor's Stripe Connect account
+func (s *VendorService) CreateVendorPayout(ctx context.Context, vendorID string, orderID string, amount float64) error {
+	// Get vendor account
+	vendor, err := s.VendorRepo.GetVendorByID(ctx, vendorID)
+	if err != nil {
+		return fmt.Errorf("vendor not found: %w", err)
+	}
+
+	// Check if vendor onboarding is completed
+	if !vendor.OnboardingCompleted || !vendor.ChargesEnabled || !vendor.PayoutsEnabled {
+		return errors.New("vendor onboarding not completed or payouts not enabled")
+	}
+
+	// Create payout via Stripe
+	amountInCents := int64(amount * 100)
+	payoutID, err := s.PaymentService.CreateStripePayout(ctx, vendor.StripeAccountID, amountInCents, "usd")
+	if err != nil {
+		return fmt.Errorf("failed to create Stripe payout: %w", err)
+	}
+
+	// Record payout in database
+	payout := &models.VendorPayout{
+		VendorID:       vendorID,
+		OrderID:        &orderID,
+		Amount:         amount,
+		Currency:       "usd",
+		Status:         models.PayoutStatusPending,
+		PayoutMethod:   "stripe_connect",
+		StripePayoutID: &payoutID,
+		Description:    fmt.Sprintf("Payout for order %s", orderID),
+	}
+
+	if err := s.VendorRepo.CreateVendorPayout(ctx, payout); err != nil {
+		return fmt.Errorf("failed to record payout: %w", err)
+	}
+
+	return nil
+}

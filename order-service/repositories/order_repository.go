@@ -109,11 +109,20 @@ func (r *OrderRepository) FindOrdersByVendorID(ctx context.Context, vendorID str
 		return []models.Order{}, 0, 0, nil
 	}
 
-	// Tính tổng doanh thu (sử dụng session riêng)
-	err = baseQuery.Session(&gorm.Session{}).Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error
-	if err != nil {
-		return nil, 0, 0, err
-	}
+	revenueQuery := r.db.WithContext(ctx).Model(&models.Order{})
+    revenueQuery = revenueQuery.Where("items @> ?", `[{"vendor_id": "`+vendorID+`"}]`)
+    revenueQuery = revenueQuery.Where("status = ?", "SHIPPED")
+	
+    if month > 0 && year > 0 {
+        startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+        endDate := startDate.AddDate(0, 1, 0)
+        revenueQuery = revenueQuery.Where("created_at >= ? AND created_at < ?", startDate, endDate)
+    }
+
+    err = revenueQuery.Session(&gorm.Session{}).Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error
+    if err != nil {
+        return nil, 0, 0, err
+    }
 
 	// Phân trang và lấy danh sách đơn hàng (sử dụng session riêng)
 	offset := (page - 1) * limit

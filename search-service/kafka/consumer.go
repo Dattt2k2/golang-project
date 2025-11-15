@@ -77,6 +77,14 @@ func InitProductEventConsumer(svc service.SearchService, brokers []string) {
 					log.Printf("Successfully deleted product: %s", event.ID)
 				}
 			}
+		case "INITIAL_SYNC":
+			if event.Product != nil {
+				if indexErr := svc.IndexProduct(event.Product); indexErr != nil {
+					log.Printf("Error indexing product during INITIAL_SYNC %s: %v", event.Product.ID, indexErr)
+				} else {
+					log.Printf("Indexed product during INITIAL_SYNC: %s", event.Product.ID)
+				}
+			}
 		}
 	}
 }
