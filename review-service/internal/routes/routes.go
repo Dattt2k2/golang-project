@@ -13,17 +13,14 @@ func RegisterRoutes(r *gin.Engine, h *handlers.ReviewHandler) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "review-service"})
 	})
 
-	v1 := r.Group("/v1")
-	{
-		products := v1.Group("/products")
+		products := r.Group("/products")
 		{
-			products.POST("/:product_id/reviews", h.CreateReview())
-			products.GET("/:product_id/reviews", h.ListReviews())
+			products.POST("create-reviews/:product_id", h.CreateReview())
+			products.GET("/reviews/:product_id", h.ListReviews())
 		}
-		
-		reviews := v1.Group("/reviews")
+
+		reviews := r.Group("/reviews")
 		{
 			reviews.GET("/:review_id", h.GetReview())
 		}
-	}
 }

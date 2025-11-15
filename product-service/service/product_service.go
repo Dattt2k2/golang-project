@@ -297,7 +297,7 @@ func (s *productServiceImpl) DecrementSoldCount(ctx context.Context, productID s
 
 
 func (s *productServiceImpl) GetAllProductForIndex(ctx context.Context) ([]models.Product, error) {
-	products, _, err := s.repo.FindAll(ctx, 0, 0)
+	products, _, err := s.repo.FindAll(ctx, 0, 1000)
 	if err != nil {
 		return nil, err
 	}

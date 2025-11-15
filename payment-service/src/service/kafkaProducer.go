@@ -16,6 +16,38 @@ type KafkaProducer struct {
 }
 
 func NewKafkaProducer(brokers []string) *KafkaProducer {
+	// Create topics if they don't exist
+	topics := []string{"payment_events", "vendor_payment_processed", "vendor_account_updates", "checkout_completed"}
+
+	conn, err := kafka.Dial("tcp", brokers[0])
+	if err == nil {
+		defer conn.Close()
+
+		controller, err := conn.Controller()
+		if err == nil {
+			controllerConn, err := kafka.Dial("tcp", fmt.Sprintf("%s:%d", controller.Host, controller.Port))
+			if err == nil {
+				defer controllerConn.Close()
+
+				topicConfigs := []kafka.TopicConfig{}
+				for _, topic := range topics {
+					topicConfigs = append(topicConfigs, kafka.TopicConfig{
+						Topic:             topic,
+						NumPartitions:     3,
+						ReplicationFactor: 1,
+					})
+				}
+
+				err = controllerConn.CreateTopics(topicConfigs...)
+				if err != nil {
+					fmt.Printf("[Kafka] Warning: Failed to create topics (they may already exist): %v\n", err)
+				} else {
+					fmt.Println("[Kafka] Topics created successfully")
+				}
+			}
+		}
+	}
+
 	writers := map[string]*kafka.Writer{
 		"payment_events": {
 			Addr:         kafka.TCP(brokers...),
@@ -38,6 +70,13 @@ func NewKafkaProducer(brokers []string) *KafkaProducer {
 			RequiredAcks: kafka.RequireOne,
 			Async:        false,
 		},
+		"checkout_completed": {
+			Addr:         kafka.TCP(brokers...),
+			Topic:        "checkout_completed",
+			Balancer:     &kafka.LeastBytes{},
+			RequiredAcks: kafka.RequireOne,
+			Async:        false,
+		},
 	}
 
 	return &KafkaProducer{
@@ -51,12 +90,15 @@ func (kp *KafkaProducer) SendMessage(ctx context.Context, message interface{}) e
 	switch message.(type) {
 	case PaymentStatusEvent:
 		topic = "payment_events"
+	case PaymentMessage:
+		// Gửi PaymentMessage vào topic checkout_completed
+		topic = "checkout_completed"
 	case VendorPaymentProcessedEvent:
 		topic = "vendor_payment_processed"
 	case map[string]interface{}:
 		// For generic messages, try to determine topic from content
-		if msg, ok := message.(map[string]interface{}); ok {
-			if _, exists := msg["vendor_id"]; exists {
+		if m, ok := message.(map[string]interface{}); ok {
+			if _, exists := m["vendor_id"]; exists {
 				topic = "vendor_account_updates"
 			} else {
 				topic = "payment_events"

@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"payment-service/src/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stripe/stripe-go/v74/webhook"
 )
 
 type VendorHandler struct {
@@ -21,13 +23,15 @@ func NewVendorHandler(vendorService *service.VendorService) *VendorHandler {
 func (h *VendorHandler) RegisterVendor() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req service.VendorRegistrationRequest
+		vendorID := c.GetHeader("X-User-ID")
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 			return
 		}
-
+		req.VendorID = vendorID
 		resp, err := h.VendorService.RegisterVendor(c.Request.Context(), req)
 		if err != nil {
+			log.Printf("Error registering vendor: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -39,7 +43,7 @@ func (h *VendorHandler) RegisterVendor() gin.HandlerFunc {
 // Get vendor information
 func (h *VendorHandler) GetVendor() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		vendorID := c.Param("vendor_id")
+		vendorID := c.GetHeader("X-User-ID")
 		if vendorID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "vendor_id is required"})
 			return
@@ -81,40 +85,57 @@ func (h *VendorHandler) CreateOnboardingLink() gin.HandlerFunc {
 // Handle Stripe Connect webhook for account updates
 func (h *VendorHandler) StripeConnectWebhook() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		_, err := c.GetRawData()
+		// Read raw payload
+		payload, err := c.GetRawData()
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Unable to read request body"})
 			return
 		}
 
-		// TODO: Verify Stripe signature
-
-		// Parse Stripe event
-		var stripeEvent struct {
-			Type string `json:"type"`
-			Data struct {
-				Object map[string]interface{} `json:"object"`
-			} `json:"data"`
-		}
-
-		if err := c.ShouldBindJSON(&stripeEvent); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON payload"})
+		// Get Stripe signature from header
+		sigHeader := c.GetHeader("Stripe-Signature")
+		if sigHeader == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing Stripe-Signature header"})
 			return
 		}
 
+		// Use PaymentService's signing secret to verify
+		event, err := webhook.ConstructEventWithOptions(
+			payload,
+			sigHeader,
+			h.VendorService.PaymentService.SigningSecret,
+			webhook.ConstructEventOptions{
+				IgnoreAPIVersionMismatch: true,
+			},
+		)
+		if err != nil {
+			log.Printf("Invalid webhook signature: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid signature"})
+			return
+		}
+
+		log.Printf("Received Stripe Connect webhook: %s (ID: %s)", event.Type, event.ID)
+
 		// Handle account.updated events
-		if stripeEvent.Type == "account.updated" {
-			accountID, ok := stripeEvent.Data.Object["id"].(string)
+		if event.Type == "account.updated" {
+			accountID, ok := event.Data.Object["id"].(string)
 			if !ok {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid account ID"})
 				return
 			}
 
-			err := h.VendorService.UpdateVendorFromStripe(c.Request.Context(), accountID, stripeEvent.Data.Object)
+			log.Printf("Processing account.updated for account: %s", accountID)
+
+			err := h.VendorService.UpdateVendorFromStripe(c.Request.Context(), accountID, event.Data.Object)
 			if err != nil {
+				log.Printf("Failed to update vendor from Stripe: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update vendor"})
 				return
 			}
+
+			log.Printf("Successfully updated vendor for account: %s", accountID)
+		} else {
+			log.Printf("Received unhandled webhook event type: %s", event.Type)
 		}
 
 		c.Status(http.StatusOK)
@@ -264,5 +285,36 @@ func (h *VendorHandler) GetPayoutMethods() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, methods)
+	}
+}
+
+// ProcessOrderCompletionPayout handles payout when order is completed
+func (h *VendorHandler) ProcessOrderCompletionPayout() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			VendorID string  `json:"vendor_id" binding:"required"`
+			OrderID  string  `json:"order_id" binding:"required"`
+			Amount   float64 `json:"amount" binding:"required,gt=0"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+			return
+		}
+
+		// Create payout
+		err := h.VendorService.CreateVendorPayout(c.Request.Context(), req.VendorID, req.OrderID, req.Amount)
+		if err != nil {
+			log.Printf("Failed to create payout: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":   "Payout created successfully",
+			"vendor_id": req.VendorID,
+			"order_id":  req.OrderID,
+			"amount":    req.Amount,
+		})
 	}
 }

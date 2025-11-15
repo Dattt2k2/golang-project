@@ -34,6 +34,7 @@ import (
 
 type Order struct {
 	gorm.Model
+	OrderID            string         `gorm:"type:uuid;default:gen_random_uuid();uniqueIndex;not null"`
 	UserID             string         `gorm:"not null"`
 	Items              datatypes.JSON `gorm:"type:jsonb;not null"`
 	Status             string         `gorm:"not null;default:'pending'"`

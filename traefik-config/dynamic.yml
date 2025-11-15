@@ -1,0 +1,38 @@
+http:
+  middlewares:
+    jwt-validation:
+      plugin:
+        jwt-validator:
+          secret: "{{ env `JWT_SECRET` }}"   
+          headerName: "X-User-ID"
+
+
+    cors-headers:
+      headers:
+        accessControlAllowOriginList:
+          - "http://localhost:3000"
+          - "http://127.0.0.1:3000"
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "PATCH"
+          - "DELETE"
+          - "OPTIONS"
+        accessControlAllowHeaders:
+          - "Authorization"
+          - "Content-Type"
+          - "Accept"
+          - "X-Requested-With"
+          - "X-User-ID"
+          - "X-Nextjs-Data"
+          - "x-nextjs-data"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 600
+        addVaryHeader: true
+
+    stripe-webhook-passthrough:
+      buffering:
+        maxRequestBodyBytes: 0
+        memRequestBodyBytes: 0
+        retryExpression: "IsNetworkError() && Attempts() < 2"

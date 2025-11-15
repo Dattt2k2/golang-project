@@ -94,3 +94,28 @@ func (r *VendorRepository) GetVendorStripeAccountID(ctx context.Context, vendorI
 	}
 	return vendor.StripeAccountID, nil
 }
+
+// CreateVendorPayout records a new payout transaction
+func (r *VendorRepository) CreateVendorPayout(ctx context.Context, payout *models.VendorPayout) error {
+	return r.db.WithContext(ctx).Create(payout).Error
+}
+
+// GetVendorPayouts retrieves payout history for a vendor
+func (r *VendorRepository) GetVendorPayouts(ctx context.Context, vendorID string, limit, offset int) ([]*models.VendorPayout, error) {
+	var payouts []*models.VendorPayout
+	err := r.db.WithContext(ctx).
+		Where("vendor_id = ?", vendorID).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&payouts).Error
+	return payouts, err
+}
+
+// UpdatePayoutStatus updates the status of a payout
+func (r *VendorRepository) UpdatePayoutStatus(ctx context.Context, payoutID uint, status string) error {
+	return r.db.WithContext(ctx).
+		Model(&models.VendorPayout{}).
+		Where("id = ?", payoutID).
+		Update("status", status).Error
+}

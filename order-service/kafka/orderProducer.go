@@ -56,7 +56,7 @@ func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
 	}
 
 	orderEvent := OrderSuccessEvent{
-		OrderID:    strconv.FormatUint(uint64(order.ID), 10),
+		OrderID:    order.OrderID,
 		UserID:     order.UserID,
 		TotalPrice: order.TotalPrice,
 		Items:      items,

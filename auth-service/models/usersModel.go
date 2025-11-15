@@ -27,7 +27,7 @@ type User struct {
 	Email *string `gorm:"unique;not null" json:"email" validate:"email,required"`
 	FirstName *string `gorm:"type:varchar(100)" json:"first_name"`
 	LastName *string `gorm:"type:varchar(100)" json:"last_name"`
-	UserType *string `gorm:"type:varchar(50);default:'USER'" json:"user_type" validate:"required,eq=ADMIN|eq=USER|eq=SELLER"`
+	UserType string `gorm:"type:varchar(50);default:'USER'" json:"user_type"`
 	Password *string `gorm:"not null" json:"password" validate:"required,min=6"`
 	Phone *string `gorm:"type:varchar(15)" json:"phone"`
 	IsVerify bool `gorm:"default:false" json:"is_verify"`

@@ -57,10 +57,6 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 		return nil, err
 	}
 
-	if userType == "" {
-		userType = "USER"
-	}
-
 	defaultFirstName := "User"
 	defaultLastName := ""
 	defaultPhone := ""
@@ -70,9 +66,9 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 		Password:  &hashedPassword,
 		FirstName: &defaultFirstName,
 		LastName:  &defaultLastName,
-		UserType:  &userType,
+		UserType:  "USER",
 		Phone:     &defaultPhone,
-		IsVerify:  false,
+		IsVerify:  true,
 	}
 	result, err := s.userRepo.Create(ctx, user)
 	if err != nil {
@@ -92,27 +88,27 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 	}
 
 	// Generate OTP
-	otp, err := helpers.GenerateAndStoreOTP(*user.Email, 5*time.Minute)
-	if err != nil {
-		return nil, errors.New("failed to generate OTP")
-	}
+	// otp, err := helpers.GenerateAndStoreOTP(*user.Email, 5*time.Minute)
+	// if err != nil {
+	// 	return nil, errors.New("failed to generate OTP")
+	// }
 
-	msg := kafka.EmailMessage{
-		To:       *user.Email,
-		Subject:  "Welcome to Our Service",
-		Template: "./template/otp_send.html",
-		Data: map[string]interface{}{
-			"FirstName": *user.FirstName,
-			"LastName":  *user.LastName,
-			"Email":     *user.Email,
-			"OTP":       otp,
-		},
-	}
+	// msg := kafka.EmailMessage{
+	// 	To:       *user.Email,
+	// 	Subject:  "Welcome to Our Service",
+	// 	Template: "./template/otp_send.html",
+	// 	Data: map[string]interface{}{
+	// 		"FirstName": *user.FirstName,
+	// 		"LastName":  *user.LastName,
+	// 		"Email":     *user.Email,
+	// 		"OTP":       otp,
+	// 	},
+	// }
 
-	err = kafka.SendEmailMessage(kafka.NewKafkaWriter("kafka:9092", "email_topic"), msg)
-	if err != nil {
-		return nil, errors.New("failed to send otp")
-	}
+	// err = kafka.SendEmailMessage(kafka.NewKafkaWriter("kafka:9092", "email_topic"), msg)
+	// if err != nil {
+	// 	return nil, errors.New("failed to send otp")
+	// }
 	// publish user.created event for downstream services
 	userEvent := map[string]interface{}{
 		"id":         result.ID.String(),
@@ -120,7 +116,7 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 		"first_name": *user.FirstName,
 		"last_name":  *user.LastName,
 		"phone":      *user.Phone,
-		"user_type":  *user.UserType,
+		"user_type":  user.UserType,
 		"created_at": time.Now().UTC().Format(time.RFC3339),
 	}
 	_ = kafka.SendJSONMessage(kafka.NewKafkaWriter("kafka:9092", "user.created"), userEvent)
@@ -146,7 +142,7 @@ func (s *authServiceImpl) Login(ctx context.Context, credential *models.LoginCre
 		return nil, errors.New("email or password is incorrect")
 	}
 
-	token, refreshToken, err := helpers.GenerateAllToken(*foundUser.Email, *foundUser.FirstName, *foundUser.LastName, *foundUser.UserType, foundUser.ID.String())
+	token, refreshToken, err := helpers.GenerateAllToken(*foundUser.Email, *foundUser.FirstName, *foundUser.LastName, foundUser.UserType, foundUser.ID.String())
 	if err != nil {
 		return nil, errors.New("error generating token")
 	}
@@ -155,7 +151,7 @@ func (s *authServiceImpl) Login(ctx context.Context, credential *models.LoginCre
 		Email:        *foundUser.Email,
 		First_name:   *foundUser.FirstName,
 		Last_name:    *foundUser.LastName,
-		User_type:    *foundUser.UserType,
+		User_type:    foundUser.UserType,
 		User_id:      foundUser.ID.String(),
 		Token:        token,
 		RefreshToken: refreshToken,
@@ -227,7 +223,7 @@ func (s *authServiceImpl) AdminChangePassword(ctx context.Context, adminID, targ
 		return errors.New("target user not found")
 	}
 
-	if *targetUser.UserType != "USER" {
+	if targetUser.UserType != "USER" {
 		return errors.New("target user is not a seller")
 	}
 
@@ -257,9 +253,9 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string)
 		return "", errors.New(msg)
 	}
 
-	accessToken, err := helpers.GenerateToken(claims.Email, claims.FirstName, claims.LastName, claims.UserType, claims.Uid, time.Hour*24)
-	if err != nil {
-		return "", errors.New("error generating new access token")
+	accessToken, msg := helpers.RefreshToken(refreshToken)
+	if msg != "" {
+		return "", errors.New(msg)
 	}
 	return accessToken, nil
 }

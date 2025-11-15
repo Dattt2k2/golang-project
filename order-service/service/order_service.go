@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"strconv"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	productpb "module/gRPC-Product/service"
 	cartpb "module/gRPC-cart/service"
 
+	kafkago "github.com/segmentio/kafka-go"
 	"gorm.io/datatypes"
 )
 
@@ -96,6 +98,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		if vendorID == "" {
 			productReq := &productpb.ProductRequest{Id: item.ProductId}
 			productResp, err := productClient.GetBasicInfo(ctx, productReq)
+			err = nil
 			if err == nil && productResp.VendorId != "" {
 				vendorID = productResp.VendorId
 			}
@@ -122,9 +125,9 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 	initialStatus := "PENDING"
 	paymentStatus := "PENDING"
 
-	if paymentMethod == "stripe" {
-		initialStatus = "AWAITING_FOR_PAYMENT"
-		paymentStatus = "PENDING"
+	if paymentMethod == "STRIPE" {
+		initialStatus = "CONFIRMED"
+		paymentStatus = "PROCESSING"
 	} else if paymentMethod == "COD" {
 		initialStatus = "CONFIRMED"
 		paymentStatus = "COD_PENDING"
@@ -146,10 +149,10 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		return nil, err
 	}
 
-	if paymentMethod == "stripe" {
+	if paymentMethod == "STRIPE" {
 		err = s.requestPayment(ctx, createdOrder, orderItems)
 		if err != nil {
-			s.orderRepo.UpdateOrderStatus(ctx, createdOrder.ID, "PAYMENT_FAILED")
+			s.orderRepo.UpdateOrderStatus(ctx, createdOrder.OrderID, "PAYMENT_FAILED")
 			return nil, NewServiceError("Failed to initiate payment")
 		}
 	} else if paymentMethod == "COD" {
@@ -159,6 +162,100 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 	}
 
 	return createdOrder, nil
+}
+
+func (s *OrderService) AdminUpdateOrderStatus(ctx context.Context, orderID string, vendorID string, status string) error {
+	err := s.orderRepo.UpdateOrderStatusByVendorID(ctx, orderID, vendorID, status)
+	if err != nil {
+		logger.Err("Failed to update order status", err,
+			logger.Str("orderID", orderID),
+			logger.Str("vendorID", vendorID),
+			logger.Str("status", status),
+		)
+		return err
+	}
+
+	return nil
+}
+
+// UpdateOrderStatusWithPayout - Universal method with auto payout trigger
+func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID string, userID string, status string) error {
+	// Get order first to validate
+	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+
+	// Check if user is the order owner
+	isOrderOwner := order.UserID == userID
+
+	// Check if user is a vendor in this order
+	isVendor := false
+	vendorCheck, err := s.isVendorInOrder(orderID, userID)
+	if err == nil && vendorCheck {
+		isVendor = true
+	}
+	switch status {
+	case "CONFIRMED":
+		if !isVendor {
+			return NewServiceError("Only vendor can confirm order")
+		}
+		if order.Status != "PAYMENT_HELD" {
+			return NewServiceError("Order must be PAYMENT_HELD before confirming")
+		}
+
+	case "DELIVERING":
+		// Only vendor can set delivering status
+		if !isVendor {
+			return NewServiceError("Only vendor can mark order as delivering")
+		}
+		if order.Status != "CONFIRMED" && order.Status != "PAYMENT_HELD" {
+			return NewServiceError("Order must be CONFIRMED or PAYMENT_HELD before delivering")
+		}
+
+	case "DELIVERED":
+		// Only vendor can mark as delivered (package delivered to user)
+		if !isVendor {
+			return NewServiceError("Only vendor can mark order as delivered")
+		}
+		if order.Status != "DELIVERING" && order.Status != "CONFIRMED" {
+			return NewServiceError("Order must be DELIVERING or CONFIRMED before marking as delivered")
+		}
+
+	case "SHIPPED":
+		// User confirms they received the package (SHIPPED = received)
+		if !isOrderOwner {
+			return NewServiceError("Only order owner can confirm shipment received")
+		}
+		if order.Status != "DELIVERED" {
+			return NewServiceError("Order must be DELIVERED before user can confirm shipment")
+		}
+	}
+
+	// Update order status
+	updates := map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+
+	// Add delivery date when vendor marks as delivered
+	if status == "DELIVERED" {
+		updates["delivery_date"] = time.Now()
+	}
+
+	if err := s.orderRepo.UpdateOrderFields(ctx, orderID, updates); err != nil {
+		return err
+	}
+
+	// Auto-trigger payout when user confirms SHIPPED (received package)
+	if status == "SHIPPED" {
+		logger.Info("🚀 Auto-triggering payout - User confirmed received order", logger.Str("order_id", orderID))
+		go func() {
+			s.ReleasePaymentToVendor(context.Background(), orderID)
+		}()
+	}
+
+	return nil
 }
 
 func determinePrimaryVendor(orderItems []OrderItem) string {
@@ -218,39 +315,39 @@ func (s *OrderService) requestPayment(ctx context.Context, order *models.Order, 
 	// Determine primary vendor for Stripe Connect (vendor with highest amount)
 	primaryVendor := determinePrimaryVendor(orderItems)
 
-	vendorStripeAccountID := ""
-	if primaryVendor != "" {
-		// TODO: Call payment-service API to get vendor's Stripe account ID
-		// For now, use placeholder format until vendor registration is complete
-		vendorStripeAccountID = "acct_" + primaryVendor
-	}
-
+	// Payment-service will lookup VendorStripeAccountID from its database using VendorID
 	paymentReq := kafka.PaymentRequestEvent{
-		OrderID:               strconv.FormatUint(uint64(order.ID), 10),
-		UserID:                order.UserID,
-		Amount:                order.TotalPrice,
-		PaymentMethod:         order.PaymentMethod,
-		Currency:              "vnd",
-		Description:           "Payment for order #" + strconv.FormatUint(uint64(order.ID), 10),
-		VendorID:              primaryVendor,
-		VendorStripeAccountID: vendorStripeAccountID,
-		VendorAmount:          vendorAmount,
-		PlatformFee:           platformFee,
-		VendorBreakdown:       string(vendorBreakdownJSON),
+		OrderID:         order.OrderID,
+		UserID:          order.UserID,
+		Amount:          order.TotalPrice,
+		PaymentMethod:   order.PaymentMethod,
+		Currency:        "vnd",
+		Description:     "Payment for order #" + strconv.FormatUint(uint64(order.ID), 10),
+		VendorID:        primaryVendor,
+		VendorAmount:    vendorAmount,
+		PlatformFee:     platformFee,
+		VendorBreakdown: string(vendorBreakdownJSON),
 	}
 
 	return kafka.ProducePaymentRequestEvent(ctx, paymentReq)
 }
 
-func (s *OrderService) ReleasePaymentToVendor(ctx context.Context, orderID uint) error {
+func (s *OrderService) ReleasePaymentToVendor(ctx context.Context, orderID string) error {
 	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
 	if err != nil {
 		return err
 	}
 
-	// Only release if order is delivered and payment is held
-	if order.Status != "DELIVERED" || order.PaymentStatus != "HELD" {
-		logger.Logger.Warnf("Cannot release payment for order %d: status=%s, payment_status=%s",
+	// Accept SHIPPED (user confirmed) or DELIVERED as trigger
+	if order.Status != "DELIVERED" && order.Status != "SHIPPED" {
+		logger.Logger.Warnf("Cannot release payment for order %s: status=%s, payment_status=%s",
+			orderID, order.Status, order.PaymentStatus)
+		return nil
+	}
+
+	// Accept HELD (correct) or checkout_completed (legacy from old events)
+	if order.PaymentStatus != "HELD" && order.PaymentStatus != "checkout_completed" {
+		logger.Logger.Warnf("Cannot release payment for order %s: status=%s, payment_status=%s",
 			orderID, order.Status, order.PaymentStatus)
 		return nil
 	}
@@ -267,9 +364,9 @@ func (s *OrderService) ReleasePaymentToVendor(ctx context.Context, orderID uint)
 	vendorBreakdown := calculateVendorBreakdownWithFee(items, platformFeeRate)
 
 	// Capture the held payment in Stripe
-	if order.PaymentMethod == "stripe" && order.PaymentIntentID != nil {
+	if order.PaymentMethod == "STRIPE" && order.PaymentIntentID != nil {
 		captureEvent := kafka.PaymentCaptureEvent{
-			OrderID:   strconv.FormatUint(uint64(orderID), 10),
+			OrderID:   order.OrderID,
 			PaymentID: *order.PaymentIntentID,
 			Amount:    order.VendorAmount,
 			Timestamp: time.Now().Unix(),
@@ -297,7 +394,7 @@ func (s *OrderService) ReleasePaymentToVendor(ctx context.Context, orderID uint)
 	// Send payment release event for EACH vendor
 	for vendorID, amounts := range vendorBreakdown {
 		vendorPaymentEvent := kafka.VendorPaymentEvent{
-			OrderID:     strconv.FormatUint(uint64(orderID), 10),
+			OrderID:     order.OrderID,
 			VendorID:    vendorID,
 			Amount:      amounts["vendor_amount"], // Amount after platform fee
 			PlatformFee: amounts["platform_fee"],
@@ -315,7 +412,7 @@ func (s *OrderService) ReleasePaymentToVendor(ctx context.Context, orderID uint)
 }
 
 // Helper function to get vendors from order items
-func (s *OrderService) getVendorsFromOrder(orderID uint) ([]string, error) {
+func (s *OrderService) getVendorsFromOrder(orderID string) ([]string, error) {
 	order, err := s.orderRepo.GetOrderByID(context.Background(), orderID)
 	if err != nil {
 		return nil, err
@@ -342,7 +439,7 @@ func (s *OrderService) getVendorsFromOrder(orderID uint) ([]string, error) {
 }
 
 // Check if vendor owns any items in the order
-func (s *OrderService) isVendorInOrder(orderID uint, vendorID string) (bool, error) {
+func (s *OrderService) isVendorInOrder(orderID string, vendorID string) (bool, error) {
 	vendors, err := s.getVendorsFromOrder(orderID)
 	if err != nil {
 		return false, err
@@ -357,14 +454,14 @@ func (s *OrderService) isVendorInOrder(orderID uint, vendorID string) (bool, err
 	return false, nil
 }
 
-func (s *OrderService) CapturePayment(ctx context.Context, orderID uint, paymentID string) error {
+func (s *OrderService) CapturePayment(ctx context.Context, orderID string, paymentID string) error {
 	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
 	if err != nil {
 		return err
 	}
 
 	captureEvent := kafka.PaymentCaptureEvent{
-		OrderID:   strconv.FormatUint(uint64(orderID), 10),
+		OrderID:   orderID,
 		PaymentID: paymentID,
 		Amount:    order.TotalPrice,
 		Timestamp: time.Now().Unix(),
@@ -373,9 +470,9 @@ func (s *OrderService) CapturePayment(ctx context.Context, orderID uint, payment
 	return kafka.ProducePaymentCaptureEvent(ctx, captureEvent)
 }
 
-func (s *OrderService) CancelPayment(ctx context.Context, orderID uint, paymentID, reason string) error {
+func (s *OrderService) CancelPayment(ctx context.Context, orderID string, paymentID, reason string) error {
 	cancelEvent := kafka.PaymentCancelEvent{
-		OrderID:   strconv.FormatUint(uint64(orderID), 10),
+		OrderID:   orderID,
 		PaymentID: paymentID,
 		Reason:    reason,
 		Timestamp: time.Now().Unix(),
@@ -384,14 +481,10 @@ func (s *OrderService) CancelPayment(ctx context.Context, orderID uint, paymentI
 	return kafka.ProducePaymentCancelEvent(ctx, cancelEvent)
 }
 
-func (s *OrderService) CancelOrder(ctx context.Context, orderID uint, userID string, role string) error {
+func (s *OrderService) CancelOrder(ctx context.Context, orderID string, userID string) error {
 	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
 	if err != nil {
 		return NewServiceError("Failed to get order")
-	}
-
-	if role == "USER" && order.UserID != userID {
-		return NewServiceError("You are not authorized to cancel this order")
 	}
 
 	if order.Status == "CANCELED" {
@@ -408,11 +501,17 @@ func (s *OrderService) CancelOrder(ctx context.Context, orderID uint, userID str
 		}
 	}
 
-	if order.PaymentMethod == "stripe" && order.PaymentIntentID != nil {
-		if err := s.CancelPayment(ctx, order.ID, "", "Order canceled by user"); err != nil {
+	if order.PaymentMethod == "STRIPE" && order.PaymentIntentID != nil {
+		paymentID := *order.PaymentIntentID
+		log.Printf("🔄 Sending payment cancel event for order %s, payment %s", order.OrderID, paymentID)
+		if err := s.CancelPayment(ctx, order.OrderID, paymentID, "Order canceled by user"); err != nil {
 			logger.Err("Failed to send payment cancel event", err)
 			// Continue with order cancellation even if payment cancel fails
+		} else {
+			log.Printf("✅ Payment cancel event sent successfully for order %s", order.OrderID)
 		}
+	} else {
+		log.Printf("⚠️ Skip payment cancel: PaymentMethod=%s, HasPaymentIntent=%v", order.PaymentMethod, order.PaymentIntentID != nil)
 	}
 
 	err = s.orderRepo.UpdateOrderStatus(ctx, orderID, "CANCELED")
@@ -523,7 +622,7 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 	if req.PaymentMethod == "stripe" {
 		err = s.requestPayment(ctx, createdOrder, orderItems)
 		if err != nil {
-			s.orderRepo.UpdateOrderStatus(ctx, createdOrder.ID, "PAYMENT_FAILED")
+			s.orderRepo.UpdateOrderStatus(ctx, createdOrder.OrderID, "PAYMENT_FAILED")
 			return nil, NewServiceError("Failed to initiate payment")
 		}
 	} else if req.PaymentMethod == "COD" {
@@ -532,7 +631,7 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		}
 	}
 
-	return &newOrder, nil
+	return createdOrder, nil
 }
 
 // AdminGetOrders retrieves all orders with pagination
@@ -559,6 +658,10 @@ func (s *OrderService) AdminGetOrders(ctx context.Context, page, limit int) ([]m
 	return orders, total, pages, hasNext, hasPrev, nil
 }
 
+func (s *OrderService) GetOrdersByVendor(ctx context.Context, vendorID string, page, limit int, status string, month int, year int) ([]models.Order, int64, float64, error) {
+	return s.orderRepo.FindOrdersByVendorID(ctx, vendorID, page, limit, status, month, year)
+}
+
 // GetUserOrders retrieves orders for a specific user with pagination
 func (s *OrderService) GetUserOrders(ctx context.Context, userID string, page, limit int) ([]models.Order, int64, int, bool, bool, error) {
 	orders, total, err := s.orderRepo.FindOrdersByUserID(ctx, userID, page, limit)
@@ -581,18 +684,17 @@ func (s *OrderService) GetUserOrders(ctx context.Context, userID string, page, l
 	return orders, total, pages, hasNext, hasPrev, nil
 }
 
-func (s *OrderService) HandlePaymentSuccess(ctx context.Context, orderID uint, paymentIntentID string) error {
+func (s *OrderService) HandlePaymentSuccess(ctx context.Context, orderID string, paymentIntentID string) error {
 	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
 	if err != nil {
+		log.Printf("❌ Failed to get order %s: %v", orderID, err)
 		return err
 	}
 
-	// Calculate platform fee and vendor amount (example: 5% platform fee)
 	platformFeeRate := 0.05
 	platformFee := order.TotalPrice * platformFeeRate
 	vendorAmount := order.TotalPrice - platformFee
 
-	// Update order with payment info - HELD status, not released yet
 	updates := map[string]interface{}{
 		"payment_status":    "HELD",
 		"payment_intent_id": paymentIntentID,
@@ -603,19 +705,30 @@ func (s *OrderService) HandlePaymentSuccess(ctx context.Context, orderID uint, p
 	}
 
 	if err := s.orderRepo.UpdateOrderFields(ctx, orderID, updates); err != nil {
+		log.Printf("❌ Failed to update order: %v", err)
 		return err
 	}
 
-	// Reduce inventory (same as before)
-	if err := kafka.ProduceOrderSuccessEvent(ctx, *order); err != nil {
+	// 🔥 GET UPDATED ORDER - QUAN TRỌNG!
+	updatedOrder, err := s.orderRepo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		log.Printf("❌ Failed to get updated order: %v", err)
+		return err
+	}
+
+	log.Printf("📤 Sending order_success event for order %s", orderID)
+
+	if err := kafka.ProduceOrderSuccessEvent(ctx, *updatedOrder); err != nil {
+		log.Printf("❌ Failed to produce order_success event: %v", err)
 		logger.Err("Failed to produce order success event after payment", err)
 		return NewServiceError("Payment successful but failed to update inventory")
 	}
 
+	log.Printf("✅ Successfully sent order_success event for order %s", orderID)
 	return nil
 }
 
-func (s *OrderService) HandlePaymentFailure(ctx context.Context, orderID uint, reason string) error {
+func (s *OrderService) HandlePaymentFailure(ctx context.Context, orderID string, reason string) error {
 	if err := s.orderRepo.UpdatePaymentStatus(ctx, orderID, "FAILED"); err != nil {
 		return err
 	}
@@ -627,7 +740,7 @@ func (s *OrderService) HandlePaymentFailure(ctx context.Context, orderID uint, r
 	return nil
 }
 
-func (s *OrderService) ConfirmDelivery(ctx context.Context, orderID uint, userID string) error {
+func (s *OrderService) ConfirmDelivery(ctx context.Context, orderID string, userID string) error {
 	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
 	if err != nil {
 		return err
@@ -655,9 +768,8 @@ func (s *OrderService) ConfirmDelivery(ctx context.Context, orderID uint, userID
 		return err
 	}
 
-	// Trigger payment release after delivery confirmation (24h delay)
+	// Trigger payment release immediately after delivery confirmation
 	go func() {
-		time.Sleep(24 * time.Hour) // Auto-release after 24 hours
 		s.ReleasePaymentToVendor(context.Background(), orderID)
 	}()
 
@@ -665,7 +777,7 @@ func (s *OrderService) ConfirmDelivery(ctx context.Context, orderID uint, userID
 }
 
 // MarkAsShipped - Vendor marks order as shipped
-func (s *OrderService) MarkAsShipped(ctx context.Context, orderID uint, vendorID string) error {
+func (s *OrderService) MarkAsShipped(ctx context.Context, orderID string, vendorID string) error {
 	order, err := s.orderRepo.GetOrderByID(ctx, orderID)
 	if err != nil {
 		return err
@@ -719,7 +831,7 @@ func calculatePages(total int64, limit int64) int {
 	return pages
 }
 
-func (s *OrderService) GetOrderByID(ctx context.Context, orderID uint) (*models.Order, error) {
+func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*models.Order, error) {
 	return s.orderRepo.GetOrderByID(ctx, orderID)
 }
 
@@ -740,4 +852,69 @@ func NewServiceError(message string) *ServiceError {
 
 func (e *ServiceError) Error() string {
 	return e.message
+}
+
+// PaymentEvent represents the structure of payment events sent by payment-service
+type PaymentEvent struct {
+	OrderID         string  `json:"order_id"`
+	Amount          float64 `json:"amount"`
+	Status          string  `json:"status"`
+	PaymentIntentID string  `json:"payment_intent_id"`
+}
+
+func (s *OrderService) StartKafkaConsumer(brokers []string, topic string, groupID string) {
+	reader := kafkago.NewReader(kafkago.ReaderConfig{
+		Brokers: brokers,
+		Topic:   topic,
+		GroupID: groupID,
+	})
+
+	log.Printf("[OrderService] Kafka consumer started for topic: %s", topic)
+
+	go func() {
+		for {
+			msg, err := reader.ReadMessage(context.Background())
+			if err != nil {
+				log.Printf("[OrderService] Error reading message: %v", err)
+				continue
+			}
+
+			var event PaymentEvent
+			if err := json.Unmarshal(msg.Value, &event); err != nil {
+				log.Printf("[OrderService] Failed to unmarshal payment event: %v", err)
+				continue
+			}
+
+			log.Printf("[OrderService] Received payment event: %+v", event)
+
+			// Process the payment event (e.g., update order status)
+			s.processPaymentEvent(event)
+		}
+	}()
+}
+
+func (s *OrderService) processPaymentEvent(event PaymentEvent) {
+	log.Printf("[OrderService] Processing payment event for OrderID: %s, Status: %s", event.OrderID, event.Status)
+
+	ctx := context.Background()
+
+	switch event.Status {
+	case "checkout_completed":
+		log.Printf("✅ [OrderService] Payment successful, calling HandlePaymentSuccess for order: %s", event.OrderID)
+
+		if err := s.HandlePaymentSuccess(ctx, event.OrderID, event.PaymentIntentID); err != nil {
+			log.Printf("❌ [OrderService] Failed to handle payment success: %v", err)
+		} else {
+			log.Printf("✅ [OrderService] Successfully handled payment success for order: %s", event.OrderID)
+		}
+
+		// Don't override order status here - HandlePaymentSuccess already set it to PAYMENT_HELD
+		// and payment_status to HELD
+
+	case "checkout_failed":
+		log.Printf("❌ [OrderService] Payment failed for order: %s", event.OrderID)
+		if err := s.orderRepo.UpdateOrderStatus(ctx, event.OrderID, "PAYMENT_FAILED"); err != nil {
+			log.Printf("❌ [OrderService] Failed to update order status: %v", err)
+		}
+	}
 }

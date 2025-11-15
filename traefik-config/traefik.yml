@@ -1,0 +1,4 @@
+experimental:
+  localPlugins:
+    jwt-validator:
+      moduleName: "github.com/Dattt2k2/golang-project/jwt-validator"

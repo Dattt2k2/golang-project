@@ -168,18 +168,19 @@ const (
 type VendorPayout struct {
 	gorm.Model
 	VendorID     string  `json:"vendor_id" gorm:"not null;index"`
-	OrderID      string  `json:"order_id" gorm:"not null;index"`
+	OrderID      *string `json:"order_id" gorm:"index"`
 	Amount       float64 `json:"amount" gorm:"not null"`
 	Currency     string  `json:"currency" gorm:"not null"`
 	Status       string  `json:"status" gorm:"not null"`        // pending, processing, completed, failed
 	PayoutMethod string  `json:"payout_method" gorm:"not null"` // bank_transfer, stripe_connect
 
 	// Bank details (copied from vendor at payout time)
-	BankName          string `json:"bank_name"`
-	BankAccountName   string `json:"bank_account_name"`
-	BankAccountNumber string `json:"bank_account_number"`
-	BankRoutingNumber string `json:"bank_routing_number"`
-	SwiftCode         string `json:"swift_code"`
+	BankName          string  `json:"bank_name"`
+	BankAccountName   string  `json:"bank_account_name"`
+	BankAccountNumber string  `json:"bank_account_number"`
+	BankRoutingNumber string  `json:"bank_routing_number"`
+	SwiftCode         string  `json:"swift_code"`
+	StripePayoutID    *string `json:"stripe_payout_id" gorm:"index"`
 
 	// Processing info
 	TransactionReference *string    `json:"transaction_reference"`

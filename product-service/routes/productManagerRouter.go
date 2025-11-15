@@ -52,16 +52,16 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine, productSvc service.Product
 	// Delete product from databse
 	authorized.DELETE("/products/delete/:id", productController.DeleteProduct())
 	// Get all product from database
-	authorized.GET("/products/get", productController.GetAllProducts())
+	authorized.GET("/products/get/all", productController.GetAllProducts())
 
 	authorized.GET("/products/user", productController.GetProductByUserID())
 	// search product
 	// authorized.GET("/products/search", productController.GetProductByName())
-	authorized.GET("/products/:id", productController.GetProductByID())
+	authorized.GET("/products/get/:id", productController.GetProductByID())
 
-	authorized.GET("/best-selling", productController.GetBestSellingProducts())
+	authorized.GET("/products/get/best-selling", productController.GetBestSellingProducts())
 
-	authorized.GET("/products/category/:category", productController.GetProductByCategory())
+	authorized.GET("/products/get/category/:category", productController.GetProductByCategory())
 
 	// Static file server for images
 	incomingRoutes.StaticFS("/static-images", gin.Dir("product-service/uploads/images", true))

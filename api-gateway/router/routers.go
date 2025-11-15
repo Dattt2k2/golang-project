@@ -499,7 +499,7 @@ func SetupRouter(router *gin.Engine) {
 			})
 
 			userGroup.GET("/users", func(c *gin.Context) {
-				ForwardRequestToService(c, "http://user-service:8085/users", "GET", "application/json")
+				ForwardRequestToService(c, "http://user-service:8095/users", "GET", "application/json")
 			})
 
 			userGroup.PUT("/users/update", func(c *gin.Context) {

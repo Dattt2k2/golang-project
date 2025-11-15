@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"payment-service/database"
+	"payment-service/database/migration"
 	"payment-service/repository"
 	"payment-service/routes"
 
@@ -17,17 +18,21 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Auto-migrate tables - you may want to add this function to database package
-	// For now, we'll skip auto-migration
+	// Run database migrations
+	if err := migration.RunMigrations(db); err != nil {
+		log.Fatal("Failed to run migrations:", err)
+	}
 
 	// Initialize repositories
 	paymentRepo := repository.NewPaymentRepository(db)
 	vendorRepo := repository.NewVendorRepository(db)
 
 	// Get webhook secret from environment
-	webhookSecret := os.Getenv("WEBHOOK_SECRET")
+	webhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	if webhookSecret == "" {
 		log.Println("Warning: WEBHOOK_SECRET not set")
+	} else {
+		log.Printf("Webhook secret loaded: %s... (length: %d)", webhookSecret[:20], len(webhookSecret))
 	}
 
 	// Setup routes
@@ -41,7 +46,7 @@ func main() {
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8083"
+		port = "8088"
 	}
 
 	log.Printf("Payment service starting on port %s", port)

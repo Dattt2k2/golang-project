@@ -42,7 +42,7 @@ func (s *BankTransferService) CreateVendorPayout(ctx context.Context, req Vendor
 	// Create payout record
 	payout := &models.VendorPayout{
 		VendorID:          req.VendorID,
-		OrderID:           req.OrderID,
+		OrderID:           &req.OrderID,
 		Amount:            req.Amount,
 		Currency:          req.Currency,
 		Status:            "pending",

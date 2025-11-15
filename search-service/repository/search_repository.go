@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"search-service/database"
@@ -144,28 +145,83 @@ func (r *searchRepository) AdvancedSearch(query string, filters map[string]inter
 
 
 func (r *searchRepository) IndexProduct(product *models.Product) error {
-	// mapping := `{
-	// 	"mappings":{
-	// 		"properties":{
-	// 			"name": {"type": "text"},
-	// 			"description": {"type": "text"},
-	// 			"price": {"type": "float"},
-	// 			"category": {"type": "keyword"},
-	// 			"image_url": {"type": "keyword"} 
-	// 		}	
-	// 	}
-	// }`
+    indexName := os.Getenv("ELASTICSEARCH_INDEX")
+    if indexName == "" {
+        return fmt.Errorf("ELASTICSEARCH_INDEX is not set")
+    }
 
-	data, _ := json.Marshal(product)
+    // Kiểm tra xem index đã tồn tại chưa
+    res, err := database.ES.Indices.Exists([]string{indexName})
+    if err != nil {
+        return fmt.Errorf("failed to check if index exists: %w", err)
+    }
+    defer res.Body.Close()
 
+    if res.StatusCode == 404 {
+        mapping := map[string]interface{}{
+            "settings": map[string]interface{}{
+                "analysis": map[string]interface{}{
+                    "analyzer": map[string]interface{}{
+                        "custom_analyzer": map[string]interface{}{
+                            "type":      "custom",
+                            "tokenizer": "standard",
+                            "filter":    []string{"lowercase", "asciifolding"},
+                        },
+                    },
+                },
+            },
+            "mappings": map[string]interface{}{
+                "properties": map[string]interface{}{
+                    "name": map[string]interface{}{
+                        "type":     "text",
+                        "analyzer": "custom_analyzer",
+                    },
+                    "description": map[string]interface{}{
+                        "type":     "text",
+                        "analyzer": "custom_analyzer",
+                    },
+                    "category": map[string]interface{}{
+                        "type": "keyword",
+                    },
+                    "price": map[string]interface{}{
+                        "type": "float",
+                    },
+                    "created_at": map[string]interface{}{
+                        "type": "date",
+                    },
+                    "updated_at": map[string]interface{}{
+                        "type": "date",
+                    },
+                },
+            },
+        }
 
-	_, err := database.ES.Index(
-		os.Getenv("ELASTICSEARCH_INDEX"),
-		bytes.NewReader(data),
-		database.ES.Index.WithDocumentID(product.ID),
-	)
+        var buf bytes.Buffer
+        if err := json.NewEncoder(&buf).Encode(mapping); err != nil {
+            return fmt.Errorf("failed to encode index mapping: %w", err)
+        }
 
-	return err 
+        createRes, err := database.ES.Indices.Create(indexName, database.ES.Indices.Create.WithBody(&buf))
+        if err != nil {
+            return fmt.Errorf("failed to create index: %w", err)
+        }
+        defer createRes.Body.Close()
+
+        if createRes.IsError() {
+            return fmt.Errorf("failed to create index: %s", createRes.String())
+        }
+
+    }
+
+    // Tiếp tục index sản phẩm
+    data, _ := json.Marshal(product)
+    _, err = database.ES.Index(
+        indexName,
+        bytes.NewReader(data),
+        database.ES.Index.WithDocumentID(product.ID),
+    )
+
+    return err
 }
 
 

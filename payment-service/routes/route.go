@@ -21,7 +21,7 @@ func SetupRoutes(repo *repository.PaymentRepository, vendorRepo *repository.Vend
 	vendorHandler := handlers.NewVendorHandler(vendorService)
 
 	// API routes
-	api := r.Group("/api/v1")
+	api := r.Group("")
 	{
 		// Payment routes
 		api.POST("/payments", handler.ProcessPaymentHandler())
@@ -33,12 +33,13 @@ func SetupRoutes(repo *repository.PaymentRepository, vendorRepo *repository.Vend
 
 		// Vendor routes
 		api.POST("/vendors/register", vendorHandler.RegisterVendor())
-		api.GET("/vendors/:vendor_id", vendorHandler.GetVendor())
+		api.GET("/vendors", vendorHandler.GetVendor())
 		api.POST("/vendors/:vendor_id/onboarding", vendorHandler.CreateOnboardingLink())
 		api.GET("/vendors/:vendor_id/onboarding/status", vendorHandler.GetOnboardingStatus())
 		api.GET("/vendors/:vendor_id/payout-methods", vendorHandler.GetPayoutMethods())
 		api.PUT("/vendors/:vendor_id/bank-account", vendorHandler.UpdateBankAccount())
 		api.GET("/vendors/:vendor_id/bank-account", vendorHandler.GetBankAccount())
+		api.POST("/vendors/payout/order-complete", vendorHandler.ProcessOrderCompletionPayout())
 	}
 
 	// Public routes for Stripe redirects (no auth needed)
@@ -51,8 +52,9 @@ func SetupRoutes(repo *repository.PaymentRepository, vendorRepo *repository.Vend
 	// Webhook routes
 	webhook := r.Group("/webhook")
 	{
-		webhook.POST("/payment", handler.PaymentWebhook())
-		webhook.POST("/refund", handler.RefundWebhook())
+		webhook.POST("/payment", handler.InternalPaymentWebhook()) // Internal webhook (custom signature)
+		webhook.POST("/refund", handler.RefundWebhook())           // Internal webhook (custom signature)
+		webhook.POST("/stripe", handler.StripeWebhook())           // Official Stripe webhook (Stripe signature)
 		webhook.POST("/stripe/connect", vendorHandler.StripeConnectWebhook())
 	}
 

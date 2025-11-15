@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"product-service/models"
+
 	"github.com/segmentio/kafka-go"
 )
 
@@ -57,6 +58,8 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 				continue
 			}
 
+			log.Printf("📨 Received order_success event: OrderID=%s, Items=%d", event.OrderID, len(event.Items))
+
 			stockItems := make([]models.StockUpdateItem, len(event.Items))
 			for i, item := range event.Items {
 				stockItems[i] = models.StockUpdateItem{
@@ -64,18 +67,28 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 					Quantity:  item.Quantity,
 				}
 			}
+
+			// Decrease stock (trừ số lượng tồn kho)
 			for _, item := range stockItems {
-				if err := updater.UpdateProductStock(context.Background(), item.ProductID, -item.Quantity); err != nil {
-					log.Printf("Error updating product stock: %v", err)
+				log.Printf("⬇️ Decreasing stock for product %s by %d", item.ProductID, item.Quantity)
+				if err := updater.UpdateProductStock(context.Background(), item.ProductID, item.Quantity); err != nil {
+					log.Printf("❌ Error updating product stock: %v", err)
+				} else {
+					log.Printf("✅ Stock decreased for product %s", item.ProductID)
 				}
 			}
 
+			// Increase sold count (cộng số lượng đã bán)
 			for _, item := range stockItems {
+				log.Printf("⬆️ Increasing sold count for product %s by %d", item.ProductID, item.Quantity)
 				if err := updater.IncrementSoldCount(context.Background(), item.ProductID, item.Quantity); err != nil {
-					log.Printf("Error incrementing sold count: %v", err)
+					log.Printf("❌ Error incrementing sold count: %v", err)
+				} else {
+					log.Printf("✅ Sold count increased for product %s", item.ProductID)
 				}
 			}
 
+			log.Printf("✅ Finished processing order_success: OrderID=%s", event.OrderID)
 		}
 	}()
 

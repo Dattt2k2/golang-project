@@ -62,7 +62,7 @@ func InitConfig() *Config {
 
 	// Server config from environment variables
 	config.Server.Host = getEnv("SERVER_HOST", "0.0.0.0")
-	config.Server.Port = getEnv("SERVER_PORT", "8085")
+	config.Server.Port = getEnv("SERVER_PORT", "8095")
 
 	log.Println("Configuration loaded from environment variables")
 	return config

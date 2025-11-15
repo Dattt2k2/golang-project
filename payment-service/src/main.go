@@ -6,8 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"payment-service/database/migration"
 	"payment-service/repository"
 	"payment-service/routes"
+
 	// "payment-service/src/config"
 	"payment-service/src/service"
 
@@ -57,6 +59,12 @@ func main() {
 		log.Fatalf("Failed to connect to PostgreSQL database: %v", err)
 	}
 
+	// Run database migrations for all models
+	log.Println("Running database migrations...")
+	if err := migration.RunMigrations(db); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
 	// Initialize repository
 	paymentRepo := repository.NewPaymentRepository(db)
 	if err := paymentRepo.Migrate(); err != nil {
@@ -75,11 +83,17 @@ func main() {
 	// perform it using the repository package or gorm AutoMigrate directly.
 	// For now, assume vendor tables are managed elsewhere or add a Migrate method to repository.VendorRepository.
 
-	// Get webhook secret
-	webhookSecret := os.Getenv("WEBHOOK_SECRET")
+	// Get webhook secret from environment (Stripe webhook secret)
+	webhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	if webhookSecret == "" {
-		webhookSecret = "default-secret"
+		log.Println("Warning: STRIPE_WEBHOOK_SECRET not set, using fallback")
+		webhookSecret = os.Getenv("WEBHOOK_SECRET")
+		if webhookSecret == "" {
+			webhookSecret = "default-secret"
+			log.Println("Warning: Using default webhook secret - NOT FOR PRODUCTION!")
+		}
 	}
+	log.Printf("Webhook secret loaded: %s... (length: %d)", webhookSecret[:min(20, len(webhookSecret))], len(webhookSecret))
 
 	paymentService := service.NewPaymentService(paymentRepo, webhookSecret)
 
@@ -95,8 +109,8 @@ func main() {
 
 	// Start payment consumer to handle payment requests from order-service
 	if len(kafkaBrokers) > 0 && kafkaBrokers[0] != "" {
-		paymentConsumer := service.NewPaymentConsumer(paymentService, orderServiceURL)
-		
+		paymentConsumer := service.NewPaymentConsumer(paymentService, vendorRepo, orderServiceURL)
+
 		// Start consumer in goroutine
 		go paymentConsumer.StartConsumer(kafkaBrokers)
 		log.Println("Payment consumer started for payment_requests topic")
@@ -113,11 +127,18 @@ func main() {
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8088"
 	}
 
 	log.Printf("Server starting on port %s with PostgreSQL", port)
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

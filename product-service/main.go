@@ -112,21 +112,6 @@ func main() {
 		port = "8082"
 	}
 
-	uploadDir := "./uploads/images"
-	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
-		log.Fatalf("Failed to create upload directory: %v", err)
-	}
-
-	files, err := os.ReadDir(uploadDir)
-	if err != nil {
-		log.Printf("Error reading upload directory: %v", err)
-	} else {
-		log.Printf("Files in upload directory:")
-		for _, file := range files {
-			log.Printf("- %s", file.Name())
-		}
-	}
-
 	// Kafka setup - sử dụng productSvc chung
 	kafkaHost := os.Getenv("KAFKA_URL")
 	brokers := []string{kafkaHost}
@@ -136,6 +121,9 @@ func main() {
 	kafka.InitProductEventProducer(brokers)
 	go kafka.ConsumeOrderSuccess(brokers, productSvc)
 	go kafka.ConsumerOrderReturned(brokers, productSvc)
+
+	// Send initial product events for search-service indexing
+	go sendInitialProductEvents(productSvc)
 
 	// Initialize AWS Session v1 for Rating Update Handler
 	sess, err := session.NewSession(&aws.Config{
@@ -182,6 +170,7 @@ func main() {
 	// Pass productSvc to routes
 	routes.ProductManagerRoutes(router, productSvc)
 	routes.UploadRoutes(router)
+	routes.ProductUploadRoutes(router)
 
 	// Graceful shutdown
 	go func() {
@@ -195,4 +184,27 @@ func main() {
 
 	log.Println("Shutting down product service...")
 	log.Println("Product service stopped")
+}
+
+func sendInitialProductEvents(svc service.ProductService) {
+	log.Println("🔄 Starting to send initial product events to search-service...")
+
+	products, err := svc.GetAllProductForIndex(context.Background())
+	if err != nil {
+		log.Printf("❌ Error fetching products for initial indexing: %v", err)
+		return
+	}
+
+	log.Printf("📦 Found %d products to index", len(products))
+
+	for _, product := range products {
+		err := kafka.ProduceProductEvent(context.Background(), "INITIAL_SYNC", &product, product.ID)
+		if err != nil {
+			log.Printf("❌ Error sending product event for product ID %s: %v", product.ID, err)
+		} else {
+			log.Printf("✅ Sent product event for product ID: %s", product.ID)
+		}
+	}
+
+	log.Println("✅ Finished sending initial product events to search-service")
 }
