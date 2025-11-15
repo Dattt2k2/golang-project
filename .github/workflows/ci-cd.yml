@@ -20,7 +20,7 @@ jobs:
 
       - name: Set Tag
         id: set-tag
-        run: echo "::set-output name=tag::${GITHUB_SHA::7}"
+        run: echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v3
@@ -53,12 +53,36 @@ jobs:
       - name: Set Service
         run: echo "Deploying ${{ matrix.service }}"
 
-      - name: Deploy to host (SSH)
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets[ format('HOST_{0}', matrix.service | upper | replace('-', '_') ) ] }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            chmod +x /opt/microservices/remote-deploy.sh
-            /opt/microservices/remote-deploy.sh "${{ matrix.service }}" "${{ secrets.AWS_ACCOUNT_ID }}" "${{ secrets.AWS_REGION }}" "${{ needs.build-and-push.outputs.image-tag }}"
+      - name: Deploy to host via SSH
+        env:
+          SERVICE_NAME: ${{ matrix.service }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+        run: |
+          # Convert service name to uppercase + replace '-' with '_'
+          HOST_SECRET_NAME=$(echo "$SERVICE_NAME" | tr '[:lower:]-' '[:upper:]_')
+          
+          # Access the corresponding secret dynamically
+          case "$HOST_SECRET_NAME" in
+            API_GATEWAY) HOST=${{ secrets.HOST_API_GATEWAY }} ;;
+            AUTH_SERVICE) HOST=${{ secrets.HOST_AUTH_SERVICE }} ;;
+            USER_SERVICE) HOST=${{ secrets.HOST_USER_SERVICE }} ;;
+            PRODUCT_SERVICE) HOST=${{ secrets.HOST_PRODUCT_SERVICE }} ;;
+            CART_SERVICE) HOST=${{ secrets.HOST_CART_SERVICE }} ;;
+            ORDER_SERVICE) HOST=${{ secrets.HOST_ORDER_SERVICE }} ;;
+            PAYMENT_SERVICE) HOST=${{ secrets.HOST_PAYMENT_SERVICE }} ;;
+            SEARCH_SERVICE) HOST=${{ secrets.HOST_SEARCH_SERVICE }} ;;
+            REVIEW_SERVICE) HOST=${{ secrets.HOST_REVIEW_SERVICE }} ;;
+            EMAIL_SERVICE) HOST=${{ secrets.HOST_EMAIL_SERVICE }} ;;
+            *) echo "Unknown service: $SERVICE_NAME"; exit 1 ;;
+          esac
+
+          echo "Deploying $SERVICE_NAME to host $HOST"
+
+          # SSH deploy
+          chmod +x /opt/microservices/remote-deploy.sh
+          ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@$HOST" \
+            "/opt/microservices/remote-deploy.sh '$SERVICE_NAME' '$AWS_ACCOUNT_ID' '$AWS_REGION' '$IMAGE_TAG'"
