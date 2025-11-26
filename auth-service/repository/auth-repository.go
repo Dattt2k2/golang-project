@@ -18,6 +18,7 @@ type UserRepository interface {
     GetUserType(ctx context.Context, userID string) (string, error)
     UpdateVerificationStatus(ctx context.Context, email string, isVerified bool) error
     UpdateRole(ctx context.Context, userID, newRole string) error
+	DeleteUser(ctx context.Context, userID string) error
 }
 
 type userRepositoryImpl struct {
@@ -32,7 +33,7 @@ func NewUserRepository() UserRepository {
 
 func (r *userRepositoryImpl) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User 
-	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("email = ? AND is_verify = true", email).First(&user).Error; err != nil {
 		return nil, err
 	}
 
@@ -87,4 +88,8 @@ func (r *userRepositoryImpl) UpdateRole(ctx context.Context, userID, newRole str
 	return r.db.WithContext(ctx).Model(&models.User{}).
         Where("id = ?", userID).
         Update("user_type", newRole).Error
+}
+
+func (r *userRepositoryImpl) DeleteUser(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).Where("id = ?", userID).Delete(&models.User{}).Error
 }

@@ -101,10 +101,16 @@ services:
       - traefik-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.user-service.rule=Host(`api.example.com`) && PathPrefix(`/me`)"
+      - "traefik.http.routers.user-me.rule=Host(`api.example.com`) && PathPrefix(`/me`)"
+      - "traefik.http.routers.user-me.entrypoints=web"
+      - "traefik.http.routers.user-me.middlewares=jwt-validation@file"
+      - "traefik.http.routers.user-me.service=user-service"
+      - "traefik.http.routers.user-admin.rule=Host(`api.example.com`) && PathPrefix(`/admin`)"
+      - "traefik.http.routers.user-admin.entrypoints=web"
+      - "traefik.http.routers.user-admin.middlewares=jwt-validation@file"
+      - "traefik.http.routers.user-admin.service=user-service"
       - "traefik.http.services.user-service.loadbalancer.server.port=8095"
-      - "traefik.http.routers.user-service.entrypoints=web"
-      - "traefik.http.routers.user-service.middlewares=jwt-validation@file"
+
     logging:
       driver: "json-file"
       options:

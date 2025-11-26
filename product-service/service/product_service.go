@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"product-service/helper"
@@ -29,6 +30,10 @@ type ProductService interface {
 	GetAllProductForIndex(ctx context.Context) ([]models.Product, error)
 	GetProductByUserID(ctx context.Context, userID string, page, limit int64) ([]models.Product, int64, int, bool, bool, error)
 	GetProductByCategory(ctx context.Context, category string, page, limit int64) ([]models.Product, int64, int, bool, bool, error)
+	GetProductStatistics(ctx context.Context) (map[string]interface{}, error)
+	AddProductCategory(ctx context.Context, category models.Category) error
+	GetProductCategory(ctx context.Context) ([]models.Category, error)
+	DeleteProductCategory(ctx context.Context, categoryID string) error
 }
 
 type productServiceImpl struct {
@@ -375,4 +380,71 @@ func (s *productServiceImpl) GetProductByCategory(ctx context.Context, category 
 	hasPrev := page > 1
 	
 	return products, total, pages, hasNext, hasPrev, nil
+}
+
+func (s *productServiceImpl) GetProductStatistics(ctx context.Context) (map[string]interface{}, error) {
+
+	top, err := s.repo.GetBestSellingProduct(ctx, 5)
+	if err != nil {
+		return nil, err
+	}
+
+	stats, err := s.repo.GetProductStatistics(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	totalProd := stats["current_total_products"]
+	prevTotalProd := stats["previous_total_products"]
+
+	var growth float64 
+	if prevTotalProd == 0 {
+		if totalProd == 0 {
+			growth = 0
+		} else {
+			growth = 100.0
+		}
+	} else {
+		growth = (float64(totalProd)-float64(prevTotalProd))/float64(prevTotalProd) * 100
+        growth = math.Round(growth*100) / 100
+	}
+
+	 topSold := make([]map[string]interface{}, 0, len(top))
+    for _, p := range top {
+        if p.ID == "" {
+            continue
+        }
+        topSold = append(topSold, map[string]interface{}{
+            "product_id":   p.ID,
+            "name":         p.Name,
+            "sold_count":   p.SoldCount,
+            "price":        p.Price,
+        })
+    }
+
+    // Add debug log so you can inspect values
+    log.Printf("product-stats: total=%d prev=%d growth=%.2f topCount=%d", totalProd, prevTotalProd, growth, len(topSold))
+
+    resp := map[string]interface{}{
+        "top_selling_products":    topSold,
+        "total_products":           totalProd,
+        "previous_total_products":  prevTotalProd,
+        "growth_percentage":        growth,
+    }
+
+    return resp, nil
+}
+
+func (s *productServiceImpl) AddProductCategory(ctx context.Context, category models.Category) error {
+	category.ID = uuid.New().String()
+	category.CreatedAt = time.Now()
+	return s.repo.AddProductCategory(ctx, category.Name)
+}
+
+func (s *productServiceImpl) GetProductCategory(ctx context.Context) ([]models.Category, error) {
+	return s.repo.GetProductCategory(ctx)
+}
+
+func (s *productServiceImpl) DeleteProductCategory(ctx context.Context, categoryID string) error {
+	return s.repo.DeleteProductCategory(ctx, categoryID)
 }

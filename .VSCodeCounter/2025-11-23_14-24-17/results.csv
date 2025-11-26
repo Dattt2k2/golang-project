@@ -1,0 +1,255 @@
+"filename", "language", "Markdown", "YAML", "Go Checksum File", "Docker", "Go Module File", "Go", "Shell Script", "Makefile", "MS SQL", "Ignore", "HTML", "Properties", "PowerShell", "comment", "blank", "total"
+"/home/datttne/golang-project/.dockerignore", "Ignore", 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 17, 14, 72
+"/home/datttne/golang-project/.github/workflows/ci-cd.yml", "YAML", 0, 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 65
+"/home/datttne/golang-project/.github/workflows/generator-generic-ossf-slsa3-publish.yml", "YAML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 6, 38
+"/home/datttne/golang-project/.github/workflows/go.yml", "YAML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 88, 24, 112
+"/home/datttne/golang-project/AWS-S3-SETUP.md", "Markdown", 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27, 127
+"/home/datttne/golang-project/CI-CD.md", "Markdown", 59, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 75
+"/home/datttne/golang-project/DEPLOYMENT.md", "Markdown", 209, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 59, 268
+"/home/datttne/golang-project/DOCKER-SETUP.md", "Markdown", 111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 137
+"/home/datttne/golang-project/README.md", "Markdown", 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 13
+"/home/datttne/golang-project/api-gateway/config/config.go", "Go", 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 9, 69
+"/home/datttne/golang-project/api-gateway/dockerfile", "Docker", 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 8, 19
+"/home/datttne/golang-project/api-gateway/go.mod", "Go Module File", 0, 0, 0, 0, 46, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 51
+"/home/datttne/golang-project/api-gateway/go.sum", "Go Checksum File", 0, 0, 124, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 125
+"/home/datttne/golang-project/api-gateway/helpers/tokenHelpers.go", "Go", 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 97, 49, 306
+"/home/datttne/golang-project/api-gateway/logger/logger.go", "Go", 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 0, 0, 0, 14, 57
+"/home/datttne/golang-project/api-gateway/main.go", "Go", 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 11, 11, 50
+"/home/datttne/golang-project/api-gateway/middleware/middleware.go", "Go", 0, 0, 0, 0, 0, 214, 0, 0, 0, 0, 0, 0, 0, 30, 46, 290
+"/home/datttne/golang-project/api-gateway/models/user_models.go", "Go", 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 4, 21
+"/home/datttne/golang-project/api-gateway/redisdb/redis.go", "Go", 0, 0, 0, 0, 0, 22, 0, 0, 0, 0, 0, 0, 0, 0, 9, 31
+"/home/datttne/golang-project/api-gateway/router/routers.go", "Go", 0, 0, 0, 0, 0, 501, 0, 0, 0, 0, 0, 0, 0, 46, 94, 641
+"/home/datttne/golang-project/auth-service/controller/authController.go", "Go", 0, 0, 0, 0, 0, 326, 0, 0, 0, 0, 0, 0, 0, 8, 73, 407
+"/home/datttne/golang-project/auth-service/controller/otpController.go", "Go", 0, 0, 0, 0, 0, 122, 0, 0, 0, 0, 0, 0, 0, 1, 22, 145
+"/home/datttne/golang-project/auth-service/database/migration/001_create_users_table.down.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1
+"/home/datttne/golang-project/auth-service/database/migration/001_create_users_table.up.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 10
+"/home/datttne/golang-project/auth-service/database/migration/002_create_valid_refresh_token.down.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 2
+"/home/datttne/golang-project/auth-service/database/migration/002_create_valid_refresh_token.up.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 6
+"/home/datttne/golang-project/auth-service/database/postgres.go", "Go", 0, 0, 0, 0, 0, 42, 0, 0, 0, 0, 0, 0, 0, 27, 17, 86
+"/home/datttne/golang-project/auth-service/database/redis.go", "Go", 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 8, 40
+"/home/datttne/golang-project/auth-service/dockerfile", "Docker", 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 8, 19
+"/home/datttne/golang-project/auth-service/gRPC/service/user_service.pb.go", "Go", 0, 0, 0, 0, 0, 166, 0, 0, 0, 0, 0, 0, 0, 9, 28, 203
+"/home/datttne/golang-project/auth-service/gRPC/service/user_service_grpc.pb.go", "Go", 0, 0, 0, 0, 0, 77, 0, 0, 0, 0, 0, 0, 0, 29, 16, 122
+"/home/datttne/golang-project/auth-service/go.mod", "Go Module File", 0, 0, 0, 0, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 74
+"/home/datttne/golang-project/auth-service/go.sum", "Go Checksum File", 0, 0, 216, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 217
+"/home/datttne/golang-project/auth-service/helpers/AuthHelper.go", "Go", 0, 0, 0, 0, 0, 86, 0, 0, 0, 0, 0, 0, 0, 21, 25, 132
+"/home/datttne/golang-project/auth-service/helpers/bloomFilter.go", "Go", 0, 0, 0, 0, 0, 129, 0, 0, 0, 0, 0, 0, 0, 1, 51, 181
+"/home/datttne/golang-project/auth-service/helpers/otp.go", "Go", 0, 0, 0, 0, 0, 56, 0, 0, 0, 0, 0, 0, 0, 1, 9, 66
+"/home/datttne/golang-project/auth-service/helpers/redisHelper.go", "Go", 0, 0, 0, 0, 0, 145, 0, 0, 0, 0, 0, 0, 0, 0, 61, 206
+"/home/datttne/golang-project/auth-service/helpers/tokenHelper.go", "Go", 0, 0, 0, 0, 0, 134, 0, 0, 0, 0, 0, 0, 0, 43, 35, 212
+"/home/datttne/golang-project/auth-service/kafka/producer.go", "Go", 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 0, 1, 7, 41
+"/home/datttne/golang-project/auth-service/logger/logger.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 14, 61
+"/home/datttne/golang-project/auth-service/main.go", "Go", 0, 0, 0, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 9, 21, 82
+"/home/datttne/golang-project/auth-service/middleware/authMiddleware.go", "Go", 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 3, 31
+"/home/datttne/golang-project/auth-service/models/usersModel.go", "Go", 0, 0, 0, 0, 0, 55, 0, 0, 0, 0, 0, 0, 0, 29, 12, 96
+"/home/datttne/golang-project/auth-service/repository/auth-repository.go", "Go", 0, 0, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0, 0, 16, 90
+"/home/datttne/golang-project/auth-service/routes/AuthRouter.go", "Go", 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 7, 27
+"/home/datttne/golang-project/auth-service/routes/UserRouter.go", "Go", 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 0, 4, 7, 38
+"/home/datttne/golang-project/auth-service/service/auth-service.go", "Go", 0, 0, 0, 0, 0, 274, 0, 0, 0, 0, 0, 0, 0, 22, 58, 354
+"/home/datttne/golang-project/auth-service/tests/setup_test.go", "Go", 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 2, 5, 22
+"/home/datttne/golang-project/auth-service/websocket/websocket.go", "Go", 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 18, 89
+"/home/datttne/golang-project/auth/googleOAuth.go", "Go", 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 23, 90
+"/home/datttne/golang-project/backup.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 13, 18, 91
+"/home/datttne/golang-project/cart-service/controller/cartController.go", "Go", 0, 0, 0, 0, 0, 166, 0, 0, 0, 0, 0, 0, 0, 397, 107, 670
+"/home/datttne/golang-project/cart-service/controller/server.go", "Go", 0, 0, 0, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 62, 32, 139
+"/home/datttne/golang-project/cart-service/dockerfile", "Docker", 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 16
+"/home/datttne/golang-project/cart-service/gRPC/service/cart_service.pb.go", "Go", 0, 0, 0, 0, 0, 216, 0, 0, 0, 0, 0, 0, 0, 10, 34, 260
+"/home/datttne/golang-project/cart-service/gRPC/service/cart_service_grpc.pb.go", "Go", 0, 0, 0, 0, 0, 77, 0, 0, 0, 0, 0, 0, 0, 29, 16, 122
+"/home/datttne/golang-project/cart-service/go.mod", "Go Module File", 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 77
+"/home/datttne/golang-project/cart-service/go.sum", "Go Checksum File", 0, 0, 215, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 216
+"/home/datttne/golang-project/cart-service/kafka/consumer.go", "Go", 0, 0, 0, 0, 0, 55, 0, 0, 0, 0, 0, 0, 0, 1, 12, 68
+"/home/datttne/golang-project/cart-service/log/logger.go", "Go", 0, 0, 0, 0, 0, 44, 0, 0, 0, 0, 0, 0, 0, 0, 14, 58
+"/home/datttne/golang-project/cart-service/main.go", "Go", 0, 0, 0, 0, 0, 111, 0, 0, 0, 0, 0, 0, 0, 16, 29, 156
+"/home/datttne/golang-project/cart-service/models/cartModel.go", "Go", 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 20, 8, 48
+"/home/datttne/golang-project/cart-service/repository/cart_repository.go", "Go", 0, 0, 0, 0, 0, 180, 0, 0, 0, 0, 0, 0, 0, 10, 42, 232
+"/home/datttne/golang-project/cart-service/routes/cartRouter.go", "Go", 0, 0, 0, 0, 0, 21, 0, 0, 0, 0, 0, 0, 0, 10, 7, 38
+"/home/datttne/golang-project/cart-service/service/cart-service.go", "Go", 0, 0, 0, 0, 0, 129, 0, 0, 0, 0, 0, 0, 0, 0, 37, 166
+"/home/datttne/golang-project/create-topic.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 3, 3, 16
+"/home/datttne/golang-project/deploy.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 119, 0, 0, 0, 0, 0, 0, 26, 31, 176
+"/home/datttne/golang-project/docker-compose.dev.yaml", "YAML", 0, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 265, 44, 609
+"/home/datttne/golang-project/docker-compose.prod.yaml", "YAML", 0, 325, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 18, 358
+"/home/datttne/golang-project/docker-compose.yaml", "YAML", 0, 459, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 29, 550
+"/home/datttne/golang-project/email-service/go.mod", "Go Module File", 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 20
+"/home/datttne/golang-project/email-service/go.sum", "Go Checksum File", 0, 0, 77, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 78
+"/home/datttne/golang-project/email-service/logger/loggger.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 15, 62
+"/home/datttne/golang-project/email-service/main.go", "Go", 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 4, 21
+"/home/datttne/golang-project/email-service/service/email_service.go", "Go", 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 10, 70
+"/home/datttne/golang-project/email-service/service/kafka_consumer.go", "Go", 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 0, 9, 45
+"/home/datttne/golang-project/email-service/template/otp_send.html", "HTML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 57, 0, 0, 0, 1, 58
+"/home/datttne/golang-project/filebeat.yml", "YAML", 0, 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 27
+"/home/datttne/golang-project/jwt-validator/.traefik.yml", "YAML", 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 8
+"/home/datttne/golang-project/jwt-validator/go.mod", "Go Module File", 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 6
+"/home/datttne/golang-project/jwt-validator/go.sum", "Go Checksum File", 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3
+"/home/datttne/golang-project/jwt-validator/main.go", "Go", 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 0, 1, 15, 82
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/MIGRATION_GUIDE.md", "Markdown", 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 196
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/README.md", "Markdown", 125, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 43, 168
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/SECURITY.md", "Markdown", 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 20
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/VERSION_HISTORY.md", "Markdown", 97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 138
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/claims.go", "Go", 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 6, 2, 17
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/doc.go", "Go", 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 3, 1, 5
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/ecdsa.go", "Go", 0, 0, 0, 0, 0, 92, 0, 0, 0, 0, 0, 0, 0, 20, 23, 135
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/ecdsa_utils.go", "Go", 0, 0, 0, 0, 0, 51, 0, 0, 0, 0, 0, 0, 0, 6, 13, 70
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/ed25519.go", "Go", 0, 0, 0, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 11, 17, 80
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/ed25519_utils.go", "Go", 0, 0, 0, 0, 0, 46, 0, 0, 0, 0, 0, 0, 0, 6, 13, 65
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/errors.go", "Go", 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0, 0, 0, 20, 11, 90
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/hmac.go", "Go", 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0, 0, 0, 30, 16, 105
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/map_claims.go", "Go", 0, 0, 0, 0, 0, 75, 0, 0, 0, 0, 0, 0, 0, 16, 19, 110
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/none.go", "Go", 0, 0, 0, 0, 0, 31, 0, 0, 0, 0, 0, 0, 0, 8, 12, 51
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/parser.go", "Go", 0, 0, 0, 0, 0, 170, 0, 0, 0, 0, 0, 0, 0, 61, 38, 269
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/parser_option.go", "Go", 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 61, 16, 146
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/registered_claims.go", "Go", 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 22, 14, 64
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/rsa.go", "Go", 0, 0, 0, 0, 0, 62, 0, 0, 0, 0, 0, 0, 0, 15, 17, 94
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/rsa_pss.go", "Go", 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0, 0, 16, 16, 133
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/rsa_utils.go", "Go", 0, 0, 0, 0, 0, 77, 0, 0, 0, 0, 0, 0, 0, 11, 20, 108
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/signing_method.go", "Go", 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 8, 10, 50
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/staticcheck.conf", "Properties", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 2
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/token.go", "Go", 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0, 0, 0, 27, 15, 101
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/token_option.go", "Go", 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 2, 6
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/types.go", "Go", 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0, 0, 0, 45, 25, 150
+"/home/datttne/golang-project/jwt-validator/vendor/github.com/golang-jwt/jwt/v5/validator.go", "Go", 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 121, 46, 327
+"/home/datttne/golang-project/module/gRPC-Order/go.mod", "Go Module File", 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 18
+"/home/datttne/golang-project/module/gRPC-Order/go.sum", "Go Checksum File", 0, 0, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 35
+"/home/datttne/golang-project/module/gRPC-Order/service/order_service.pb.go", "Go", 0, 0, 0, 0, 0, 373, 0, 0, 0, 0, 0, 0, 0, 13, 60, 446
+"/home/datttne/golang-project/module/gRPC-Order/service/order_service_grpc.pb.go", "Go", 0, 0, 0, 0, 0, 149, 0, 0, 0, 0, 0, 0, 0, 29, 20, 198
+"/home/datttne/golang-project/module/gRPC-Product/go.mod", "Go Module File", 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 17
+"/home/datttne/golang-project/module/gRPC-Product/go.sum", "Go Checksum File", 0, 0, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 35
+"/home/datttne/golang-project/module/gRPC-Product/service/product_service.pb.go", "Go", 0, 0, 0, 0, 0, 726, 0, 0, 0, 0, 0, 0, 0, 20, 116, 862
+"/home/datttne/golang-project/module/gRPC-Product/service/product_service_grpc.pb.go", "Go", 0, 0, 0, 0, 0, 221, 0, 0, 0, 0, 0, 0, 0, 33, 24, 278
+"/home/datttne/golang-project/module/gRPC-cart/go.mod", "Go Module File", 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 1, 6, 20
+"/home/datttne/golang-project/module/gRPC-cart/go.sum", "Go Checksum File", 0, 0, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 35
+"/home/datttne/golang-project/module/gRPC-cart/service/cart_service.pb.go", "Go", 0, 0, 0, 0, 0, 214, 0, 0, 0, 0, 0, 0, 0, 10, 35, 259
+"/home/datttne/golang-project/module/gRPC-cart/service/cart_service_grpc.pb.go", "Go", 0, 0, 0, 0, 0, 77, 0, 0, 0, 0, 0, 0, 0, 29, 16, 122
+"/home/datttne/golang-project/order-service/GRPC-PERFORMANCE-FIX.md", "Markdown", 115, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 31, 146
+"/home/datttne/golang-project/order-service/controller/order_controller.go", "Go", 0, 0, 0, 0, 0, 499, 0, 0, 0, 0, 0, 0, 0, 23, 103, 625
+"/home/datttne/golang-project/order-service/database/migration/001_create_orders_table.down.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1
+"/home/datttne/golang-project/order-service/database/migration/001_create_orders_table.up.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 15
+"/home/datttne/golang-project/order-service/database/postgres.go", "Go", 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 0, 2, 10, 51
+"/home/datttne/golang-project/order-service/dockerfile", "Docker", 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 16, 49
+"/home/datttne/golang-project/order-service/go.mod", "Go Module File", 0, 0, 0, 0, 63, 0, 0, 0, 0, 0, 0, 0, 0, 1, 8, 72
+"/home/datttne/golang-project/order-service/go.sum", "Go Checksum File", 0, 0, 217, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 218
+"/home/datttne/golang-project/order-service/kafka/orderProducer.go", "Go", 0, 0, 0, 0, 0, 107, 0, 0, 0, 0, 0, 0, 0, 4, 26, 137
+"/home/datttne/golang-project/order-service/kafka/paymentProducer.go", "Go", 0, 0, 0, 0, 0, 173, 0, 0, 0, 0, 0, 0, 0, 4, 39, 216
+"/home/datttne/golang-project/order-service/kafka/payment_consumer.go", "Go", 0, 0, 0, 0, 0, 81, 0, 0, 0, 0, 0, 0, 0, 12, 22, 115
+"/home/datttne/golang-project/order-service/log/loggger.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 15, 62
+"/home/datttne/golang-project/order-service/main.go", "Go", 0, 0, 0, 0, 0, 88, 0, 0, 0, 0, 0, 0, 0, 100, 42, 230
+"/home/datttne/golang-project/order-service/models/oderModel.go", "Go", 0, 0, 0, 0, 0, 31, 0, 0, 0, 0, 0, 0, 0, 23, 8, 62
+"/home/datttne/golang-project/order-service/repositories/order_repository.go", "Go", 0, 0, 0, 0, 0, 210, 0, 0, 0, 0, 0, 0, 0, 15, 46, 271
+"/home/datttne/golang-project/order-service/routes/order_route.go", "Go", 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 1, 11, 44
+"/home/datttne/golang-project/order-service/service/grpcConnection.go", "Go", 0, 0, 0, 0, 0, 119, 0, 0, 0, 0, 0, 0, 0, 11, 28, 158
+"/home/datttne/golang-project/order-service/service/grpc_interceptor.go", "Go", 0, 0, 0, 0, 0, 103, 0, 0, 0, 0, 0, 0, 0, 9, 20, 132
+"/home/datttne/golang-project/order-service/service/grpc_service.go", "Go", 0, 0, 0, 0, 0, 57, 0, 0, 0, 0, 0, 0, 0, 3, 12, 72
+"/home/datttne/golang-project/order-service/service/health_check.go", "Go", 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 4, 14, 54
+"/home/datttne/golang-project/order-service/service/order_service.go", "Go", 0, 0, 0, 0, 0, 708, 0, 0, 0, 0, 0, 0, 0, 53, 160, 921
+"/home/datttne/golang-project/payment-service/README.md", "Markdown", 200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 52, 252
+"/home/datttne/golang-project/payment-service/database/migration/migration.go", "Go", 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 2, 7, 33
+"/home/datttne/golang-project/payment-service/database/postgres.go", "Go", 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 2, 16
+"/home/datttne/golang-project/payment-service/go.mod", "Go Module File", 0, 0, 0, 0, 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 63
+"/home/datttne/golang-project/payment-service/go.sum", "Go Checksum File", 0, 0, 304, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 305
+"/home/datttne/golang-project/payment-service/main.go", "Go", 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 0, 0, 7, 11, 57
+"/home/datttne/golang-project/payment-service/models/payment_model.go", "Go", 0, 0, 0, 0, 0, 155, 0, 0, 0, 0, 0, 0, 0, 20, 32, 207
+"/home/datttne/golang-project/payment-service/models/vendor_balance.go", "Go", 0, 0, 0, 0, 0, 62, 0, 0, 0, 0, 0, 0, 0, 6, 9, 77
+"/home/datttne/golang-project/payment-service/repository/paymentRepository.go", "Go", 0, 0, 0, 0, 0, 195, 0, 0, 0, 0, 0, 0, 0, 10, 31, 236
+"/home/datttne/golang-project/payment-service/repository/vendorRepository.go", "Go", 0, 0, 0, 0, 0, 91, 0, 0, 0, 0, 0, 0, 0, 13, 18, 122
+"/home/datttne/golang-project/payment-service/routes/route.go", "Go", 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 0, 0, 8, 12, 63
+"/home/datttne/golang-project/payment-service/src/config/config.go", "Go", 0, 0, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 3, 21
+"/home/datttne/golang-project/payment-service/src/handlers/paymentHandler.go", "Go", 0, 0, 0, 0, 0, 158, 0, 0, 0, 0, 0, 0, 0, 11, 35, 204
+"/home/datttne/golang-project/payment-service/src/handlers/vendorHandler.go", "Go", 0, 0, 0, 0, 0, 253, 0, 0, 0, 0, 0, 0, 0, 21, 47, 321
+"/home/datttne/golang-project/payment-service/src/main.go", "Go", 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 22, 23, 145
+"/home/datttne/golang-project/payment-service/src/service/bankTransferService.go", "Go", 0, 0, 0, 0, 0, 130, 0, 0, 0, 0, 0, 0, 0, 10, 22, 162
+"/home/datttne/golang-project/payment-service/src/service/grpcConnection.go", "Go", 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 1, 3, 19
+"/home/datttne/golang-project/payment-service/src/service/kafkaConsumer.go", "Go", 0, 0, 0, 0, 0, 378, 0, 0, 0, 0, 0, 0, 0, 34, 83, 495
+"/home/datttne/golang-project/payment-service/src/service/kafkaProducer.go", "Go", 0, 0, 0, 0, 0, 144, 0, 0, 0, 0, 0, 0, 0, 6, 25, 175
+"/home/datttne/golang-project/payment-service/src/service/paymentGateway.go", "Go", 0, 0, 0, 0, 0, 574, 0, 0, 0, 0, 0, 0, 0, 55, 102, 731
+"/home/datttne/golang-project/payment-service/src/service/refundService.go", "Go", 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0, 0, 11, 52
+"/home/datttne/golang-project/payment-service/src/service/vendorService.go", "Go", 0, 0, 0, 0, 0, 360, 0, 0, 0, 0, 0, 0, 0, 35, 61, 456
+"/home/datttne/golang-project/payment-service/src/utils/logger.go", "Go", 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 0, 0, 0, 0, 8, 35
+"/home/datttne/golang-project/product-service/config/s3_config.go", "Go", 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 0, 6, 42
+"/home/datttne/golang-project/product-service/controller/productController.go", "Go", 0, 0, 0, 0, 0, 317, 0, 0, 0, 0, 0, 0, 0, 73, 67, 457
+"/home/datttne/golang-project/product-service/controller/server.go", "Go", 0, 0, 0, 0, 0, 107, 0, 0, 0, 0, 0, 0, 0, 64, 43, 214
+"/home/datttne/golang-project/product-service/controller/uploadController.go", "Go", 0, 0, 0, 0, 0, 125, 0, 0, 0, 0, 0, 0, 0, 9, 24, 158
+"/home/datttne/golang-project/product-service/database/redis.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 6, 11, 64
+"/home/datttne/golang-project/product-service/dockerfile", "Docker", 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23, 18, 57
+"/home/datttne/golang-project/product-service/go.mod", "Go Module File", 0, 0, 0, 0, 82, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9, 93
+"/home/datttne/golang-project/product-service/go.sum", "Go Checksum File", 0, 0, 236, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 237
+"/home/datttne/golang-project/product-service/handler/rating_update_handler.go", "Go", 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 1, 12, 82
+"/home/datttne/golang-project/product-service/helper/cached.go", "Go", 0, 0, 0, 0, 0, 145, 0, 0, 0, 0, 0, 0, 0, 12, 34, 191
+"/home/datttne/golang-project/product-service/kafka/consumer.go", "Go", 0, 0, 0, 0, 0, 119, 0, 0, 0, 0, 0, 0, 0, 2, 22, 143
+"/home/datttne/golang-project/product-service/kafka/producer.go", "Go", 0, 0, 0, 0, 0, 57, 0, 0, 0, 0, 0, 0, 0, 0, 20, 77
+"/home/datttne/golang-project/product-service/kafka/rating_consumer.go", "Go", 0, 0, 0, 0, 0, 68, 0, 0, 0, 0, 0, 0, 0, 0, 15, 83
+"/home/datttne/golang-project/product-service/log/logger.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 14, 61
+"/home/datttne/golang-project/product-service/main.go", "Go", 0, 0, 0, 0, 0, 157, 0, 0, 0, 0, 0, 0, 0, 13, 41, 211
+"/home/datttne/golang-project/product-service/models/productModel.go", "Go", 0, 0, 0, 0, 0, 82, 0, 0, 0, 0, 0, 0, 0, 100, 25, 207
+"/home/datttne/golang-project/product-service/repository/product-repository.go", "Go", 0, 0, 0, 0, 0, 424, 0, 0, 0, 0, 0, 0, 0, 46, 75, 545
+"/home/datttne/golang-project/product-service/routes/productManagerRouter.go", "Go", 0, 0, 0, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 9, 15, 69
+"/home/datttne/golang-project/product-service/routes/productUploadRoutes.go", "Go", 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 11, 6, 30
+"/home/datttne/golang-project/product-service/routes/uploadRoutes.go", "Go", 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 2, 5, 20
+"/home/datttne/golang-project/product-service/s3/s3Client.go", "Go", 0, 0, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 4, 22
+"/home/datttne/golang-project/product-service/service/product_service.go", "Go", 0, 0, 0, 0, 0, 320, 0, 0, 0, 0, 0, 0, 0, 13, 45, 378
+"/home/datttne/golang-project/product-service/service/s3_service.go", "Go", 0, 0, 0, 0, 0, 191, 0, 0, 0, 0, 0, 0, 0, 19, 50, 260
+"/home/datttne/golang-project/product-service/test/test.go", "Go", 0, 0, 0, 0, 0, 225, 0, 0, 0, 0, 0, 0, 0, 43, 52, 320
+"/home/datttne/golang-project/restore.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 107, 0, 0, 0, 0, 0, 0, 12, 18, 137
+"/home/datttne/golang-project/review-service/README.md", "Markdown", 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 73
+"/home/datttne/golang-project/review-service/cmd/server/main.go", "Go", 0, 0, 0, 0, 0, 81, 0, 0, 0, 0, 0, 0, 0, 6, 23, 110
+"/home/datttne/golang-project/review-service/config/config.go", "Go", 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 9, 69
+"/home/datttne/golang-project/review-service/config/s3Config.go", "Go", 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 0, 6, 42
+"/home/datttne/golang-project/review-service/go.mod", "Go Module File", 0, 0, 0, 0, 65, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 72
+"/home/datttne/golang-project/review-service/go.sum", "Go Checksum File", 0, 0, 167, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 168
+"/home/datttne/golang-project/review-service/internal/cron/pending_review_aggregator.go", "Go", 0, 0, 0, 0, 0, 156, 0, 0, 0, 0, 0, 0, 0, 10, 34, 200
+"/home/datttne/golang-project/review-service/internal/cron/scheduler.go", "Go", 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 0, 4, 10, 47
+"/home/datttne/golang-project/review-service/internal/handlers/review_handler.go", "Go", 0, 0, 0, 0, 0, 99, 0, 0, 0, 0, 0, 0, 0, 1, 19, 119
+"/home/datttne/golang-project/review-service/internal/kafka/producer.go", "Go", 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 0, 17, 89
+"/home/datttne/golang-project/review-service/internal/models/review.go", "Go", 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 4, 21
+"/home/datttne/golang-project/review-service/internal/models/review_aggregate.go", "Go", 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 4, 24
+"/home/datttne/golang-project/review-service/internal/repository/review_repository.go", "Go", 0, 0, 0, 0, 0, 154, 0, 0, 0, 0, 0, 0, 0, 1, 28, 183
+"/home/datttne/golang-project/review-service/internal/routes/routes.go", "Go", 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 1, 6, 27
+"/home/datttne/golang-project/review-service/internal/services/review_services.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 10, 57
+"/home/datttne/golang-project/review-service/log/logger.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 14, 61
+"/home/datttne/golang-project/scripts/push-ecr-images.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 10, 16, 86
+"/home/datttne/golang-project/scripts/remote-deploy.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 10, 11, 57
+"/home/datttne/golang-project/search-service/controller/search_controller.go", "Go", 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 8, 68
+"/home/datttne/golang-project/search-service/database/elasticsearch.go", "Go", 0, 0, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 9, 27
+"/home/datttne/golang-project/search-service/dockerfile", "Docker", 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 13
+"/home/datttne/golang-project/search-service/go.mod", "Go Module File", 0, 0, 0, 0, 54, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9, 65
+"/home/datttne/golang-project/search-service/go.sum", "Go Checksum File", 0, 0, 183, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 184
+"/home/datttne/golang-project/search-service/kafka/consumer.go", "Go", 0, 0, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0, 3, 14, 91
+"/home/datttne/golang-project/search-service/log/logger.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 14, 61
+"/home/datttne/golang-project/search-service/main.go", "Go", 0, 0, 0, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0, 20, 72
+"/home/datttne/golang-project/search-service/models/product.go", "Go", 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 1, 10
+"/home/datttne/golang-project/search-service/repository/search_repository.go", "Go", 0, 0, 0, 0, 0, 194, 0, 0, 0, 0, 0, 0, 0, 2, 41, 237
+"/home/datttne/golang-project/search-service/routes/search_router.go", "Go", 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 2, 11
+"/home/datttne/golang-project/search-service/service/search_service.go", "Go", 0, 0, 0, 0, 0, 65, 0, 0, 0, 0, 0, 0, 0, 0, 14, 79
+"/home/datttne/golang-project/start-dev.ps1", "PowerShell", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 3, 4, 27
+"/home/datttne/golang-project/start-prod.ps1", "PowerShell", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 3, 4, 27
+"/home/datttne/golang-project/stop-all.ps1", "PowerShell", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 4, 5, 17
+"/home/datttne/golang-project/terraform/MULTI-INSTANCE-DEPLOYMENT.md", "Markdown", 323, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 86, 409
+"/home/datttne/golang-project/terraform/README.md", "Markdown", 323, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 132, 455
+"/home/datttne/golang-project/terraform/infrastructure_user_data.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 17, 19, 136
+"/home/datttne/golang-project/terraform/service_user_data.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 97, 0, 0, 0, 0, 0, 0, 17, 27, 141
+"/home/datttne/golang-project/terraform/shared_infrastructure_user_data.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 149, 0, 0, 0, 0, 0, 0, 14, 24, 187
+"/home/datttne/golang-project/terraform/traefik_user_data.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 0, 0, 0, 12, 34, 194
+"/home/datttne/golang-project/terraform/user_data.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 0, 0, 0, 22, 36, 166
+"/home/datttne/golang-project/traefik-config/dynamic.yml", "YAML", 0, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 38
+"/home/datttne/golang-project/traefik-config/traefik.yml", "YAML", 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4
+"/home/datttne/golang-project/user-service/Makefile", "Makefile", 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 1, 6, 19
+"/home/datttne/golang-project/user-service/README.md", "Markdown", 81, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 101
+"/home/datttne/golang-project/user-service/cmd/server/main.go", "Go", 0, 0, 0, 0, 0, 53, 0, 0, 0, 0, 0, 0, 0, 5, 14, 72
+"/home/datttne/golang-project/user-service/configs/config.yaml", "YAML", 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 34
+"/home/datttne/golang-project/user-service/go.mod", "Go Module File", 0, 0, 0, 0, 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 61
+"/home/datttne/golang-project/user-service/go.sum", "Go Checksum File", 0, 0, 117, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 118
+"/home/datttne/golang-project/user-service/internal/config/config.go", "Go", 0, 0, 0, 0, 0, 55, 0, 0, 0, 0, 0, 0, 0, 4, 11, 70
+"/home/datttne/golang-project/user-service/internal/events/consumer.go", "Go", 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 4, 9, 77
+"/home/datttne/golang-project/user-service/internal/events/kafka_publisher.go", "Go", 0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 1, 10, 49
+"/home/datttne/golang-project/user-service/internal/events/publisher.go", "Go", 0, 0, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 2, 6, 26
+"/home/datttne/golang-project/user-service/internal/handlers/users.go", "Go", 0, 0, 0, 0, 0, 135, 0, 0, 0, 0, 0, 0, 0, 0, 25, 160
+"/home/datttne/golang-project/user-service/internal/models/users_model.go", "Go", 0, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 5, 35
+"/home/datttne/golang-project/user-service/internal/repository/users_repo.go", "Go", 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 26, 154
+"/home/datttne/golang-project/user-service/internal/routes/routes.go", "Go", 0, 0, 0, 0, 0, 21, 0, 0, 0, 0, 0, 0, 0, 0, 5, 26
+"/home/datttne/golang-project/user-service/internal/services/users_service.go", "Go", 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0, 0, 0, 1, 14, 74
+"/home/datttne/golang-project/user-service/log/logger.go", "Go", 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 14, 61
+"/home/datttne/golang-project/user-service/migrations/0001_create_users_table.down.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3
+"/home/datttne/golang-project/user-service/migrations/0001_create_users_table.up.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 27, 0, 0, 0, 0, 3, 4, 34
+"/home/datttne/golang-project/user-service/migrations/0002_add_default_address_id_column.down.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2
+"/home/datttne/golang-project/user-service/migrations/0002_add_default_address_id_column.up.sql", "MS SQL", 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2
+"/home/datttne/golang-project/user-service/scripts/migrate.sh", "Shell Script", 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 3, 3, 9
+"/home/datttne/golang-project/validate-env.ps1", "PowerShell", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 2, 10, 56
+"Total", "-", 1979, 1234, 1960, 58, 616, 17282, 997, 12, 68, 41, 57, 1, 92, 3304, 5110, 32811

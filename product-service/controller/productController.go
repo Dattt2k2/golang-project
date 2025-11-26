@@ -389,6 +389,7 @@ func (ctrl *ProductController) GetProductByCategory() gin.HandlerFunc {
 
 		products, total, pages, hasNext, hasPrev, err := ctrl.service.GetProductByCategory(ctx, category, page, limit)
 		if err != nil {
+			logger.Error("failed to get product by category", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -403,6 +404,102 @@ func (ctrl *ProductController) GetProductByCategory() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, response)
+	}
+}
+
+func (ctrl *ProductController) AddProductCategory() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		userType := c.GetHeader("X-User-Type")
+		if userType != "ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			return
+		}
+
+		var req struct {
+			Name string `json:"name" binding:"required,min=2,max=100"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
+			return
+		}
+
+		category := models.Category{
+			Name:      req.Name,
+			CreatedAt: time.Now(),
+		}
+		err := ctrl.service.AddProductCategory(ctx, category)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"message": "Category added successfully"})
+	}
+}
+
+func (ctrl *ProductController) GetProductCategory() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		categories, err := ctrl.service.GetProductCategory(ctx)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": categories})
+	}
+}
+
+func (ctrl *ProductController) DeleteProductCategory() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		userType := c.GetHeader("X-User-Type")
+		if userType != "ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			return
+		}
+
+		categoryID := c.Param("id")
+		if categoryID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Category ID not found"})
+			return
+		}
+
+		err := ctrl.service.DeleteProductCategory(ctx, categoryID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Category deleted successfully"})
+	}
+}
+
+func (ctrl *ProductController) GetProductStatistics() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		userType := c.GetHeader("X-User-Type")
+		if userType != "ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			return
+		}
+
+		stats, err := ctrl.service.GetProductStatistics(ctx)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": stats})
 	}
 }
 

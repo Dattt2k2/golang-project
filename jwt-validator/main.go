@@ -19,6 +19,7 @@ func CreateConfig() *Config {
 	return &Config{
 		Secret:    os.Getenv("JWT_SECRET"),
 		HeaderName: "X-User-ID",
+
 	}
 }
 
@@ -75,6 +76,14 @@ func (p *JWTValidator) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
         http.Error(rw, "Missing user_id in token", http.StatusUnauthorized)
         return
     }
+    userType, ok := claims["user_type"].(string)
+    if !ok {
+        http.Error(rw, "Missing user_type in token", http.StatusUnauthorized)
+        return
+    }
+
+    // Thêm userID và userType vào header của request
+    req.Header.Set("X-User-Type", userType)
 
     req.Header.Set(p.headerName, userID)
 

@@ -14,6 +14,7 @@ type User struct {
 	LastName  *string   `gorm:"type:varchar(100)" json:"last_name"`
 	UserType  *string   `gorm:"type:varchar(50);default:'USER'" json:"user_type" validate:"required,eq=ADMIN|eq=USER|eq=SELLER"`
 	DefaultAddressID *uuid.UUID `gorm:"type:uuid" json:"default_address_id"`
+	IsDisabled bool      `gorm:"default:false" json:"is_disabled"`
 	Phone     *string   `gorm:"type:varchar(15)" json:"phone"`
 	Address   []UserAddress `gorm:"foreignKey:UserID" json:"address"`
 	CreatedAt time.Time `json:"created_at"`
@@ -31,4 +32,13 @@ type UserAddress struct {
 	City      string         `gorm:"type:varchar(100)" json:"city"`
 	State     string         `gorm:"type:varchar(100)" json:"state"`
 	IsDefault bool           `gorm:"default:false" json:"is_default"`
+}
+
+type PaginatedUsers struct {
+	Users   []User `json:"users"`
+    Total   int64  `json:"total"`
+    Limit   int    `json:"limit"`
+    Offset  int    `json:"offset"`
+    HasPrev bool   `json:"hasPrev"`
+    HasNext bool   `json:"hasNext"`
 }

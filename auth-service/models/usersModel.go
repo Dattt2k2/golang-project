@@ -31,6 +31,7 @@ type User struct {
 	Password *string `gorm:"not null" json:"password" validate:"required,min=6"`
 	Phone *string `gorm:"type:varchar(15)" json:"phone"`
 	IsVerify bool `gorm:"default:false" json:"is_verify"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type SignUpCredentials struct {
@@ -76,6 +77,10 @@ type VerifyOTPRequest struct {
 }
 
 type ResendOTPRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ForgotPasswordRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 

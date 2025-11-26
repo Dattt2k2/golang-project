@@ -404,3 +404,25 @@ func (ctrl *AuthController) UpdateUserRole() gin.HandlerFunc {
 		c.JSON(200, gin.H{"message": "User role updated successfully"})
 	}
 }
+
+func (ctrl *AuthController) ForgotPassword() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		var req models.ForgotPasswordRequest
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		err := ctrl.authService.ForgotPassword(ctx, req.Email)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process forgot password"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Forgot password request processed successfully"})
+	}
+}

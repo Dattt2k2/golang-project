@@ -29,9 +29,10 @@ func CartRoutes(router *gin.Engine, cartController *controller.CartController) {
 	routes := router.Group("/cart")
 	{
 		routes.POST("/add/:id", cartController.AddToCart())
-		routes.GET("/user/get", cartController.GetCart())
-		routes.GET("/get", cartController.GetCartSeller())
+		// routes.GET("/user/get", cartController.GetCart())
+		routes.GET("/get", cartController.GetCart())
 		routes.DELETE("/delete/:id", cartController.DeleteProductFromCart())
 		routes.DELETE("/clear", cartController.ClearCart())
+		routes.PUT("/:id", cartController.UpdateCartItem())  
 	}
 }

@@ -22,6 +22,7 @@ type CartService interface {
     DeleteProductFromCart(ctx context.Context, userID string, productID string) error
     ClearCart(ctx context.Context, userID string) error
     GetAllCarts(ctx context.Context, page, limit int) ([]models.Cart, int, int, bool, bool, error)
+	UpdateCartItem(ctx context.Context, userID string, productID string, quantity int) error
 }
 
 type cartServiceImpl struct {
@@ -50,17 +51,17 @@ func (s *cartServiceImpl) AddToCart(ctx context.Context, userID string, productI
 	defer cancel()
 
 	if _, err := uuid.Parse(userID); err != nil {
-		return errors.New("Invalid User ID format")
+		return errors.New("invalid User ID format")
 	}
 	if _, err := uuid.Parse(productID); err != nil {
-		return errors.New("Invalid Product ID format")
+		return errors.New("invalid Product ID format")
 	}
 
 
 	productReq := &pb.ProductRequest{
 		Id: productID,
 	}
-	basicInfo, err := s.productClient.GetBasicInfo(ctx, productReq)
+	basicInfo, err := s.productClient.GetProductInfo(ctx, productReq)
 	if err != nil {
 		log.Printf("Failed to get product info: %v", err)
 		return errors.New("failed to get product info")
@@ -86,6 +87,7 @@ func (s *cartServiceImpl) AddToCart(ctx context.Context, userID string, productI
 		Name: basicInfo.Name,
 		Price: float64(basicInfo.Price),
 		Quantity: quantity,
+		ImageUrl: basicInfo.ImageUrl,
 	}
 
 	return s.repo.AddItem(ctx, userID, cartItem)
@@ -163,4 +165,16 @@ func (s *cartServiceImpl) GetAllCarts(ctx context.Context, page, limit int) ([]m
 	}
 
 	return carts, int(total), pages, hasNext, hasPrevious, nil
+}
+
+func (s *cartServiceImpl) UpdateCartItem(ctx context.Context, userID string, productID string, quantity int) error {
+	if _, err := uuid.Parse(userID); err != nil {
+		return errors.New("invalid User ID format")
+	}
+
+	if _, err := uuid.Parse(productID); err != nil {
+		return errors.New("invalid Product ID format")
+	}
+
+	return s.repo.UpdateCartItem(ctx, userID, productID, quantity)
 }

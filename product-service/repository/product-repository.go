@@ -30,6 +30,10 @@ type ProductRepository interface {
 	GetBestSellingProduct(ctx context.Context, limit int) ([]models.Product, error)
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetProductByCategory(ctx context.Context, category string, skip, limit int64) ([]models.Product, int64, error)
+	GetProductStatistics(ctx context.Context) (map[string]int64, error)
+	AddProductCategory(ctx context.Context, category string) error
+	GetProductCategory(ctx context.Context) ([]models.Category, error)
+	DeleteProductCategory(ctx context.Context, categoryID string) error
 }
 
 type ProductRepositoryImpl struct {
@@ -77,6 +81,51 @@ func (r *ProductRepositoryImpl) Insert(ctx context.Context, product models.Produ
 	})
 	return err
 }
+
+func (r *ProductRepositoryImpl) AddProductCategory(ctx context.Context, category string) error {
+	now := time.Now()
+	categoryItem := map[string]types.AttributeValue{
+		"id":         &types.AttributeValueMemberS{Value: uuid.New().String()},
+		"name":       &types.AttributeValueMemberS{Value: category},
+		"created_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
+	}
+
+	_, err := r.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String("Category"),
+		Item: categoryItem,
+	})
+	return err
+}
+
+func (r *ProductRepositoryImpl) GetProductCategory(ctx context.Context) ([]models.Category, error) {
+	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String("Category"),
+	})
+	if err != nil {
+		return nil, err 
+	}
+	var categories []models.Category
+	for _, item := range result.Items {
+		var category models.Category
+		err = attributevalue.UnmarshalMap(item, &category)
+		if err != nil {
+			return nil, err
+		}
+		categories = append(categories, category)
+	}
+	return categories, nil
+}
+
+func (r *ProductRepositoryImpl) DeleteProductCategory(ctx context.Context, categoryID string) error {
+	_, err := r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String("Category"),
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: categoryID},
+		},
+	})
+	return err
+}
+
 func (r *ProductRepositoryImpl) Update(ctx context.Context, id string, update map[string]interface{}) error {
 	if update == nil {
 		update = map[string]interface{}{}
@@ -492,6 +541,52 @@ func (r *ProductRepositoryImpl) GetProductByCategory(ctx context.Context, catego
 	}
 
 	return products, total, nil
+}
+
+func (r *ProductRepositoryImpl) GetProductStatistics(ctx context.Context) (map[string]int64, error) {
+	countResult, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(r.tableName),
+		Select:    types.SelectCount,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	totalProducts := int64(countResult.Count)
+
+	now := time.Now()
+	month := int(now.Month())
+	year := now.Year()
+	start := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	prevMonth := month - 1
+	prevYear := year
+	if prevMonth <= 0 {
+		prevMonth = 12
+		prevYear -= 1
+	}
+
+	filterExpr := "#created_at <= :start"
+	prevProd, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(r.tableName),
+		Select: types.SelectCount,
+		FilterExpression: aws.String(filterExpr),
+		ExpressionAttributeNames: map[string]string{
+			"#created_at": "created_at",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{":start": &types.AttributeValueMemberS{Value: start.Format(time.RFC3339)}},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	prevTotalProducts := int64(prevProd.Count)
+
+	stats := map[string]int64{
+		"current_total_products": totalProducts,
+		"previous_total_products": prevTotalProducts,
+	}
+
+	return stats, nil
 }
 
 func decodeProduct(item map[string]types.AttributeValue) (models.Product, error) {

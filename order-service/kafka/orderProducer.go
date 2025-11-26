@@ -31,6 +31,13 @@ type OrderSuccessEvent struct {
 	TotalPrice float64         `json:"total_price"`
 }
 
+type OrderReturnedEvent struct {
+	OrderID    string          `json:"order_id"`
+	UserID     string          `json:"user_id"`
+	Items      []OrderItemInfo `json:"items"`
+	TotalPrice float64         `json:"total_price"`
+}
+
 type OrderItemInfo struct {
 	ProductID string  `json:"product_id"`
 	Quantity  int     `json:"quantity"`
@@ -39,13 +46,15 @@ type OrderItemInfo struct {
 
 func InitOrderSuccessProducer(brokers []string) {
 	orderSuccessWriter = &kafka.Writer{
-		Addr:     kafka.TCP(brokers...),
-		Topic:    OrderSuccessTopic,
-		Balancer: &kafka.LeastBytes{},
+		Addr:         kafka.TCP(brokers...),
+		Topic:        OrderSuccessTopic,
+		Balancer:     &kafka.LeastBytes{},
+		RequiredAcks: kafka.RequireOne,
 	}
 }
 
 func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
+	logger.Info("Start decresing product")
 	if orderSuccessWriter == nil {
 		return fmt.Errorf("Order success producer not initialized")
 	}
@@ -109,8 +118,8 @@ func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 		return err
 	}
 
-	orderEvent := OrderSuccessEvent{
-		OrderID:    strconv.FormatUint(uint64(order.ID), 10),
+	orderEvent := OrderReturnedEvent{
+		OrderID:    order.OrderID,
 		UserID:     order.UserID,
 		TotalPrice: order.TotalPrice,
 		Items:      items,
@@ -118,9 +127,11 @@ func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 
 	messagePayLoad, err := json.Marshal(orderEvent)
 	if err != nil {
-		logger.Err("Error marshalling order event", err)
+		logger.Err("Error marshalling order returned event", err)
 		return err
 	}
+
+	logger.Info(fmt.Sprintf("📨 Sending Kafka message to topic %s for order return: %s", OrderReturnedTopic, string(messagePayLoad)))
 
 	message := kafka.Message{
 		Key:   []byte(strconv.FormatUint(uint64(order.ID), 10)),
@@ -128,9 +139,10 @@ func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 	}
 
 	if err := orderReturnedWriter.WriteMessages(ctx, message); err != nil {
-		logger.Err("Failed to write message", err)
+		logger.Err("Failed to write returned message", err)
 		return err
 	}
 
+	logger.Info(fmt.Sprintf("✅ Successfully produced order_returned event for OrderID=%s", order.OrderID))
 	return nil
 }

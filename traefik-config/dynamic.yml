@@ -5,6 +5,9 @@ http:
         jwt-validator:
           secret: "{{ env `JWT_SECRET` }}"   
           headerName: "X-User-ID"
+          claims:
+            - claim: "user_type"
+              header: "X-User-Type"
 
 
     cors-headers:
@@ -25,6 +28,7 @@ http:
           - "Accept"
           - "X-Requested-With"
           - "X-User-ID"
+          - "X-User-Type"
           - "X-Nextjs-Data"
           - "x-nextjs-data"
         accessControlAllowCredentials: true

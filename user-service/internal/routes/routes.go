@@ -22,4 +22,11 @@ func Register(r *gin.Engine, h *handlers.UserHandler) {
 			addresses.DELETE("/:address_id", h.DeleteAddress)
 		}
 	}
+	admin := r.Group("/admin")
+	{
+		admin.GET("/users", h.ListUsers)
+		admin.GET("/users/:user_id", h.GetUserByID)
+		admin.PATCH("/users/:user_id/status", h.UpdateUserStatus)
+		admin.DELETE("/users/:user_id", h.AdminDeleteUser)
+	}
 }

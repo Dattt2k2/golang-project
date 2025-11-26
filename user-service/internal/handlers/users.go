@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"user-service/internal/models"
 	"user-service/internal/services"
 
@@ -157,4 +158,100 @@ func (h *UserHandler) DeleteAddress(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, "Address deleted successfully")
+}
+
+func (h *UserHandler) ListUsers(c *gin.Context) {
+	userType := c.GetHeader("X-User-Type")
+    if userType == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "User type is nil"})
+        return
+    }
+
+    page, err := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
+    if err != nil || page < 1 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page"})
+        return
+    }
+
+    limit, err := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
+    if err != nil || limit < 1 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid limit"})
+        return
+    }
+
+	status := c.Query("status")
+
+    offset := (page - 1) * limit  // Tính offset từ page
+
+    users, err := h.UserService.ListUsersService(int(limit), int(offset), userType, status)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, users)
+}
+
+func (h *UserHandler) GetUserByID(c *gin.Context) {
+	userType := c.GetHeader("X-User-Type")
+	if userType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User type is nil"})
+		return
+	}
+	userIDStr := c.Param("user_id")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	user, err := h.UserService.GetUserByIDService(userID, userType)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}	
+
+func (h *UserHandler) UpdateUserStatus(c *gin.Context) {
+	userType := c.GetHeader("X-User-Type")
+	if userType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User type is nil"})
+		return
+	}
+	userIDStr := c.Param("user_id")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	if err := h.UserService.UpdateUserStatusService(userID, userType); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, "User status updated successfully")
+}
+
+func (h *UserHandler) AdminDeleteUser(c *gin.Context) {
+	adminType := c.GetHeader("X-User-Type")
+	if adminType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Admin type is nil"})
+		return
+	}
+	userIDStr := c.Param("user_id")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	if err := h.UserService.AdminDeleteUserService(userID, adminType); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, "User deleted successfully by admin")
 }

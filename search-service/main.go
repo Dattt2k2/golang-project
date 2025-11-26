@@ -40,7 +40,8 @@ func main() {
 	
 
 	repo := repository.NewSearchRepository()
-	svc := service.NewSearchService(repo)
+	s3Service := service.NewS3Service() 
+	svc := service.NewSearchService(repo, s3Service)
 	ctrl := controller.NewSearchController(svc)
 
 	router := gin.Default()

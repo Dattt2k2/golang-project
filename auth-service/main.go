@@ -2,15 +2,19 @@ package main
 
 import (
 	// "context"
+	"context"
 	"os"
 	"time"
 
 	// "auth-service/database"
 	"auth-service/database"
 	"auth-service/helpers"
+	"auth-service/kafka"
 	"auth-service/logger"
 	"auth-service/models"
+	"auth-service/repository"
 	"auth-service/routes"
+	"auth-service/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -32,7 +36,7 @@ func initBloomFilter(db *gorm.DB) {
 
 			if err := userBloomFilter.Init(db); err != nil {
 				logger.Error("Error updating bloom filter", logger.ErrField(err))
-			} 
+			}
 		}
 	}()
 }
@@ -61,8 +65,21 @@ func main() {
 
 	helpers.SetUserBloomFilter(userBloomFilter)
 
-	// mongoClient := database.DBinstance()
-	// defer mongoClient.Disconnect(context.Background())
+	repo := repository.NewUserRepository()
+	authSvc := service.NewAuthService(repo)
+	go func() {
+		reader := kafka.NewKafkaReader("kafka:9092", "user.deleted", "auth-service-group")
+		defer reader.Close()
+		kafka.ConsumeUserDeleted(reader, func(payload kafka.UserDeletedPayload) {
+			logger.Info("Start delete account")
+			err := authSvc.DeleteUser(context.Background(), payload.UserID)
+			if err != nil {
+				logger.Err("Error deleting user sessions for deleted user: "+payload.UserID, err)
+			} else {
+				logger.Info("Successfully deleted user sessions for deleted user: " + payload.UserID)
+			}
+		})
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -77,5 +94,4 @@ func main() {
 	routes.UserRoutes(router)
 
 	router.Run(":" + port)
-
 }

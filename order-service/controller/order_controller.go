@@ -622,3 +622,34 @@ func (ctrl *OrderController) ReleasePaymentManually() gin.HandlerFunc {
 		})
 	}
 }
+
+func (ctrl *OrderController) GetOrderStatistics() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		month, _ := strconv.Atoi(c.DefaultQuery("month", "0"))
+		year, _ := strconv.Atoi(c.DefaultQuery("year", "0"))
+
+		if month == 0 || year == 0 {
+			now := time.Now()
+			month = int(now.Month())
+			year = now.Year()
+		}
+
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		userType := c.GetHeader("X-User-Type")
+		if userType != "ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can access order statistics"})
+			return
+		}
+
+		stats, err := ctrl.orderService.GetOrderStatistics(ctx, month, year)
+		if err != nil {
+			logger.Err("Failed to get order statistics", err, logger.Str("month", strconv.Itoa(month)), logger.Str("year", strconv.Itoa(year)))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get order statistics"})
+			return
+		}
+
+		c.JSON(http.StatusOK, stats)
+	}
+}

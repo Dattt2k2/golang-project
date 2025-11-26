@@ -205,3 +205,9 @@ type PresignedUploadResponse struct {
     ExpiresAt    int64  `json:"expires_at"`    
     ExpiresIn    int    `json:"expires_in"`    
 }
+
+type Category struct {
+    ID        string    `json:"id" dynamodbav:"id"`
+    Name      string    `json:"name" dynamodbav:"name"`
+    CreatedAt time.Time `json:"created_at" dynamodbav:"created_at"`
+}

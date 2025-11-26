@@ -51,6 +51,11 @@ func ProductManagerRoutes(incomingRoutes *gin.Engine, productSvc service.Product
 	authorized.PUT("/products/edit/:id", productController.EditProduct())
 	// Delete product from databse
 	authorized.DELETE("/products/delete/:id", productController.DeleteProduct())
+	// Statistics product
+	authorized.GET("/products/statistics", productController.GetProductStatistics())
+	authorized.POST("/products/category", productController.AddProductCategory())
+	authorized.GET("/products/get/category", productController.GetProductCategory())
+	authorized.DELETE("/products/category/:id", productController.DeleteProductCategory())
 	// Get all product from database
 	authorized.GET("/products/get/all", productController.GetAllProducts())
 

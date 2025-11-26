@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"user-service/internal/models"
 
 	"github.com/google/uuid"
@@ -16,6 +17,10 @@ type UserRepository interface {
 	UpdateAddress(address *models.UserAddress) error
 	GetAddresses(userID uuid.UUID, limit, offset int) ([]models.UserAddress, error)
 	DeleteAddress(id uuid.UUID) error
+	GetAllUsers(limit, offset int, userType string, status string) (models.PaginatedUsers, error)
+	GetUserByID(id uuid.UUID, userType string) (*models.User, error)
+	UpdateUserStatus(id uuid.UUID, userType string) error
+	AdminDeleteUser(id uuid.UUID, adminType string) error
 }
 
 type userRepository struct {
@@ -150,4 +155,79 @@ func (r *userRepository) DeleteAddress(id uuid.UUID) error {
         }
 	}
 	return tx.Commit().Error
+}
+
+func (r *userRepository) GetAllUsers(limit, offset int, userType string, status string) (models.PaginatedUsers, error) {
+	if userType == "" {
+        return models.PaginatedUsers{}, fmt.Errorf("user Type is nil")
+    } else if userType != "ADMIN" {
+        return models.PaginatedUsers{}, fmt.Errorf("user Type is invalid")
+    }
+    var users []models.User
+    var total int64
+	var isDisabled *bool
+	if status == "active" {
+		val := false
+		isDisabled = &val
+	} else if status == "inactive" {
+		val := true
+		isDisabled = &val
+	}
+   	countQuery := r.db.Model(&models.User{})
+    if isDisabled != nil {
+        countQuery = countQuery.Where("is_disabled = ?", *isDisabled)  
+    }
+    if err := countQuery.Count(&total).Error; err != nil {
+        return models.PaginatedUsers{}, err
+    }
+
+    query := r.db.Limit(limit).Offset(offset)
+    if isDisabled != nil {
+        query = query.Where("is_disabled = ?", *isDisabled)  
+    }
+    if err := query.Find(&users).Error; err != nil {  
+        return models.PaginatedUsers{}, err
+    }
+
+    hasPrev := offset > 0
+    hasNext := int64(offset+limit) < total
+
+    return models.PaginatedUsers{
+        Users:   users,
+        Total:   total,
+        Limit:   limit,
+        Offset:  offset,
+        HasPrev: hasPrev,
+        HasNext: hasNext,
+    }, nil
+}
+
+func (r *userRepository) GetUserByID(id uuid.UUID, userType string) (*models.User, error) {
+	if userType != "ADMIN" {
+		return nil, fmt.Errorf("Only ADMIN users can get user by ID")
+	}
+	var user models.User
+	if err := r.db.Where("id = ?", id).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepository) UpdateUserStatus(id uuid.UUID, userType string) error {
+	if userType != "ADMIN" {
+		return fmt.Errorf("Only ADMIN users can update user status")
+	}
+	 var isDisabled bool
+    err := r.db.Model(&models.User{}).Where("id = ?", id).Select("is_disabled").Scan(&isDisabled).Error
+    if err != nil {
+        return err
+    }
+	return r.db.Model(&models.User{}).Where("id = ?", id).Update("is_disabled", !isDisabled).Error
+}
+
+func (r *userRepository) AdminDeleteUser(id uuid.UUID, adminType string) error {
+	if adminType != "ADMIN" {
+		return fmt.Errorf("Only ADMIN users can delete users")
+	}
+	return r.db.Delete(&models.User{}, id).Error
 }

@@ -7,6 +7,7 @@ import (
 
 	"auth-service/helpers"
 	"auth-service/kafka"
+	"auth-service/logger"
 	"auth-service/models"
 	"auth-service/repository"
 	"auth-service/websocket"
@@ -27,6 +28,8 @@ type AuthService interface {
 	SendOTP(ctx context.Context, email string) (string, error)
 	ResendOTP(ctx context.Context, email string) (string, error)
 	UpdateUserRole(ctx context.Context, userID, newRole string) error
+	DeleteUser(ctx context.Context, userID string) error
+	ForgotPassword(ctx context.Context, email string) error
 }
 
 type authServiceImpl struct {
@@ -66,7 +69,7 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 		Password:  &hashedPassword,
 		FirstName: &defaultFirstName,
 		LastName:  &defaultLastName,
-		UserType:  "USER",
+		UserType:  userType,
 		Phone:     &defaultPhone,
 		IsVerify:  true,
 	}
@@ -119,7 +122,11 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 		"user_type":  user.UserType,
 		"created_at": time.Now().UTC().Format(time.RFC3339),
 	}
-	_ = kafka.SendJSONMessage(kafka.NewKafkaWriter("kafka:9092", "user.created"), userEvent)
+	err = kafka.SendJSONMessage(kafka.NewKafkaWriter("kafka:9092", "user.created"), userEvent)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("Published user.created event to Kafka")
 	return &models.SignUpResponse{
 		Message:      "User registered successfully",
 		User:         result,
@@ -323,6 +330,36 @@ func (s *authServiceImpl) ResendOTP(ctx context.Context, email string) (string, 
 	return otp, nil
 }
 
+func (s *authServiceImpl) ForgotPassword(ctx context.Context, email string) error {
+	user, err := s.userRepo.FindByEmail(ctx, email)
+	if err != nil || user == nil {
+		return errors.New("user with the provided email does not exist")
+	}
+
+	otp, err := helpers.GenerateAndStoreOTP(email, 10*time.Minute)
+	if err != nil {
+		return errors.New("failed to generate OTP")
+	}
+
+	msg := kafka.EmailMessage{
+		To:       email,
+		Subject:  "Password Reset OTP",
+		Template: "./template/otp_send.html",
+		Data: map[string]interface{}{
+			"FirstName": *user.FirstName,
+			"LastName":  *user.LastName,
+			"OTP":       otp,
+		},
+	}
+
+	err = kafka.SendEmailMessage(kafka.NewKafkaWriter("kafka:9092", "email_topic"), msg)
+	if err != nil {
+		return errors.New("failed to send OTP email")
+	}
+
+	return nil
+}
+
 func (s *authServiceImpl) UpdateUserRole(ctx context.Context, userID, newRole string) error {
 	err := s.userRepo.UpdateRole(ctx, userID, newRole)
 	if err != nil {
@@ -350,4 +387,8 @@ func (s *authServiceImpl) UpdateUserRole(ctx context.Context, userID, newRole st
 	}
 
 	return nil
+}
+
+func (s *authServiceImpl) DeleteUser(ctx context.Context, userID string) error {
+	return s.userRepo.DeleteUser(ctx, userID)
 }

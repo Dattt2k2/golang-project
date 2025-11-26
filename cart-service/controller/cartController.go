@@ -451,6 +451,7 @@ import (
 	"strconv"
 
 	logger "cart-service/log"
+	"cart-service/models"
 	"cart-service/service"
 
 	"github.com/gin-gonic/gin"
@@ -586,13 +587,21 @@ func (ctrl *CartController) GetCart() gin.HandlerFunc {
 
 		cart, err := ctrl.cartService.GetUserCart(c, uid)
 		if err != nil {
-			if err.Error() == "mmongo: no documents in result" {
+			if err.Error() == "dynamodb: no documents in result" {
 				c.JSON(http.StatusOK, gin.H{"message": "Cart is empty"})
 				return
 			}
 			logger.Err("Error fetching cart", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cart"})
 			return
+		}
+
+		if cart == nil {
+			cart.Items = []models.CartItem{}
+		}
+
+		if cart.Items == nil || len(cart.Items) == 0 {
+			cart.Items = []models.CartItem{}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -661,6 +670,43 @@ func (ctrl *CartController) ClearCart() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Cart cleared successfully"})
+	}
+}
+
+func (ctrl *CartController) UpdateCartItem() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uid := c.GetHeader("X-User-ID")
+		if uid == "" {
+			logger.Err("User id not found", nil)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User id not found"})
+			return
+		}
+
+		productID := c.Param("id")
+		if productID == "" {
+			logger.Err("Product id not found", nil)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
+			return
+		}
+
+		request := struct {
+			Quantity  int    `json:"quantity"`
+		}{}
+
+		if err := c.ShouldBindJSON(&request); err != nil {
+			logger.Err("Failed to bind JSON", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		err := ctrl.cartService.UpdateCartItem(c, uid, productID, request.Quantity)
+		if err != nil {
+			logger.Err("Error updating cart item", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart item"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Cart item updated successfully"})
 	}
 }
 

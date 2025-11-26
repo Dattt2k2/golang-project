@@ -6,5 +6,6 @@ CREATE TABLE users (
     user_type VARCHAR(50),
     password VARCHAR(255),
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW(),
+    is_deleted TIMESTAMP NULL
 );

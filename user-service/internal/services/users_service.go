@@ -53,7 +53,24 @@ func (s *UserService) UpdateUserService(user *models.User) error {
 }
 
 func (s *UserService) DeleteUserService(id uuid.UUID) error {
-	return s.repo.DeleteUser(id)
+	user, err := s.repo.FindUserByID(id)
+	if err != nil {
+		return err
+	}
+
+	err = s.repo.DeleteUser(id)
+	if err != nil {
+		return err
+	}
+
+	if s.publisher != nil {
+		payload := map[string]interface{}{
+			"id":    user.ID,
+			"email": user.Email,
+		}
+		_ = s.publisher.Publish("user.deleted", payload)
+	}
+	return nil
 }
 
 func (s *UserService) AddAddressService(address *models.UserAddress) error {
@@ -70,4 +87,41 @@ func (s *UserService) GetUserAddressesService(userID uuid.UUID, limit, offset in
 
 func (s *UserService) DeleteAddressService(addressID uuid.UUID) error {
 	return s.repo.DeleteAddress(addressID)
+}
+
+func (s *UserService) ListUsersService(limit, offset int, userType string, status string) (models.PaginatedUsers, error) {
+
+	return s.repo.GetAllUsers(limit, offset, userType, status)
+}
+
+func (s *UserService) GetUserByIDService(id uuid.UUID, userType string) (*models.User, error) {
+	return s.repo.GetUserByID(id, userType)
+}
+
+func (s *UserService) UpdateUserStatusService(id uuid.UUID, userType string) error {
+	return s.repo.UpdateUserStatus(id, userType)
+}
+
+func (s *UserService) AdminDeleteUserService(id uuid.UUID, adminType string) error {
+	user, err := s.repo.FindUserByID(id)
+	if err != nil {
+		return err
+	}
+	if user.UserType == nil || *user.UserType == "ADMIN" {
+		return errors.New("cannot delete ADMIN users")
+	}
+
+	err = s.repo.AdminDeleteUser(id, adminType)
+	if err != nil {
+		return err
+	}
+
+	if s.publisher != nil {
+		payload := map[string]interface{}{
+			"id":    user.ID,
+			"email": user.Email,
+		}
+		_ = s.publisher.Publish("user.deleted", payload)
+	}
+	return nil
 }

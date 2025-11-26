@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -31,7 +32,7 @@ func (p *KafkaPublisher) Publish(topic string, payload interface{}) error {
 		Addr:         kafka.TCP(p.brokers...),
 		Topic:        topic,
 		Balancer:     &kafka.LeastBytes{},
-		RequiredAcks: kafka.RequireAll,
+		RequiredAcks: kafka.RequireOne,
 	}
 	defer w.Close()
 
@@ -44,5 +45,11 @@ func (p *KafkaPublisher) Publish(topic string, payload interface{}) error {
 		Time:  time.Now(),
 	}
 
-	return w.WriteMessages(ctx, msg)
+	log.Printf("kafka: publishing topic=%s payload=%s", topic, string(b))
+    if err := w.WriteMessages(ctx, msg); err != nil {
+        log.Printf("kafka: publish error topic=%s err=%v", topic, err)
+        return err
+    }
+    log.Printf("kafka: publish OK topic=%s", topic)
+    return nil
 }

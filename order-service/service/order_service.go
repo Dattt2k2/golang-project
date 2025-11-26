@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math"
 	"strconv"
 	"time"
 
@@ -155,6 +156,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 			s.orderRepo.UpdateOrderStatus(ctx, createdOrder.OrderID, "PAYMENT_FAILED")
 			return nil, NewServiceError("Failed to initiate payment")
 		}
+
 	} else if paymentMethod == "COD" {
 		if err := kafka.ProduceOrderSuccessEvent(ctx, *createdOrder); err != nil {
 			logger.Err("Failed to produce order created event", err)
@@ -209,7 +211,7 @@ func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID 
 		if !isVendor {
 			return NewServiceError("Only vendor can mark order as delivering")
 		}
-		if order.Status != "CONFIRMED" && order.Status != "PAYMENT_HELD" {
+		if order.Status != "PROCESSING" && order.Status != "PAYMENT_HELD" {
 			return NewServiceError("Order must be CONFIRMED or PAYMENT_HELD before delivering")
 		}
 
@@ -249,10 +251,10 @@ func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID 
 
 	// Auto-trigger payout when user confirms SHIPPED (received package)
 	if status == "SHIPPED" {
-		logger.Info("🚀 Auto-triggering payout - User confirmed received order", logger.Str("order_id", orderID))
-		go func() {
-			s.ReleasePaymentToVendor(context.Background(), orderID)
-		}()
+		// logger.Info("🚀 Auto-triggering payout - User confirmed received order", logger.Str("order_id", orderID))
+		// go func() {
+		// 	s.ReleasePaymentToVendor(context.Background(), orderID)
+		// }()
 	}
 
 	return nil
@@ -833,6 +835,37 @@ func calculatePages(total int64, limit int64) int {
 
 func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*models.Order, error) {
 	return s.orderRepo.GetOrderByID(ctx, orderID)
+}
+
+func (s *OrderService) GetOrderStatistics(ctx context.Context, month int, year int) (map[string]interface{}, error) {
+	orders, revenue, prevOrders, prevRevenue, err := s.orderRepo.GetOrderStatistics(ctx, month, year)
+	if err != nil {
+		return nil, err
+	}
+
+	computeGrowth := func(current float64, previous float64) float64 {
+		if previous == 0 {
+			if current == 0 {
+				return 0
+			}
+			return 100
+		}
+		return math.Round(((current-previous)/previous)*100*100) / 100
+	}
+	revenueGrowth := computeGrowth(revenue, prevRevenue)
+	orderGrowth := computeGrowth(float64(orders), float64(prevOrders))
+
+	response := map[string]interface{}{
+		"total_orders":     orders,
+		"total_revenue":    revenue,
+		"order_growth":     orderGrowth,
+		"revenue_growth":   revenueGrowth,
+		"previous_orders":  prevOrders,
+		"previous_revenue": prevRevenue,
+		"month":            month,
+		"year":             year,
+	}
+	return response, nil
 }
 
 // Add error definitions

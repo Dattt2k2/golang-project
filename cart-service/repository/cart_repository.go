@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"cart-service/models"
@@ -23,6 +22,7 @@ type CartRepository interface {
 	ClearCart(ctx context.Context, userID string) error
 	GetAllCarts(ctx context.Context, page, limit int) ([]models.Cart, int64, error)
 	GetCartItems(ctx context.Context, userID string) ([]models.CartItem, error)
+	UpdateCartItem(ctx context.Context, userID string, productID string, quantity int) error
 }
 
 type cartRepositoryImpl struct {
@@ -86,7 +86,7 @@ func (r *cartRepositoryImpl) FindByUserID(ctx context.Context, userID string) (*
 	}
 
 	if result.Item == nil {
-		return nil, fmt.Errorf("cart not found for user_id: %s", userID)
+		return nil, nil
 	}
 	var cart models.Cart
 	err = attributevalue.UnmarshalMap(result.Item, &cart)
@@ -229,4 +229,44 @@ func (r *cartRepositoryImpl) GetCartItems(ctx context.Context, userID string) ([
     }
 
     return cart.Items, nil
+}
+
+func (r *cartRepositoryImpl) UpdateCartItem(ctx context.Context, userID string, productID string, quantity int) error {
+	if quantity == 0 {
+		_, err := r.RemoveItem(ctx, userID, productID)
+		return err
+	}
+
+	cart, err := r.FindByUserID(ctx, userID)
+	if err != nil {
+		return err 
+	}
+
+	if cart == nil {
+		return errors.New("cart not found")
+	}
+	found := false
+	for i := range cart.Items {
+		if cart.Items[i].ProductID == productID {
+			cart.Items[i].Quantity = quantity
+			cart.Updated_at = time.Now()
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return errors.New("product not found in cart")
+	}
+
+	cartItem, err := attributevalue.MarshalMap(cart)
+	if err != nil {
+		return err 
+	}
+
+	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(r.tableName),
+		Item:      cartItem,
+	})
+	return err
 }
