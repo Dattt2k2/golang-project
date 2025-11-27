@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -84,13 +83,20 @@ func (ctrl *SearchController) AdvancedSearch() gin.HandlerFunc {
             filters["category"] = category
         }
 
-        // debug log
-        logger.Info(fmt.Sprintf("AdvancedSearch request q=%q category=%q from=%d size=%d sortBy=%d sortOrder=%d", q, category, from, limit, sortByCode, sortOrderCode))
+        minPrice := c.Query("minPrice")
+        if minPrice != "" {
+            filters["price_min"] = minPrice
+        }
+        maxPrice := c.Query("maxPrice")
+        if maxPrice != "" {
+            filters["price_max"] = maxPrice
+        }
 
+        
         fromStr := strconv.Itoa(from)
         limitStr := strconv.Itoa(limit)
 
-        response, err := ctrl.service.AdvancedSearch(q, filters, sortByCode, sortOrderCode, fromStr, limitStr)  // Updated call
+        response, err := ctrl.service.AdvancedSearch(q, filters, sortByCode, sortOrderCode, fromStr, limitStr) 
         if err != nil {
             logger.Err("Failed to perform advanced search", err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -38,6 +38,8 @@ func NewOrderService(orderRepo *repositories.OrderRepository) *OrderService {
 }
 
 func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, source, paymentMethod, shippingAddress string, selectedProductIDs []string) (*models.Order, error) {
+	
+	logger.Info("Create order from cart")
 	// Get cart items using gRPC
 	grpcClients := GetGRPCClients()
 
@@ -148,6 +150,10 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 	createdOrder, err := s.orderRepo.CreateOrder(ctx, newOrder)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := kafka.ProduceOrderDeleteItemEvent(ctx, userID, selectedProductIDs); err != nil {
+		return nil, err 
 	}
 
 	if paymentMethod == "STRIPE" {
@@ -866,6 +872,10 @@ func (s *OrderService) GetOrderStatistics(ctx context.Context, month int, year i
 		"year":             year,
 	}
 	return response, nil
+}
+
+func (s *OrderService) GetShippedOrdersCountAndTotalPrice(ctx context.Context, userID string) (int64, float64, error) {
+	return s.orderRepo.GetShippedOrdersCountAndTotal(ctx, userID)
 }
 
 // Add error definitions

@@ -33,9 +33,11 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc {
 
 		type OrderCartRequest struct {
 			Source             string   `json:"source"`
-			PaymentMethod      string   `json:"payment_method"`
-			ShippingAddress    string   `json:"shipping_address"`
-			SelectedProductIDs []string `json:"selected_product_ids"`
+			PaymentMethod      string   `json:"paymentMethod"`
+			ShippingAddress    string   `json:"shippingAddress"`
+			Items 			[]struct {
+				ProductId string `json:"productId"`
+			}
 		}
 
 		var requestBody OrderCartRequest
@@ -44,7 +46,7 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
-		if requestBody.PaymentMethod != "COD" && requestBody.PaymentMethod != "ONLINE" {
+		if requestBody.PaymentMethod != "COD" && requestBody.PaymentMethod != "STRIPE" {
 			logger.Err("Invalid payment method", nil, logger.Str("payment_method", requestBody.PaymentMethod))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment method"})
 			return
@@ -58,10 +60,15 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc {
 			return
 		}
 
+		var selectedProductIDs []string
+		for _, item := range requestBody.Items {
+			selectedProductIDs = append(selectedProductIDs, item.ProductId)
+		}
+
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		order, err := ctrl.orderService.CreateOrderFromCart(ctx, uid, requestBody.Source, requestBody.PaymentMethod, requestBody.ShippingAddress, requestBody.SelectedProductIDs)
+		order, err := ctrl.orderService.CreateOrderFromCart(ctx, uid, requestBody.Source, requestBody.PaymentMethod, requestBody.ShippingAddress, selectedProductIDs)
 
 		if err != nil {
 			if err == service.ErrCartServiceUnavailable {
@@ -651,5 +658,32 @@ func (ctrl *OrderController) GetOrderStatistics() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, stats)
+	}
+}
+
+func (ctrl *OrderController) GetShippedOrderCount() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		userType := c.GetHeader("X-User-Type")
+		if userType != "ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can access shipped order count"})
+			return
+		}
+
+		userID := c.Param("user_id")
+		
+		count, totalPrice , err := ctrl.orderService.GetShippedOrdersCountAndTotalPrice(ctx, userID)
+		if err != nil {
+			logger.Err("Failed to get shipped order count", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get shipped order count"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"shipped_order_count": count,
+			"total_price": totalPrice,
+		})
 	}
 }

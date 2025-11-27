@@ -13,13 +13,15 @@ import (
 )
 
 const (
-	OrderSuccessTopic  = "order_success"
-	OrderReturnedTopic = "order_returned"
+	OrderSuccessTopic    = "order_success"
+	OrderReturnedTopic   = "order_returned"
+	OrderDeleteItemTopic = "cart_delete_items"
 )
 
 var (
-	orderSuccessWriter  *kafka.Writer
-	orderReturnedWriter *kafka.Writer
+	orderSuccessWriter    *kafka.Writer
+	orderReturnedWriter   *kafka.Writer
+	orderDeleteItemWriter *kafka.Writer
 )
 
 // OrderSuccessEvent represents the structure of the order success event message
@@ -42,6 +44,58 @@ type OrderItemInfo struct {
 	ProductID string  `json:"product_id"`
 	Quantity  int     `json:"quantity"`
 	Price     float64 `json:"price"`
+}
+
+type CartDeleteEvent struct {
+	UserID     string   `json:"user_id"`
+	ProductIDs []string `json:"product_ids"`
+}
+
+func InitOrderDeleteItemProducer(brokers []string) {
+	orderDeleteItemWriter = &kafka.Writer{
+		Addr:     kafka.TCP(brokers...),
+		Topic:    OrderDeleteItemTopic,
+		Balancer: &kafka.LeastBytes{},
+	}
+}
+
+func ProduceOrderDeleteItemEvent(ctx context.Context, userID string, productIDs []string) error {
+	if orderDeleteItemWriter == nil {
+		logger.Err("Order delete item producer not initialized", nil)
+		return fmt.Errorf("Order delete item producer not initialized")
+	}
+
+	event := CartDeleteEvent{
+		UserID:     userID,
+		ProductIDs: productIDs,
+	}
+
+	messagePayload, err := json.Marshal(event)
+	if err != nil {
+		logger.Err("Error marshalling order delete item event", err)
+		return err
+	}
+
+	logger.Info(fmt.Sprintf("Sending Kafka message to topic %s for cart delete: %s", OrderDeleteItemTopic, string(messagePayload)))
+
+	message := kafka.Message{
+		Key:   []byte(userID),
+		Value: messagePayload,
+	}
+
+	if err := orderDeleteItemWriter.WriteMessages(ctx, message); err != nil {
+		logger.Err("Failed to write delete item message", err)
+		return err
+	}
+
+	logger.Info(fmt.Sprintf("✅ Successfully produced cart delete event for UserID=%s", userID))
+	return nil
+}
+
+func CloseOrderDeleteItemProducer() {
+	if orderDeleteItemWriter != nil {
+		orderDeleteItemWriter.Close()
+	}
 }
 
 func InitOrderSuccessProducer(brokers []string) {

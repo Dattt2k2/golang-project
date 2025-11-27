@@ -23,15 +23,16 @@ import (
 
 type User struct {
 	gorm.Model
-	ID uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Email *string `gorm:"unique;not null" json:"email" validate:"email,required"`
-	FirstName *string `gorm:"type:varchar(100)" json:"first_name"`
-	LastName *string `gorm:"type:varchar(100)" json:"last_name"`
-	UserType string `gorm:"type:varchar(50);default:'USER'" json:"user_type"`
-	Password *string `gorm:"not null" json:"password" validate:"required,min=6"`
-	Phone *string `gorm:"type:varchar(15)" json:"phone"`
-	IsVerify bool `gorm:"default:false" json:"is_verify"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID         uuid.UUID      `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Email      *string        `gorm:"unique;not null" json:"email" validate:"email,required"`
+	FirstName  *string        `gorm:"type:varchar(100)" json:"first_name"`
+	LastName   *string        `gorm:"type:varchar(100)" json:"last_name"`
+	UserType   string         `gorm:"type:varchar(50);default:'USER'" json:"user_type"`
+	Password   *string        `gorm:"not null" json:"password" validate:"required,min=6"`
+	Phone      *string        `gorm:"type:varchar(15)" json:"phone"`
+	IsVerify   bool           `gorm:"default:false" json:"is_verify"`
+	IsDisabled bool           `gorm:"default:false" json:"is_disabled"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type SignUpCredentials struct {

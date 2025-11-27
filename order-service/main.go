@@ -111,6 +111,7 @@ func main() {
 	kafka.InitOrderSuccessProducer(brokers)
 	kafka.InitOrderReturnedProducer(brokers)
 	kafka.InitPaymentProducer(brokers)
+	kafka.InitOrderDeleteItemProducer(brokers)
 	// Start payment consumer to listen for payment status updates
 	orderService := service.NewOrderService(orderRepo)
 	kafka.StartPaymentConsumer(brokers, orderRepo, orderService)

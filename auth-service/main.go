@@ -81,6 +81,45 @@ func main() {
 		})
 	}()
 
+	go func() {
+		reader := kafka.NewKafkaReader("kafka:9092", "user.disabled", "auth-service-group")
+		defer reader.Close()
+		kafka.ConsumeUserDisabled(reader, func(payload kafka.UserDisabledPayload) {
+			logger.Info("Start disable account")
+			if err := authSvc.UpdateUserDisabled(context.Background(), payload.UserID, payload.IsDisabled); err != nil {
+				logger.Err("Failed to update user disabled flag by id for user: "+payload.UserID, err)
+				if payload.Email != "" {
+					user, err2 := authSvc.GetUserByEmail(context.Background(), payload.Email)
+					if err2 != nil {
+						logger.Err("Fallback: cannot find user by email in auth DB: "+payload.Email, err2)
+						return
+					}
+					if user != nil {
+						if err3 := authSvc.UpdateUserDisabled(context.Background(), user.ID.String(), payload.IsDisabled); err3 != nil {
+							logger.Err("Fallback: failed to update disabled flag using found id: "+user.ID.String(), err3)
+							return
+						}
+						logger.Info("Fallback: updated user disabled flag for user (by email->id): " + user.ID.String())
+					}
+					return
+				}
+				return
+			}
+			logger.Info("Updated user disabled flag for user: " + payload.UserID)
+
+			if payload.IsDisabled {
+				err := authSvc.LogoutAll(context.Background(), payload.UserID)
+				if err != nil {
+					logger.Err("Error disabling user sessions for user: "+payload.UserID, err)
+				} else {
+					logger.Info("Successfully disabled user sessions for user: " + payload.UserID)
+				}
+			} else {
+				logger.Info("User enabled: " + payload.UserID)
+			}
+		})
+	}()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8081"

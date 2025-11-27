@@ -99,7 +99,26 @@ func (s *UserService) GetUserByIDService(id uuid.UUID, userType string) (*models
 }
 
 func (s *UserService) UpdateUserStatusService(id uuid.UUID, userType string) error {
-	return s.repo.UpdateUserStatus(id, userType)
+	if err := s.repo.UpdateUserStatus(id, userType); err != nil {
+		return err
+	}
+
+	// Fetch updated user to include the current status
+	updatedUser, err := s.repo.FindUserByID(id)
+	if err == nil && s.publisher != nil {
+		emailVal := ""
+		if updatedUser.Email != nil {
+			emailVal = *updatedUser.Email
+		}
+		payload := map[string]interface{}{
+			"id":          updatedUser.ID.String(),
+			"email":       emailVal,
+			"is_disabled": updatedUser.IsDisabled,
+		}
+		// publish user.disabled event (or user.status.updated) so downstream services can react
+		_ = s.publisher.Publish("user.disabled", payload)
+	}
+	return nil
 }
 
 func (s *UserService) AdminDeleteUserService(id uuid.UUID, adminType string) error {

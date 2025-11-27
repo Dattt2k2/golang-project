@@ -268,6 +268,24 @@ func (s *productServiceImpl) GetBestSellingProducts(ctx context.Context, limit i
 		return nil, err
 	}
 
+	for i := range products {
+		if len(products[i].ImagePath) > 0 {
+			var urls []string
+			for _, key := range products[i].ImagePath {
+				if key == "" {
+					continue
+				}
+				url, err := s.GetS3PathIfExist(key, 100*time.Minute)
+				if err == nil && url != "" {
+					urls = append(urls, url)
+				} else {
+					urls = append(urls, key)
+				}
+			}
+			products[i].ImagePath = urls
+		}
+	}
+
 	go func(prods []models.Product) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

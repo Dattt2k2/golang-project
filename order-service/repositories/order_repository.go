@@ -322,3 +322,22 @@ func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, yea
 
 }
 
+func (r *OrderRepository) GetShippedOrdersCountAndTotal(ctx context.Context, userID string) (int64, float64, error) {
+    var count int64
+    var totalValue float64
+
+    // Count shipped orders
+    err := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ? AND user_id = ?", "SHIPPED", userID).Count(&count).Error
+    if err != nil {
+        return 0, 0, err
+    }
+
+    // Sum total_price for shipped orders
+    err = r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ? AND user_id = ?", "SHIPPED", userID).Select("COALESCE(SUM(total_price), 0)").Scan(&totalValue).Error
+    if err != nil {
+        return 0, 0, err
+    }
+
+    return count, totalValue, nil
+}
+

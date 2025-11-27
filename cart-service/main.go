@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"cart-service/kafka"
 	logger "cart-service/log"
 	"cart-service/repository"
 	"cart-service/routes"
@@ -92,6 +93,10 @@ func main() {
 	log.Printf("Using DynamoDB table: %s", tableName)
 
 	cartRepo := repository.NewCartRepository(dynamoClient, tableName)
+	brokers := []string{"kafka:9092"}
+	groupID := "cart-service"
+
+	kafka.StartCartDeleteConsumer(brokers, groupID, cartRepo)
 	cartSvc, err := service.NewCartService(cartRepo)
 	if err != nil {
 		logger.Logger.Fatal("Failed to create CartService: " + err.Error())
@@ -99,6 +104,9 @@ func main() {
 
 	// Setup dependencies
 	cartController, cartServer := routes.SetupCartDependencies(cartSvc)
+
+	// Start Kafka consumer for order success
+	// kafka.ConsumeOrderSuccess(brokers, cartRepo)
 
 	// Khởi tạo router
 	router := gin.Default()

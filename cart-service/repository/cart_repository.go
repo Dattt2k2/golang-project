@@ -23,6 +23,7 @@ type CartRepository interface {
 	GetAllCarts(ctx context.Context, page, limit int) ([]models.Cart, int64, error)
 	GetCartItems(ctx context.Context, userID string) ([]models.CartItem, error)
 	UpdateCartItem(ctx context.Context, userID string, productID string, quantity int) error
+	DeleteCartItems(ctx context.Context, userID string, productIDs []string) error
 }
 
 type cartRepositoryImpl struct {
@@ -258,6 +259,43 @@ func (r *cartRepositoryImpl) UpdateCartItem(ctx context.Context, userID string, 
 	if !found {
 		return errors.New("product not found in cart")
 	}
+
+	cartItem, err := attributevalue.MarshalMap(cart)
+	if err != nil {
+		return err 
+	}
+
+	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(r.tableName),
+		Item:      cartItem,
+	})
+	return err
+}
+
+func (r *cartRepositoryImpl) DeleteCartItems(ctx context.Context, userID string, productIDs []string) error {
+	cart, err := r.FindByUserID(ctx, userID)
+	if err != nil {
+		return err 
+	}
+
+	if cart == nil {
+		return nil 
+	}
+
+	newItems := make([]models.CartItem, 0)
+	productIDSet := make(map[string]struct{})
+	for _, pid := range productIDs {
+		productIDSet[pid] = struct{}{}
+	}
+
+	for _, item := range cart.Items {
+		if _, exists := productIDSet[item.ProductID]; !exists {
+			newItems = append(newItems, item)
+		}
+	}
+
+	cart.Items = newItems
+	cart.Updated_at = time.Now()
 
 	cartItem, err := attributevalue.MarshalMap(cart)
 	if err != nil {

@@ -101,13 +101,17 @@ func (r *searchRepository) AdvancedSearch(query string, filters map[string]inter
 		}
 	}
 
-	// price range
+	priceFilter := map[string]interface{}{}
 	if pmin, ok := filters["price_min"]; ok {
-		rng := map[string]interface{}{"gte": pmin}
-		if pmax, ok := filters["price_max"]; ok {
-			rng["lte"] = pmax
-		}
-		filtersArr = append(filtersArr, map[string]interface{}{"range": map[string]interface{}{"price": rng}})
+		priceFilter["gte"] = pmin
+	}
+	if pmax, ok := filters["price_max"]; ok {
+		priceFilter["lte"] = pmax
+	}
+	if len(priceFilter) > 0 {
+		filtersArr = append(filtersArr, map[string]interface{}{
+			"range": map[string]interface{}{"price": priceFilter},
+		})
 	}
 
 	// rating range

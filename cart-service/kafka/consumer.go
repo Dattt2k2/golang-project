@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"log"
 
-	controller "cart-service/controller"
+	// controller "cart-service/controller"
+	repositories "cart-service/repository"
+
 	"github.com/segmentio/kafka-go"
 )
 
@@ -26,7 +28,50 @@ type OrderItemInfo struct {
 	Price     float64 `json:"price"`
 }
 
-func ConsumeOrderSuccess(brokers []string, cartCtrl *controller.CartController) {
+type CartDeleteEvent struct {
+	UserID     string   `json:"user_id"`
+	ProductIDs []string `json:"product_ids"`
+}
+
+func StartCartDeleteConsumer(brokers []string, groupID string, cartRepo repositories.CartRepository) {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: brokers,
+		Topic:   "cart_delete_items",
+		GroupID: groupID,
+	})
+
+	log.Printf("[CartService] Kafka consumer started for topic: cart-delete-items")
+
+	go func() {
+		for {
+			msg, err := reader.ReadMessage(context.Background())
+			if err != nil {
+				log.Printf("[CartService] Error reading message: %v", err)
+				continue
+			}
+
+			var event CartDeleteEvent
+			if err := json.Unmarshal(msg.Value, &event); err != nil {
+				log.Printf("[CartService] Failed to unmarshal cart delete event: %v", err)
+				continue
+			}
+
+			log.Printf("[CartService] Received cart delete event: %+v", event)
+
+			if err := cartRepo.DeleteCartItems(context.Background(), event.UserID, event.ProductIDs); err != nil {
+				log.Printf("[CartService] Failed to delete cart items for user %s: %v", event.UserID, err)
+			} else {
+				log.Printf("[CartService] Successfully deleted cart items for user %s", event.UserID)
+			}
+
+			if err := reader.CommitMessages(context.Background(), msg); err != nil {
+				log.Printf("[CartService] Error committing message: %v", err)
+			}
+		}
+	}()
+}
+
+func ConsumeOrderSuccess(brokers []string, cartRepo repositories.CartRepository) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  brokers,
 		Topic:    OrderSuccessTopic,
@@ -37,29 +82,25 @@ func ConsumeOrderSuccess(brokers []string, cartCtrl *controller.CartController) 
 
 	go func() {
 		for {
-			message, err := reader.ReadMessage(context.Background())
+			msg, err := reader.ReadMessage(context.Background())
 			if err != nil {
-				log.Printf("Error reading message: %v", err)
+				log.Printf("[CartService] Error reading message: %v", err)
 				continue
 			}
 
-			var event OrderSuccessEvent
-			if err := json.Unmarshal(message.Value, &event); err != nil {
-				log.Printf("Error unmarshalling message: %v", err)
+			var event CartDeleteEvent
+			if err := json.Unmarshal(msg.Value, &event); err != nil {
+				log.Printf("[CartService] Failed to unmarshal cart delete event: %v", err)
 				continue
 			}
 
-			if event.UserID == "" {
-				log.Printf("Received event with empty user ID")
-				continue
-			}
+			log.Printf("[CartService] Received cart delete event: %+v", event)
 
-			// Sử dụng InternalClearCart thay vì ClearCart trực tiếp
-			if err := cartCtrl.InternalClearCart(event.UserID); err != nil {
-				log.Printf("Error clearing cart: %v", err)
-				continue
+			if err := cartRepo.DeleteCartItems(context.Background(), event.UserID, event.ProductIDs); err != nil {
+				log.Printf("[CartService] Failed to delete cart items for user %s: %v", event.UserID, err)
+			} else {
+				log.Printf("[CartService] Successfully deleted cart items for user %s", event.UserID)
 			}
-			log.Printf("Cart cleared for user ID: %s", event.UserID)
 		}
 	}()
 

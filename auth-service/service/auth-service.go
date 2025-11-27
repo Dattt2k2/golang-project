@@ -18,6 +18,7 @@ type AuthService interface {
 	Login(ctx context.Context, credential *models.LoginCredentials) (*models.LoginResponse, error)
 	GetAllUsers(ctx context.Context, page int, recordPage int) ([]interface{}, error)
 	GetUser(ctx context.Context, id string) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 	GetUserType(ctx context.Context, userID string) (string, error)
 	ChangePassword(ctx context.Context, userID string, oldPassword, newPassword string) error
 	AdminChangePassword(ctx context.Context, adminID, targetUserID, newPassword string) error
@@ -28,6 +29,7 @@ type AuthService interface {
 	SendOTP(ctx context.Context, email string) (string, error)
 	ResendOTP(ctx context.Context, email string) (string, error)
 	UpdateUserRole(ctx context.Context, userID, newRole string) error
+	UpdateUserDisabled(ctx context.Context, userID string, isDisabled bool) error
 	DeleteUser(ctx context.Context, userID string) error
 	ForgotPassword(ctx context.Context, email string) error
 }
@@ -191,6 +193,10 @@ func (s *authServiceImpl) GetAllUsers(ctx context.Context, page int, recordPerPa
 
 func (s *authServiceImpl) GetUser(ctx context.Context, id string) (*models.User, error) {
 	return s.userRepo.FindByID(ctx, id)
+}
+
+func (s *authServiceImpl) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	return s.userRepo.FindByEmailAny(ctx, email)
 }
 
 func (s *authServiceImpl) GetUserType(ctx context.Context, userID string) (string, error) {
@@ -387,6 +393,10 @@ func (s *authServiceImpl) UpdateUserRole(ctx context.Context, userID, newRole st
 	}
 
 	return nil
+}
+
+func (s *authServiceImpl) UpdateUserDisabled(ctx context.Context, userID string, isDisabled bool) error {
+	return s.userRepo.UpdateDisabled(ctx, userID, isDisabled)
 }
 
 func (s *authServiceImpl) DeleteUser(ctx context.Context, userID string) error {
