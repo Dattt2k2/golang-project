@@ -28,5 +28,6 @@ func Register(r *gin.Engine, h *handlers.UserHandler) {
 		admin.GET("/users/:user_id", h.GetUserByID)
 		admin.PATCH("/users/:user_id/status", h.UpdateUserStatus)
 		admin.DELETE("/users/:user_id", h.AdminDeleteUser)
+		admin.GET("/statistics/users", h.GetUserStatistics)
 	}
 }

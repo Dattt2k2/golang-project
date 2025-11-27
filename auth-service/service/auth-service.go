@@ -14,7 +14,7 @@ import (
 )
 
 type AuthService interface {
-	Register(ctx context.Context, email, password, userType string) (*models.SignUpResponse, error)
+	Register(ctx context.Context, email, password, phone, userType, firstName string) (*models.SignUpResponse, error)
 	Login(ctx context.Context, credential *models.LoginCredentials) (*models.LoginResponse, error)
 	GetAllUsers(ctx context.Context, page int, recordPage int) ([]interface{}, error)
 	GetUser(ctx context.Context, id string) (*models.User, error)
@@ -44,7 +44,7 @@ func NewAuthService(userRepo repository.UserRepository) AuthService {
 	}
 }
 
-func (s *authServiceImpl) Register(ctx context.Context, email, password, userType string) (*models.SignUpResponse, error) {
+func (s *authServiceImpl) Register(ctx context.Context, email, password, phone, userType, firstName string) (*models.SignUpResponse, error) {
 	if email == "" || password == "" {
 		return nil, errors.New("email and password are required")
 	}
@@ -64,15 +64,14 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, userTyp
 
 	defaultFirstName := "User"
 	defaultLastName := ""
-	defaultPhone := ""
 
 	user := &models.User{
 		Email:     &email,
 		Password:  &hashedPassword,
-		FirstName: &defaultFirstName,
+		FirstName: &firstName,
 		LastName:  &defaultLastName,
 		UserType:  userType,
-		Phone:     &defaultPhone,
+		Phone:     &phone,
 		IsVerify:  true,
 	}
 	result, err := s.userRepo.Create(ctx, user)

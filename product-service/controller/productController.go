@@ -493,7 +493,32 @@ func (ctrl *ProductController) GetProductStatistics() gin.HandlerFunc {
 			return
 		}
 
-		stats, err := ctrl.service.GetProductStatistics(ctx)
+		 monthStr := c.Query("month")
+        yearStr := c.Query("year")
+        var month, year int
+        var err error
+
+        if monthStr != "" {
+            month, err = strconv.Atoi(monthStr)
+            if err != nil || month < 1 || month > 12 {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid month; must be between 1 and 12"})
+                return
+            }
+        }
+
+        if yearStr != "" {
+            year, err = strconv.Atoi(yearStr)
+            if err != nil || year < 1970 {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid year"})
+                return
+            }
+        }
+
+        if month > 0 && year == 0 {
+            year = time.Now().Year()
+        }
+
+		stats, err := ctrl.service.GetProductStatistics(ctx, month, year)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

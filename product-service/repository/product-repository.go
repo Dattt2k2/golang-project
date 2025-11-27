@@ -30,7 +30,7 @@ type ProductRepository interface {
 	GetBestSellingProduct(ctx context.Context, limit int) ([]models.Product, error)
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetProductByCategory(ctx context.Context, category string, skip, limit int64) ([]models.Product, int64, error)
-	GetProductStatistics(ctx context.Context) (map[string]int64, error)
+	GetProductStatistics(ctx context.Context, month, year int) (map[string]int64, error)
 	AddProductCategory(ctx context.Context, category string) error
 	GetProductCategory(ctx context.Context) ([]models.Category, error)
 	DeleteProductCategory(ctx context.Context, categoryID string) error
@@ -92,7 +92,7 @@ func (r *ProductRepositoryImpl) AddProductCategory(ctx context.Context, category
 
 	_, err := r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String("Category"),
-		Item: categoryItem,
+		Item:      categoryItem,
 	})
 	return err
 }
@@ -102,7 +102,7 @@ func (r *ProductRepositoryImpl) GetProductCategory(ctx context.Context) ([]model
 		TableName: aws.String("Category"),
 	})
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 	var categories []models.Category
 	for _, item := range result.Items {
@@ -543,7 +543,7 @@ func (r *ProductRepositoryImpl) GetProductByCategory(ctx context.Context, catego
 	return products, total, nil
 }
 
-func (r *ProductRepositoryImpl) GetProductStatistics(ctx context.Context) (map[string]int64, error) {
+func (r *ProductRepositoryImpl) GetProductStatistics(ctx context.Context, month, year int) (map[string]int64, error) {
 	countResult, err := r.client.Scan(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(r.tableName),
 		Select:    types.SelectCount,
@@ -551,39 +551,72 @@ func (r *ProductRepositoryImpl) GetProductStatistics(ctx context.Context) (map[s
 	if err != nil {
 		return nil, err
 	}
-
 	totalProducts := int64(countResult.Count)
 
 	now := time.Now()
-	month := int(now.Month())
-	year := now.Year()
-	start := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	prevMonth := month - 1
-	prevYear := year
-	if prevMonth <= 0 {
-		prevMonth = 12
-		prevYear -= 1
+
+	if month < 0 || month > 12 {
+		return nil, fmt.Errorf("invalid month: %d", month)
+	}
+	if year < 0 {
+		return nil, fmt.Errorf("invalid year: %d", year)
 	}
 
-	filterExpr := "#created_at <= :start"
-	prevProd, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
-		Select: types.SelectCount,
-		FilterExpression: aws.String(filterExpr),
-		ExpressionAttributeNames: map[string]string{
-			"#created_at": "created_at",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{":start": &types.AttributeValueMemberS{Value: start.Format(time.RFC3339)}},
-	})
+	if month == 0 && year == 0 {
+		month = int(now.Month())
+		year = now.Year()
+	}
+	if month != 0 && year == 0 {
+		year = now.Year()
+	}
+
+	var currentStart, currentEnd, prevStart, prevEnd time.Time
+	if month > 0 {
+		currentStart = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		currentEnd = currentStart.AddDate(0, 1, 0)
+		prevStart = currentStart.AddDate(0, -1, 0)
+		prevEnd = currentStart
+	} else {
+		currentStart = time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+		currentEnd = currentStart.AddDate(1, 0, 0)
+		prevStart = currentStart.AddDate(-1, 0, 0)
+		prevEnd = currentStart
+	}
+
+	countBetween := func(start, end time.Time) (int64, error) {
+		filterExpr := "#created_at >= :start AND #created_at < :end"
+		out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+			TableName:        aws.String(r.tableName),
+			Select:           types.SelectCount,
+			FilterExpression: aws.String(filterExpr),
+			ExpressionAttributeNames: map[string]string{
+				"#created_at": "created_at",
+			},
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":start": &types.AttributeValueMemberS{Value: start.Format(time.RFC3339)},
+				":end":   &types.AttributeValueMemberS{Value: end.Format(time.RFC3339)},
+			},
+		})
+		if err != nil {
+			return 0, err
+		}
+		return int64(out.Count), nil
+	}
+
+	currentTotal, err := countBetween(currentStart, currentEnd)
 	if err != nil {
 		return nil, err
 	}
 
-	prevTotalProducts := int64(prevProd.Count)
+	prevTotal, err := countBetween(prevStart, prevEnd)
+	if err != nil {
+		return nil, err
+	}
 
 	stats := map[string]int64{
-		"current_total_products": totalProducts,
-		"previous_total_products": prevTotalProducts,
+		"current_total_products":  currentTotal,
+		"previous_total_products": prevTotal,
+		"total_products":          totalProducts,
 	}
 
 	return stats, nil

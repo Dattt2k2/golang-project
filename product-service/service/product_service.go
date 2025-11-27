@@ -30,7 +30,7 @@ type ProductService interface {
 	GetAllProductForIndex(ctx context.Context) ([]models.Product, error)
 	GetProductByUserID(ctx context.Context, userID string, page, limit int64) ([]models.Product, int64, int, bool, bool, error)
 	GetProductByCategory(ctx context.Context, category string, page, limit int64) ([]models.Product, int64, int, bool, bool, error)
-	GetProductStatistics(ctx context.Context) (map[string]interface{}, error)
+	GetProductStatistics(ctx context.Context, month, year int) (map[string]interface{}, error)
 	AddProductCategory(ctx context.Context, category models.Category) error
 	GetProductCategory(ctx context.Context) ([]models.Category, error)
 	DeleteProductCategory(ctx context.Context, categoryID string) error
@@ -400,14 +400,14 @@ func (s *productServiceImpl) GetProductByCategory(ctx context.Context, category 
 	return products, total, pages, hasNext, hasPrev, nil
 }
 
-func (s *productServiceImpl) GetProductStatistics(ctx context.Context) (map[string]interface{}, error) {
+func (s *productServiceImpl) GetProductStatistics(ctx context.Context, month, year int) (map[string]interface{}, error) {
 
 	top, err := s.repo.GetBestSellingProduct(ctx, 5)
 	if err != nil {
 		return nil, err
 	}
 
-	stats, err := s.repo.GetProductStatistics(ctx)
+	stats, err := s.repo.GetProductStatistics(ctx, month, year)
 	if err != nil {
 		return nil, err
 	}

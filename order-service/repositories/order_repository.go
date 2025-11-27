@@ -269,70 +269,100 @@ func (r *OrderRepository) GetOrderStatus(ctx context.Context, orderID string) (s
 
 }
 
-func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, year int) (int64, float64, int64, float64, error) {
-	var totalOrders int64
-	var totalRevenue float64
-	var PrevOrders int64
-	var PrevRevenue float64
+func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, year int) (int64, float64, int64, float64, int64, []models.TopProduct, error) {
+    var totalOrderCount int64
+    var totalRevenue float64
+    var prevOrderCount int64
+    var prevRevenue float64
+    var totalQuantity int64
+    var topProducts []models.TopProduct
 
-	buildRange := func(m, y int) (time.Time, time.Time) {
-		if m <= 0 || y <= 0 {
-			return time.Time{}, time.Time{}
-		}
-		start := time.Date(y, time.Month(m), 1, 0, 0, 0, 0, time.UTC)
-		end := start.AddDate(0, 1, 0)
-		return start, end
-	}
+    buildRange := func(m, y int) (time.Time, time.Time) {
+        if m <= 0 || y <= 0 {
+            return time.Time{}, time.Time{}
+        }
+        start := time.Date(y, time.Month(m), 1, 0, 0, 0, 0, time.UTC)
+        end := start.AddDate(0, 1, 0)
+        return start, end
+    }
 
-	start, end := buildRange(month, year)
-	q := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
-	if !start.IsZero(){
-		q = q.Where("created_at >= ? AND created_at < ?", start, end)
-	}
-	if err := q.Count(&totalOrders).Error; err != nil {
-		return 0, 0, 0, 0, err
-	}
+    start, end := buildRange(month, year)
 
-	revQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
-	if !start.IsZero(){
-		revQ = revQ.Where("created_at >= ? AND created_at < ?", start, end)
-	}
-	if err := revQ.Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error; err != nil {
-		return 0, 0, 0, 0, err
-	}
+    q := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
+    if !start.IsZero() {
+        q = q.Where("created_at >= ? AND created_at < ?", start, end)
+    }
+    if err := q.Count(&totalOrderCount).Error; err != nil {
+        return 0, 0, 0, 0, 0, nil, err
+    }
 
-	prevStart, prevEnd := buildRange(month-1, year)
-	prevQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
-	if !prevStart.IsZero(){
-		prevQ = prevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
-	}
-	if err := prevQ.Count(&PrevOrders).Error; err != nil {
-		return 0, 0, 0, 0, err
-	}
+    revQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
+    if !start.IsZero() {
+        revQ = revQ.Where("created_at >= ? AND created_at < ?", start, end)
+    }
+    if err := revQ.Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error; err != nil {
+        return 0, 0, 0, 0, 0, nil, err
+    }
 
-	prevRevQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
-	if !prevStart.IsZero(){
-		prevRevQ = prevRevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
-	}
-	if err := prevRevQ.Select("COALESCE(SUM(total_price), 0)").Scan(&PrevRevenue).Error; err != nil {
-		return 0, 0, 0, 0, err
-	}
+    prevStart, prevEnd := buildRange(month-1, year)
+    prevQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
+    if !prevStart.IsZero() {
+        prevQ = prevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
+    }
+    if err := prevQ.Count(&prevOrderCount).Error; err != nil {
+        return 0, 0, 0, 0, 0, nil, err
+    }
 
-	return totalOrders, totalRevenue, PrevOrders, PrevRevenue, nil
+    prevRevQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
+    if !prevStart.IsZero() {
+        prevRevQ = prevRevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
+    }
+    if err := prevRevQ.Select("COALESCE(SUM(total_price), 0)").Scan(&prevRevenue).Error; err != nil {
+        return 0, 0, 0, 0, 0, nil, err
+    }
 
+    // totalQtySQL := `
+    //     SELECT COALESCE(SUM((it->>'quantity')::bigint), 0) AS total_quantity
+    //     FROM orders, jsonb_array_elements(items) AS it
+    //     WHERE status = 'SHIPPED'
+    // `
+    var args []interface{}
+    sql := `
+        SELECT
+            it->>'product_id' AS product_id,
+            it->>'name' AS name,
+            SUM((it->>'quantity')::bigint) AS total_quantity,
+            COALESCE(SUM(((it->>'price')::numeric) * ((it->>'quantity')::bigint)), 0) AS total_revenue,
+            COUNT(DISTINCT o.id) AS total_orders
+        FROM orders o, jsonb_array_elements(o.items) AS it
+        WHERE o.status = 'SHIPPED'
+    `
+    if !start.IsZero() {
+        sql += " AND o.created_at >= ? AND o.created_at < ?"
+        args = append(args, start, end)
+    }
+    sql += `
+        GROUP BY it->>'product_id', it->>'name'
+        ORDER BY total_quantity DESC, total_revenue DESC
+        LIMIT 5
+    `
+
+    if err := r.db.WithContext(ctx).Raw(sql, args...).Scan(&topProducts).Error; err != nil {
+        return 0, 0, 0, 0, 0, nil, err
+    }
+
+    return totalOrderCount, totalRevenue, prevOrderCount, prevRevenue, totalQuantity, topProducts, nil
 }
 
 func (r *OrderRepository) GetShippedOrdersCountAndTotal(ctx context.Context, userID string) (int64, float64, error) {
     var count int64
     var totalValue float64
 
-    // Count shipped orders
     err := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ? AND user_id = ?", "SHIPPED", userID).Count(&count).Error
     if err != nil {
         return 0, 0, err
     }
 
-    // Sum total_price for shipped orders
     err = r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ? AND user_id = ?", "SHIPPED", userID).Select("COALESCE(SUM(total_price), 0)").Scan(&totalValue).Error
     if err != nil {
         return 0, 0, err

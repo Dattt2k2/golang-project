@@ -59,3 +59,11 @@ type OrderItem struct {
 	Price     float64 `json:"price"`
 	VendorID  string  `json:"vendor_id"`
 }
+
+type TopProduct struct {
+    ProductID     string  `json:"product_id"`
+    Name          string  `json:"name"`
+    TotalQuantity int64   `json:"total_quantity"`
+    TotalRevenue  float64 `json:"total_revenue"`
+    TotalOrders   int64   `json:"total_orders"` 
+}

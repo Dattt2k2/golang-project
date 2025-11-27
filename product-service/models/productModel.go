@@ -135,7 +135,7 @@ type CreateProductRequest struct {
     Name        string  `json:"name" binding:"required,min=2,max=100"`
     ImagePath   []string  `json:"image_path,omitempty"` // Optional - có thể empty hoặc có URL từ presigned upload
     Category    string  `json:"category" binding:"required"`
-    Description string  `json:"description" binding:"required,min=2,max=500"`
+    Description string  `json:"description" binding:"required,min=2"`
     Quantity    int     `json:"quantity" binding:"required,min=1"`
     Price       float64 `json:"price" binding:"required,gt=0"`
     Status      string  `json:"status" binding:"required,oneof=onsale offsale unavailable"` 

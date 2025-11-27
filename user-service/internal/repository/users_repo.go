@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"time"
 	"user-service/internal/models"
 
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ type UserRepository interface {
 	GetUserByID(id uuid.UUID, userType string) (*models.User, error)
 	UpdateUserStatus(id uuid.UUID, userType string) error
 	AdminDeleteUser(id uuid.UUID, adminType string) error
+	GetUserStatistics(month int, year int) (int64, int64, error)
 }
 
 type userRepository struct {
@@ -230,4 +232,38 @@ func (r *userRepository) AdminDeleteUser(id uuid.UUID, adminType string) error {
 		return fmt.Errorf("Only ADMIN users can delete users")
 	}
 	return r.db.Delete(&models.User{}, id).Error
+}
+
+func (r *userRepository) GetUserStatistics(month int, year int) (int64, int64, error) {
+	var totalUsers int64
+	var previousTotalUsers int64
+
+	buildRange := func(m, y int) (time.Time, time.Time) {
+		if m <= 0 || y <= 0 {
+			return time.Time{}, time.Time{}
+		}
+		start := time.Date(y, time.Month(m), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0)
+		return start, end
+	}
+
+	start, end := buildRange(month, year)
+	q := r.db.Model(&models.User{}).Where("users.is_disabled = ?", false)
+	if !start.IsZero() && !end.IsZero() {
+		q = q.Where("created_at >= ? AND created_at < ?", start, end)
+	}
+	if err := q.Count(&totalUsers).Error; err != nil {
+		return 0, 0, err
+	}
+
+	prevStart, prevEnd := buildRange(month-1, year)
+	prevQ := r.db.Model(&models.User{}).Where("users.is_disabled = ?", false)
+	if !prevStart.IsZero() && !prevEnd.IsZero() {
+		prevQ = prevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
+	}
+	if err := prevQ.Count(&previousTotalUsers).Error; err != nil {
+		return 0, 0, err
+	}
+
+	return totalUsers, previousTotalUsers, nil
 }

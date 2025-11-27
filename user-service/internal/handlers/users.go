@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 	"user-service/internal/models"
 	"user-service/internal/services"
 
@@ -254,4 +256,42 @@ func (h *UserHandler) AdminDeleteUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, "User deleted successfully by admin")
+}
+
+func (h *UserHandler) GetUserStatistics(c *gin.Context) {
+	month, _ := strconv.Atoi(c.Query("month"))
+    year, _ := strconv.Atoi(c.Query("year"))
+
+    log.Printf("Received month: %d, year: %d", month, year)
+
+    userType := c.GetHeader("X-User-Type")
+    if userType == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "User type is nil"})
+        return
+    }
+	if userType != "ADMIN" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+    if month == 0 || year == 0 {
+        now := time.Now()
+        if month == 0 {
+            month = int(now.Month())
+        }
+        if year == 0 {
+            year = now.Year()
+        }
+    }
+
+    curUsers, growthPercent, err := h.UserService.GetUserStatisticsService(month, year)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "current_month_users":  curUsers,
+        "growth_percentage":    growthPercent,
+    })
 }

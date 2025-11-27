@@ -144,3 +144,23 @@ func (s *UserService) AdminDeleteUserService(id uuid.UUID, adminType string) err
 	}
 	return nil
 }
+
+func (s *UserService) GetUserStatisticsService(month int, year int) (int64, float64, error) {
+	curUsers, prevUsers, err := s.repo.GetUserStatistics(month, year)
+    if err != nil {
+        return 0, 0, err
+    }
+
+    var growth float64
+    if prevUsers == 0 {
+        if curUsers == 0 {
+            growth = 0.0
+        } else {
+            growth = 100.0
+        }
+    } else {
+        growth = (float64(curUsers-int64(prevUsers)) / float64(prevUsers)) * 100.0
+    }
+
+    return curUsers, growth, nil
+}
