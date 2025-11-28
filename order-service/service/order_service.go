@@ -208,17 +208,15 @@ func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID 
 		if !isVendor {
 			return NewServiceError("Only vendor can confirm order")
 		}
-		if order.Status != "PAYMENT_HELD" {
-			return NewServiceError("Order must be PAYMENT_HELD before confirming")
-		}
+		
 
 	case "DELIVERING":
 		// Only vendor can set delivering status
 		if !isVendor {
 			return NewServiceError("Only vendor can mark order as delivering")
 		}
-		if order.Status != "PROCESSING" && order.Status != "PAYMENT_HELD" {
-			return NewServiceError("Order must be CONFIRMED or PAYMENT_HELD before delivering")
+		if order.Status != "PROCESSING" && order.Status != "PENDING" {
+			return NewServiceError("Order must be CONFIRMED or PENDING before delivering")
 		}
 
 	case "DELIVERED":
@@ -705,7 +703,7 @@ func (s *OrderService) HandlePaymentSuccess(ctx context.Context, orderID string,
 	updates := map[string]interface{}{
 		"payment_status":    "HELD",
 		"payment_intent_id": paymentIntentID,
-		"status":            "PAYMENT_HELD",
+		"status":            "PENDING",
 		"platform_fee":      platformFee,
 		"vendor_amount":     vendorAmount,
 		"updated_at":        time.Now(),
@@ -951,8 +949,6 @@ func (s *OrderService) processPaymentEvent(event PaymentEvent) {
 			log.Printf("✅ [OrderService] Successfully handled payment success for order: %s", event.OrderID)
 		}
 
-		// Don't override order status here - HandlePaymentSuccess already set it to PAYMENT_HELD
-		// and payment_status to HELD
 
 	case "checkout_failed":
 		log.Printf("❌ [OrderService] Payment failed for order: %s", event.OrderID)

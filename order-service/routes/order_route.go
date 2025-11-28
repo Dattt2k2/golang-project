@@ -27,7 +27,7 @@ func OrderRoutes(incomming *gin.Engine) {
 	authorized.POST("order/direct", orderController.OrderDirectly())
 	authorized.GET("order/user", orderController.GetUserOrders())
 	authorized.GET("orders", orderController.GetOrdersByVendor())
-	authorized.POST("orders/cancel/:order_id", orderController.CancelOrder())
+	authorized.POST("order/cancel/:order_id", orderController.CancelOrder())
 	authorized.GET("order/:id", orderController.GetOrderByID())
 	authorized.POST("orders/:id/update-status", orderController.UpdateOrderStatus())
 	authorized.POST("orders/:id/vendor-update-status", orderController.VendorUpdateOrderStatus())
