@@ -75,6 +75,9 @@ services:
       - "traefik.http.routers.auth.rule=Host(`api.example.com`) && PathPrefix(`/auth`)"
       - "traefik.http.routers.auth.entrypoints=web"
       - "traefik.http.services.auth.loadbalancer.server.port=8081"
+      - "traefik.http.routers.auth-changepass.rule=Host(`api.example.com`) && PathPrefix(`/auth/change-password`)"
+      - "traefik.http.routers.auth-changepass.entrypoints=web"
+      - "traefik.http.routers.auth-changepass.middlewares=jwt-validation@file"
 
     logging:
       driver: "json-file"

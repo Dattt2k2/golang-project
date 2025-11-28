@@ -66,16 +66,16 @@ func (r *userRepository) CreateAddress(address *models.UserAddress) error {
 	}
 
 	if err := tx.Create(address).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
+		tx.Rollback()
+		return err
+	}
 
-		if err := tx.Model(&models.User{}).
-			Where("id = ?", address.UserID).
-			Update("default_address_id", address.ID).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
+	if err := tx.Model(&models.User{}).
+		Where("id = ?", address.UserID).
+		Update("default_address_id", address.ID).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
 
 	return tx.Commit().Error
 }
@@ -132,41 +132,41 @@ func (r *userRepository) DeleteAddress(id uuid.UUID) error {
 	if address.IsDefault {
 		var newDefaultAddress models.UserAddress
 		if err := tx.Where("user_id = ?", address.UserID).
-            Order("created_at DESC").
-            First(&newDefaultAddress).Error; err == nil {
-            if err := tx.Model(&models.UserAddress{}).
-                Where("id = ?", newDefaultAddress.ID).
-                Update("is_default", true).Error; err != nil {
-                tx.Rollback()
-                return err
-            }
+			Order("created_at DESC").
+			First(&newDefaultAddress).Error; err == nil {
+			if err := tx.Model(&models.UserAddress{}).
+				Where("id = ?", newDefaultAddress.ID).
+				Update("is_default", true).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
 
-            if err := tx.Model(&models.User{}).
-                Where("id = ?", address.UserID).
-                Update("default_address_id", newDefaultAddress.ID).Error; err != nil {
-                tx.Rollback()
-                return err
-            }
-        } else {
-            if err := tx.Model(&models.User{}).
-                Where("id = ?", address.UserID).
-                Update("default_address_id", nil).Error; err != nil {
-                tx.Rollback()
-                return err
-            }
-        }
+			if err := tx.Model(&models.User{}).
+				Where("id = ?", address.UserID).
+				Update("default_address_id", newDefaultAddress.ID).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		} else {
+			if err := tx.Model(&models.User{}).
+				Where("id = ?", address.UserID).
+				Update("default_address_id", nil).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
 	}
 	return tx.Commit().Error
 }
 
 func (r *userRepository) GetAllUsers(limit, offset int, userType string, status string) (models.PaginatedUsers, error) {
 	if userType == "" {
-        return models.PaginatedUsers{}, fmt.Errorf("user Type is nil")
-    } else if userType != "ADMIN" {
-        return models.PaginatedUsers{}, fmt.Errorf("user Type is invalid")
-    }
-    var users []models.User
-    var total int64
+		return models.PaginatedUsers{}, fmt.Errorf("user Type is nil")
+	} else if userType != "ADMIN" {
+		return models.PaginatedUsers{}, fmt.Errorf("user Type is invalid")
+	}
+	var users []models.User
+	var total int64
 	var isDisabled *bool
 	if status == "active" {
 		val := false
@@ -175,33 +175,33 @@ func (r *userRepository) GetAllUsers(limit, offset int, userType string, status 
 		val := true
 		isDisabled = &val
 	}
-   	countQuery := r.db.Model(&models.User{})
-    if isDisabled != nil {
-        countQuery = countQuery.Where("is_disabled = ?", *isDisabled)  
-    }
-    if err := countQuery.Count(&total).Error; err != nil {
-        return models.PaginatedUsers{}, err
-    }
+	countQuery := r.db.Model(&models.User{}).Where("user_type != ?", "ADMIN")
+	if isDisabled != nil {
+		countQuery = countQuery.Where("is_disabled = ?", *isDisabled)
+	}
+	if err := countQuery.Count(&total).Error; err != nil {
+		return models.PaginatedUsers{}, err
+	}
 
-    query := r.db.Limit(limit).Offset(offset)
-    if isDisabled != nil {
-        query = query.Where("is_disabled = ?", *isDisabled)  
-    }
-    if err := query.Find(&users).Error; err != nil {  
-        return models.PaginatedUsers{}, err
-    }
+	query := r.db.Limit(limit).Offset(offset).Where("user_type != ?", "ADMIN")
+	if isDisabled != nil {
+		query = query.Where("is_disabled = ?", *isDisabled)
+	}
+	if err := query.Find(&users).Error; err != nil {
+		return models.PaginatedUsers{}, err
+	}
 
-    hasPrev := offset > 0
-    hasNext := int64(offset+limit) < total
+	hasPrev := offset > 0
+	hasNext := int64(offset+limit) < total
 
-    return models.PaginatedUsers{
-        Users:   users,
-        Total:   total,
-        Limit:   limit,
-        Offset:  offset,
-        HasPrev: hasPrev,
-        HasNext: hasNext,
-    }, nil
+	return models.PaginatedUsers{
+		Users:   users,
+		Total:   total,
+		Limit:   limit,
+		Offset:  offset,
+		HasPrev: hasPrev,
+		HasNext: hasNext,
+	}, nil
 }
 
 func (r *userRepository) GetUserByID(id uuid.UUID, userType string) (*models.User, error) {
@@ -219,11 +219,11 @@ func (r *userRepository) UpdateUserStatus(id uuid.UUID, userType string) error {
 	if userType != "ADMIN" {
 		return fmt.Errorf("Only ADMIN users can update user status")
 	}
-	 var isDisabled bool
-    err := r.db.Model(&models.User{}).Where("id = ?", id).Select("is_disabled").Scan(&isDisabled).Error
-    if err != nil {
-        return err
-    }
+	var isDisabled bool
+	err := r.db.Model(&models.User{}).Where("id = ?", id).Select("is_disabled").Scan(&isDisabled).Error
+	if err != nil {
+		return err
+	}
 	return r.db.Model(&models.User{}).Where("id = ?", id).Update("is_disabled", !isDisabled).Error
 }
 
@@ -248,7 +248,7 @@ func (r *userRepository) GetUserStatistics(month int, year int) (int64, int64, e
 	}
 
 	start, end := buildRange(month, year)
-	q := r.db.Model(&models.User{}).Where("users.is_disabled = ?", false)
+	q := r.db.Model(&models.User{}).Where("users.is_disabled = ? AND user_type != ?", false, "ADMIN")
 	if !start.IsZero() && !end.IsZero() {
 		q = q.Where("created_at >= ? AND created_at < ?", start, end)
 	}
@@ -257,7 +257,7 @@ func (r *userRepository) GetUserStatistics(month int, year int) (int64, int64, e
 	}
 
 	prevStart, prevEnd := buildRange(month-1, year)
-	prevQ := r.db.Model(&models.User{}).Where("users.is_disabled = ?", false)
+	prevQ := r.db.Model(&models.User{}).Where("users.is_disabled = ? AND user_type != ?", false, "ADMIN")
 	if !prevStart.IsZero() && !prevEnd.IsZero() {
 		prevQ = prevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
 	}

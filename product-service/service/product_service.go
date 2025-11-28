@@ -37,12 +37,12 @@ type ProductService interface {
 }
 
 type productServiceImpl struct {
-	repo repository.ProductRepository
+	repo      repository.ProductRepository
 	S3Service *S3Service
 }
 
-func NewProductService(repo repository.ProductRepository, s3Service *S3Service ) ProductService {
-	return &productServiceImpl{repo: repo, S3Service : s3Service}
+func NewProductService(repo repository.ProductRepository, s3Service *S3Service) ProductService {
+	return &productServiceImpl{repo: repo, S3Service: s3Service}
 }
 
 func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Product) error {
@@ -63,7 +63,7 @@ func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Prod
 			_ = kafka.ProduceProductEvent(context.Background(), "created", &p, p.ID)
 		}(product)
 	}
-	
+
 	return err
 }
 
@@ -79,13 +79,13 @@ func (s *productServiceImpl) EditProduct(ctx context.Context, id string, update 
 				log.Printf("Error invalidating product cache: %v", err)
 			}
 		}()
-		
+
 		go func(id string) {
 			product, err := s.repo.FindByID(context.Background(), id)
 			if err == nil && product != nil {
 				_ = kafka.ProduceProductEvent(context.Background(), "updated", product, id)
 			}
-		} (id)
+		}(id)
 	}
 	return err
 }
@@ -108,53 +108,70 @@ func (s *productServiceImpl) DeleteProduct(ctx context.Context, id, userID strin
 
 		go func(id string) {
 			_ = kafka.ProduceProductEvent(context.Background(), "deleted", nil, id)
-		} (id)
+		}(id)
 	}
 	return err
 }
 
 func (s *productServiceImpl) GetProductByID(ctx context.Context, id string) (*models.Product, error) {
-	cacheKey := fmt.Sprintf("product:%s", id) // Đổi thành "product:" để nhất quán
+	// cacheKey := fmt.Sprintf("product:%s", id) // Đổi thành "product:" để nhất quán
 
-	var product models.Product
-	found, err := helper.GetCachedProductData(ctx, cacheKey, &product)
-	if err == nil && found {
-		log.Printf("Cache hit for product: %s", id)
-		if len(product.ImagePath) > 0 {
-			var urls []string
-			for _, key := range product.ImagePath {
-				if key == "" {
-					continue
-				}
-				url, err := s.GetS3PathIfExist(key, 100*time.Minute)
-				if err == nil && url != "" {
-					urls = append(urls, url)
-				} else {
-					// fallback to original key if presign fails
-					urls = append(urls, key)
-				}
-			}
-			product.ImagePath = urls
-		}
-		return &product, nil
-	}
+	// var product models.Product
+	// found, err := helper.GetCachedProductData(ctx, cacheKey, &product)
+	// if err == nil && found {
+	// 	log.Printf("Cache hit for product: %s", id)
+	// 	if len(product.ImagePath) > 0 {
+	// 		var urls []string
+	// 		for _, key := range product.ImagePath {
+	// 			if key == "" {
+	// 				continue
+	// 			}
+	// 			url, err := s.GetS3PathIfExist(key, 100*time.Minute)
+	// 			if err == nil && url != "" {
+	// 				urls = append(urls, url)
+	// 			} else {
+	// 				// fallback to original key if presign fails
+	// 				urls = append(urls, key)
+	// 			}
+	// 		}
+	// 		product.ImagePath = urls
+	// 	}
+	// 	return &product, nil
+	// }
 
 	productPtr, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	if productPtr != nil {
-		go func(p *models.Product) {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := helper.CacheProductData(ctx, cacheKey, p, 30*time.Minute); err != nil { 
-				log.Printf("Error caching product data: %v", err)
-			} else {
-				log.Printf("Cached product data with key: %s", cacheKey)
+	if productPtr != nil && len(productPtr.ImagePath) > 0 {
+		urls := make([]string, 0, len(productPtr.ImagePath))
+		for _, key := range productPtr.ImagePath {
+			if key == "" {
+				continue
 			}
-		}(productPtr)
+			url, err := s.GetS3PathIfExist(key, 100*time.Minute)
+			if err == nil && url != "" {
+				urls = append(urls, url)
+			} else {
+				// fallback to original key
+				urls = append(urls, key)
+			}
+		}
+		productPtr.ImagePath = urls
 	}
+
+	// if productPtr != nil {
+	// 	go func(p *models.Product) {
+	// 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// 		defer cancel()
+	// 		if err := helper.CacheProductData(ctx, cacheKey, p, 30*time.Minute); err != nil {
+	// 			log.Printf("Error caching product data: %v", err)
+	// 		} else {
+	// 			log.Printf("Cached product data with key: %s", cacheKey)
+	// 		}
+	// 	}(productPtr)
+	// }
 	return productPtr, nil
 }
 
@@ -317,8 +334,6 @@ func (s *productServiceImpl) DecrementSoldCount(ctx context.Context, productID s
 	return err
 }
 
-
-
 func (s *productServiceImpl) GetAllProductForIndex(ctx context.Context) ([]models.Product, error) {
 	products, _, err := s.repo.FindAll(ctx, 0, 1000)
 	if err != nil {
@@ -363,7 +378,7 @@ func (s *productServiceImpl) GetProductByUserID(ctx context.Context, userID stri
 	pages := int((total + limit - 1) / limit)
 	hasNext := page < int64(pages)
 	hasPrev := page > 1
-	
+
 	return products, total, pages, hasNext, hasPrev, nil
 }
 
@@ -396,7 +411,7 @@ func (s *productServiceImpl) GetProductByCategory(ctx context.Context, category 
 	pages := int((total + limit - 1) / limit)
 	hasNext := page < int64(pages)
 	hasPrev := page > 1
-	
+
 	return products, total, pages, hasNext, hasPrev, nil
 }
 
@@ -415,7 +430,7 @@ func (s *productServiceImpl) GetProductStatistics(ctx context.Context, month, ye
 	totalProd := stats["current_total_products"]
 	prevTotalProd := stats["previous_total_products"]
 
-	var growth float64 
+	var growth float64
 	if prevTotalProd == 0 {
 		if totalProd == 0 {
 			growth = 0
@@ -423,34 +438,34 @@ func (s *productServiceImpl) GetProductStatistics(ctx context.Context, month, ye
 			growth = 100.0
 		}
 	} else {
-		growth = (float64(totalProd)-float64(prevTotalProd))/float64(prevTotalProd) * 100
-        growth = math.Round(growth*100) / 100
+		growth = (float64(totalProd) - float64(prevTotalProd)) / float64(prevTotalProd) * 100
+		growth = math.Round(growth*100) / 100
 	}
 
-	 topSold := make([]map[string]interface{}, 0, len(top))
-    for _, p := range top {
-        if p.ID == "" {
-            continue
-        }
-        topSold = append(topSold, map[string]interface{}{
-            "product_id":   p.ID,
-            "name":         p.Name,
-            "sold_count":   p.SoldCount,
-            "price":        p.Price,
-        })
-    }
+	topSold := make([]map[string]interface{}, 0, len(top))
+	for _, p := range top {
+		if p.ID == "" {
+			continue
+		}
+		topSold = append(topSold, map[string]interface{}{
+			"product_id": p.ID,
+			"name":       p.Name,
+			"sold_count": p.SoldCount,
+			"price":      p.Price,
+		})
+	}
 
-    // Add debug log so you can inspect values
-    log.Printf("product-stats: total=%d prev=%d growth=%.2f topCount=%d", totalProd, prevTotalProd, growth, len(topSold))
+	// Add debug log so you can inspect values
+	log.Printf("product-stats: total=%d prev=%d growth=%.2f topCount=%d", totalProd, prevTotalProd, growth, len(topSold))
 
-    resp := map[string]interface{}{
-        "top_selling_products":    topSold,
-        "total_products":           totalProd,
-        "previous_total_products":  prevTotalProd,
-        "growth_percentage":        growth,
-    }
+	resp := map[string]interface{}{
+		"top_selling_products":    topSold,
+		"total_products":          totalProd,
+		"previous_total_products": prevTotalProd,
+		"growth_percentage":       growth,
+	}
 
-    return resp, nil
+	return resp, nil
 }
 
 func (s *productServiceImpl) AddProductCategory(ctx context.Context, category models.Category) error {

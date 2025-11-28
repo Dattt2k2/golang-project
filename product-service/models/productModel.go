@@ -128,6 +128,7 @@ type Product struct {
     Status      string    `json:"status" dynamodbav:"status"`
     Rating      float64   `json:"rating" dynamodbav:"rating"`
     RatingCount int       `json:"rating_count" dynamodbav:"rating_count"`
+    ReviewCount int       `json:"review_count" dynamodbav:"review_count"`
 }
 
 // CreateProductRequest - Request struct cho tạo product mới

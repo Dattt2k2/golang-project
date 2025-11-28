@@ -523,7 +523,7 @@ func (ctrl *CartController) AddToCart() gin.HandlerFunc {
 			logger.Err("Failed to add product to cart", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status": false,
-				"error": err.Error(),
+				"error":  err.Error(),
 			})
 			return
 		}
@@ -597,15 +597,17 @@ func (ctrl *CartController) GetCart() gin.HandlerFunc {
 		}
 
 		if cart == nil {
-			cart.Items = []models.CartItem{}
+			cart = &models.Cart{
+				UserID: uid,
+				Items:  []models.CartItem{},
+			}
 		}
 
-		if cart.Items == nil || len(cart.Items) == 0 {
+		if cart.Items == nil {
 			cart.Items = []models.CartItem{}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"user_id":  uid,
 			"products": cart.Items,
 		})
 	}
@@ -690,7 +692,7 @@ func (ctrl *CartController) UpdateCartItem() gin.HandlerFunc {
 		}
 
 		request := struct {
-			Quantity  int    `json:"quantity"`
+			Quantity int `json:"quantity"`
 		}{}
 
 		if err := c.ShouldBindJSON(&request); err != nil {

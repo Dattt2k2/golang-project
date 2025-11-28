@@ -23,7 +23,7 @@ func NewScheduler(aggregator *PendingReviewAggregator) *Scheduler {
 
 func (s *Scheduler) Start() {
 	// Chạy mỗi 30 phút
-	s.cron.AddFunc("0 */30 * * * *", func() {
+	s.cron.AddFunc("0 */1 * * * *", func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 

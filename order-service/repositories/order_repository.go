@@ -110,19 +110,19 @@ func (r *OrderRepository) FindOrdersByVendorID(ctx context.Context, vendorID str
 	}
 
 	revenueQuery := r.db.WithContext(ctx).Model(&models.Order{})
-    revenueQuery = revenueQuery.Where("items @> ?", `[{"vendor_id": "`+vendorID+`"}]`)
-    revenueQuery = revenueQuery.Where("status = ?", "SHIPPED")
-	
-    if month > 0 && year > 0 {
-        startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-        endDate := startDate.AddDate(0, 1, 0)
-        revenueQuery = revenueQuery.Where("created_at >= ? AND created_at < ?", startDate, endDate)
-    }
+	revenueQuery = revenueQuery.Where("items @> ?", `[{"vendor_id": "`+vendorID+`"}]`)
+	revenueQuery = revenueQuery.Where("status = ?", "SHIPPED")
 
-    err = revenueQuery.Session(&gorm.Session{}).Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error
-    if err != nil {
-        return nil, 0, 0, err
-    }
+	if month > 0 && year > 0 {
+		startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		endDate := startDate.AddDate(0, 1, 0)
+		revenueQuery = revenueQuery.Where("created_at >= ? AND created_at < ?", startDate, endDate)
+	}
+
+	err = revenueQuery.Session(&gorm.Session{}).Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error
+	if err != nil {
+		return nil, 0, 0, err
+	}
 
 	// Phân trang và lấy danh sách đơn hàng (sử dụng session riêng)
 	offset := (page - 1) * limit
@@ -227,6 +227,13 @@ func (r *OrderRepository) UpdatePaymentIntentID(ctx context.Context, orderID str
 }
 
 func (r *OrderRepository) UpdateOrderFields(ctx context.Context, orderID string, updates map[string]interface{}) error {
+	order, err := r.GetOrderByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	if order.PaymentMethod == "COD" && updates["status"] == "SHIPPED" {
+		updates["payment_status"] = "PAID"
+	}
 	return r.db.WithContext(ctx).
 		Model(&models.Order{}).
 		Where("order_id = ?", orderID).
@@ -234,21 +241,21 @@ func (r *OrderRepository) UpdateOrderFields(ctx context.Context, orderID string,
 }
 
 func (r *OrderRepository) UpdateOrderStatusByVendorID(ctx context.Context, orderID string, vendorID string, status string) error {
-    if orderID == "" || vendorID == "" {
-        return fmt.Errorf("orderID and vendorID cannot be empty")
-    }
+	if orderID == "" || vendorID == "" {
+		return fmt.Errorf("orderID and vendorID cannot be empty")
+	}
 
-    result := r.db.WithContext(ctx).
-        Model(&models.Order{}).
-        Where("order_id = ? AND items @> ?", orderID, `[{"vendor_id": "`+vendorID+`"}]`).
-        Update("status", status)
+	result := r.db.WithContext(ctx).
+		Model(&models.Order{}).
+		Where("order_id = ? AND items @> ?", orderID, `[{"vendor_id": "`+vendorID+`"}]`).
+		Update("status", status)
 
-    if result.RowsAffected == 0 {
+	if result.RowsAffected == 0 {
 		logger.Err("Failed to update order status", fmt.Errorf("No rows updated: orderID=%s, vendorID=%s, status=%s", orderID, vendorID, status))
-        return fmt.Errorf("no rows updated: order_id=%s, vendor_id=%s", orderID, vendorID)
-    }
+		return fmt.Errorf("no rows updated: order_id=%s, vendor_id=%s", orderID, vendorID)
+	}
 
-    return result.Error
+	return result.Error
 }
 
 func (r *OrderRepository) GetOrderStatus(ctx context.Context, orderID string) (string, string, string, error) {
@@ -270,64 +277,64 @@ func (r *OrderRepository) GetOrderStatus(ctx context.Context, orderID string) (s
 }
 
 func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, year int) (int64, float64, int64, float64, int64, []models.TopProduct, error) {
-    var totalOrderCount int64
-    var totalRevenue float64
-    var prevOrderCount int64
-    var prevRevenue float64
-    var totalQuantity int64
-    var topProducts []models.TopProduct
+	var totalOrderCount int64
+	var totalRevenue float64
+	var prevOrderCount int64
+	var prevRevenue float64
+	var totalQuantity int64
+	var topProducts []models.TopProduct
 
-    buildRange := func(m, y int) (time.Time, time.Time) {
-        if m <= 0 || y <= 0 {
-            return time.Time{}, time.Time{}
-        }
-        start := time.Date(y, time.Month(m), 1, 0, 0, 0, 0, time.UTC)
-        end := start.AddDate(0, 1, 0)
-        return start, end
-    }
+	buildRange := func(m, y int) (time.Time, time.Time) {
+		if m <= 0 || y <= 0 {
+			return time.Time{}, time.Time{}
+		}
+		start := time.Date(y, time.Month(m), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0)
+		return start, end
+	}
 
-    start, end := buildRange(month, year)
+	start, end := buildRange(month, year)
 
-    q := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
-    if !start.IsZero() {
-        q = q.Where("created_at >= ? AND created_at < ?", start, end)
-    }
-    if err := q.Count(&totalOrderCount).Error; err != nil {
-        return 0, 0, 0, 0, 0, nil, err
-    }
+	q := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
+	if !start.IsZero() {
+		q = q.Where("created_at >= ? AND created_at < ?", start, end)
+	}
+	if err := q.Count(&totalOrderCount).Error; err != nil {
+		return 0, 0, 0, 0, 0, nil, err
+	}
 
-    revQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
-    if !start.IsZero() {
-        revQ = revQ.Where("created_at >= ? AND created_at < ?", start, end)
-    }
-    if err := revQ.Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error; err != nil {
-        return 0, 0, 0, 0, 0, nil, err
-    }
+	revQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
+	if !start.IsZero() {
+		revQ = revQ.Where("created_at >= ? AND created_at < ?", start, end)
+	}
+	if err := revQ.Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error; err != nil {
+		return 0, 0, 0, 0, 0, nil, err
+	}
 
-    prevStart, prevEnd := buildRange(month-1, year)
-    prevQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
-    if !prevStart.IsZero() {
-        prevQ = prevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
-    }
-    if err := prevQ.Count(&prevOrderCount).Error; err != nil {
-        return 0, 0, 0, 0, 0, nil, err
-    }
+	prevStart, prevEnd := buildRange(month-1, year)
+	prevQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
+	if !prevStart.IsZero() {
+		prevQ = prevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
+	}
+	if err := prevQ.Count(&prevOrderCount).Error; err != nil {
+		return 0, 0, 0, 0, 0, nil, err
+	}
 
-    prevRevQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
-    if !prevStart.IsZero() {
-        prevRevQ = prevRevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
-    }
-    if err := prevRevQ.Select("COALESCE(SUM(total_price), 0)").Scan(&prevRevenue).Error; err != nil {
-        return 0, 0, 0, 0, 0, nil, err
-    }
+	prevRevQ := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ?", "SHIPPED")
+	if !prevStart.IsZero() {
+		prevRevQ = prevRevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
+	}
+	if err := prevRevQ.Select("COALESCE(SUM(total_price), 0)").Scan(&prevRevenue).Error; err != nil {
+		return 0, 0, 0, 0, 0, nil, err
+	}
 
-    // totalQtySQL := `
-    //     SELECT COALESCE(SUM((it->>'quantity')::bigint), 0) AS total_quantity
-    //     FROM orders, jsonb_array_elements(items) AS it
-    //     WHERE status = 'SHIPPED'
-    // `
-    var args []interface{}
-    sql := `
+	// totalQtySQL := `
+	//     SELECT COALESCE(SUM((it->>'quantity')::bigint), 0) AS total_quantity
+	//     FROM orders, jsonb_array_elements(items) AS it
+	//     WHERE status = 'SHIPPED'
+	// `
+	var args []interface{}
+	sql := `
         SELECT
             it->>'product_id' AS product_id,
             it->>'name' AS name,
@@ -337,37 +344,36 @@ func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, yea
         FROM orders o, jsonb_array_elements(o.items) AS it
         WHERE o.status = 'SHIPPED'
     `
-    if !start.IsZero() {
-        sql += " AND o.created_at >= ? AND o.created_at < ?"
-        args = append(args, start, end)
-    }
-    sql += `
+	if !start.IsZero() {
+		sql += " AND o.created_at >= ? AND o.created_at < ?"
+		args = append(args, start, end)
+	}
+	sql += `
         GROUP BY it->>'product_id', it->>'name'
         ORDER BY total_quantity DESC, total_revenue DESC
         LIMIT 5
     `
 
-    if err := r.db.WithContext(ctx).Raw(sql, args...).Scan(&topProducts).Error; err != nil {
-        return 0, 0, 0, 0, 0, nil, err
-    }
+	if err := r.db.WithContext(ctx).Raw(sql, args...).Scan(&topProducts).Error; err != nil {
+		return 0, 0, 0, 0, 0, nil, err
+	}
 
-    return totalOrderCount, totalRevenue, prevOrderCount, prevRevenue, totalQuantity, topProducts, nil
+	return totalOrderCount, totalRevenue, prevOrderCount, prevRevenue, totalQuantity, topProducts, nil
 }
 
 func (r *OrderRepository) GetShippedOrdersCountAndTotal(ctx context.Context, userID string) (int64, float64, error) {
-    var count int64
-    var totalValue float64
+	var count int64
+	var totalValue float64
 
-    err := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ? AND user_id = ?", "SHIPPED", userID).Count(&count).Error
-    if err != nil {
-        return 0, 0, err
-    }
+	err := r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ? AND user_id = ?", "SHIPPED", userID).Count(&count).Error
+	if err != nil {
+		return 0, 0, err
+	}
 
-    err = r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ? AND user_id = ?", "SHIPPED", userID).Select("COALESCE(SUM(total_price), 0)").Scan(&totalValue).Error
-    if err != nil {
-        return 0, 0, err
-    }
+	err = r.db.WithContext(ctx).Model(&models.Order{}).Where("status = ? AND user_id = ?", "SHIPPED", userID).Select("COALESCE(SUM(total_price), 0)").Scan(&totalValue).Error
+	if err != nil {
+		return 0, 0, err
+	}
 
-    return count, totalValue, nil
+	return count, totalValue, nil
 }
-
