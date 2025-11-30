@@ -67,3 +67,9 @@ type TopProduct struct {
     TotalRevenue  float64 `json:"total_revenue"`
     TotalOrders   int64   `json:"total_orders"` 
 }
+
+type MonthRevenue struct {
+	Year int     `json:"year"`
+	Month int  `json:"month"`
+	Revenue float64 `json:"revenue"`
+}

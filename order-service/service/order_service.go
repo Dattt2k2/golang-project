@@ -263,6 +263,10 @@ func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID 
 	return nil
 }
 
+func (s *OrderService) GetRevenueInRange(ctx context.Context, month, year, n int, id string) ([]models.MonthRevenue, error) {
+	return s.orderRepo.GetRevenueLastNMonths(ctx, month, year, n, &id)
+}
+
 func determinePrimaryVendor(orderItems []OrderItem) string {
 	vendorAmounts := make(map[string]float64)
 

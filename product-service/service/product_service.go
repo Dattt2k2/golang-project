@@ -21,6 +21,7 @@ type ProductService interface {
 	EditProduct(ctx context.Context, id string, update map[string]interface{}) error
 	DeleteProduct(ctx context.Context, id, userID string) error
 	GetProductByID(ctx context.Context, id string) (*models.Product, error)
+	GetProductForgRPC(ctx context.Context, id string) (*models.Product, error)
 	// GetProductByName(ctx context.Context, name string) ([]models.Product, error)
 	GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product, int64, int, bool, bool, bool, error)
 	UpdateProductStock(ctx context.Context, id string, quantity int) error
@@ -111,6 +112,10 @@ func (s *productServiceImpl) DeleteProduct(ctx context.Context, id, userID strin
 		}(id)
 	}
 	return err
+}
+
+func (s *productServiceImpl) GetProductForgRPC(ctx context.Context, id string) (*models.Product, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
 func (s *productServiceImpl) GetProductByID(ctx context.Context, id string) (*models.Product, error) {

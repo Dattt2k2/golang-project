@@ -687,3 +687,37 @@ func (ctrl *OrderController) GetShippedOrderCount() gin.HandlerFunc {
 		})
 	}
 }
+
+func (ctrl *OrderController) GetRevenueInRange() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		month, _ := strconv.Atoi(c.DefaultQuery("month", "0"))
+		year, _ := strconv.Atoi(c.DefaultQuery("year", "0"))
+		n, err := strconv.Atoi(c.DefaultQuery("n", "6"))
+		if err != nil || n <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid number of months"})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		userType := c.GetHeader("X-User-Type")
+		if userType != "ADMIN" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can access revenue data"})
+			return
+		}
+
+		adminID := c.GetHeader("X-User-ID")
+
+		revenues, err := ctrl.orderService.GetRevenueInRange(ctx, month, year, n, adminID)
+		if err != nil {
+			logger.Err("Failed to get revenue data", err, logger.Str("month", strconv.Itoa(month)), logger.Str("year", strconv.Itoa(year)), logger.Str("n", strconv.Itoa(n)))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get revenue data"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"revenues": revenues,
+		})
+	}
+}

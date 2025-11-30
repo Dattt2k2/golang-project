@@ -33,6 +33,7 @@ func OrderRoutes(incomming *gin.Engine) {
 	authorized.POST("orders/:id/vendor-update-status", orderController.VendorUpdateOrderStatus())
 	authorized.GET("orders/statistics", orderController.GetOrderStatistics())
 	authorized.GET("orders/count/:user_id", orderController.GetShippedOrderCount())
+	authorized.GET("orders/revenue", orderController.GetRevenueInRange())
 
 	authorized.POST("orders/:id/confirm-delivery", orderController.ConfirmDelivery())
 	authorized.POST("orders/:id/mark-shipped", orderController.MarkAsShipped())
