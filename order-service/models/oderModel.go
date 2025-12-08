@@ -34,7 +34,7 @@ import (
 
 type Order struct {
 	gorm.Model
-	OrderID            string         `gorm:"type:uuid;default:gen_random_uuid();uniqueIndex;not null"`
+	OrderID            string         `gorm:"uniqueIndex;not null"`
 	UserID             string         `gorm:"not null"`
 	Items              datatypes.JSON `gorm:"type:jsonb;not null"`
 	Status             string         `gorm:"not null;default:'pending'"`
@@ -45,6 +45,7 @@ type Order struct {
 	PaymentIntentID    *string        `gorm:"column:payment_intent_id" json:"payment_intent_id,omitempty"`
 	ShippingStatus     string         `gorm:"not null;default:'pending'"`
 	ShippingAddress    string         `gorm:"not null"`
+	ShippingInfo       datatypes.JSON `gorm:"type:jsonb;default:'{}'"`
 	// VendorID           *string        `gorm:"column:vendor_id" json:"vendor_id,omitempty"`
 	PlatformFee        float64        `gorm:"not null;default:0"`
 	VendorAmount       float64        `gorm:"not null;default:0"`

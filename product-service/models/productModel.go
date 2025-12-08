@@ -104,111 +104,111 @@
 // 	ExpiresIn    int    `json:"expires_in"`    // Thời gian hết hạn (seconds)
 // }
 
-
 package models
 
 import (
-    "context"
-    "time"
+	"context"
+	"time"
 )
 
 // Product - Database model for DynamoDB
 type Product struct {
-    ID          string    `json:"id" dynamodbav:"id"`                         // Thay đổi từ ObjectID sang string
-    Name        string    `json:"name" dynamodbav:"name"`
-    ImagePath   []string    `json:"image_path" dynamodbav:"image_path"`
-    Category    string    `json:"category" dynamodbav:"category"`
-    Description string    `json:"description" dynamodbav:"description"`
-    Quantity    int       `json:"quantity" dynamodbav:"quantity"`
-    Price       float64   `json:"price" dynamodbav:"price"`
-    SoldCount   int       `json:"sold_count" dynamodbav:"sold_count"`
-    Created_at  time.Time `json:"created_at" dynamodbav:"created_at"`
-    Updated_at  time.Time `json:"updated_at" dynamodbav:"updated_at"`
-    UserID      string    `json:"user_id" dynamodbav:"user_id"`
-    Status      string    `json:"status" dynamodbav:"status"`
-    Rating      float64   `json:"rating" dynamodbav:"rating"`
-    RatingCount int       `json:"rating_count" dynamodbav:"rating_count"`
-    ReviewCount int       `json:"review_count" dynamodbav:"review_count"`
+	ID          string    `json:"id" dynamodbav:"id"` // Thay đổi từ ObjectID sang string
+	Name        string    `json:"name" dynamodbav:"name"`
+	ImagePath   []string  `json:"image_path" dynamodbav:"image_path"`
+	Category    string    `json:"category" dynamodbav:"category"`
+	Description string    `json:"description" dynamodbav:"description"`
+	Quantity    int       `json:"quantity" dynamodbav:"quantity"`
+	Price       float64   `json:"price" dynamodbav:"price"`
+	SoldCount   int       `json:"sold_count" dynamodbav:"sold_count"`
+	Created_at  time.Time `json:"created_at" dynamodbav:"created_at"`
+	Updated_at  time.Time `json:"updated_at" dynamodbav:"updated_at"`
+	UserID      string    `json:"user_id" dynamodbav:"user_id"`
+	Status      string    `json:"status" dynamodbav:"status"`
+	Rating      float64   `json:"rating" dynamodbav:"rating"`
+	RatingCount int       `json:"rating_count" dynamodbav:"rating_count"`
+	ReviewCount int       `json:"review_count" dynamodbav:"review_count"`
 }
 
 // CreateProductRequest - Request struct cho tạo product mới
 type CreateProductRequest struct {
-    Name        string  `json:"name" binding:"required,min=2,max=100"`
-    ImagePath   []string  `json:"image_path,omitempty"` // Optional - có thể empty hoặc có URL từ presigned upload
-    Category    string  `json:"category" binding:"required"`
-    Description string  `json:"description" binding:"required,min=2"`
-    Quantity    int     `json:"quantity" binding:"required,min=1"`
-    Price       float64 `json:"price" binding:"required,gt=0"`
-    Status      string  `json:"status" binding:"required,oneof=onsale offsale unavailable"` 
+	Name        string   `json:"name" binding:"required,min=2,max=100"`
+	ImagePath   []string `json:"image_path,omitempty"` // Optional - có thể empty hoặc có URL từ presigned upload
+	Category    string   `json:"category" binding:"required"`
+	Description string   `json:"description" binding:"required,min=2"`
+	Quantity    int      `json:"quantity" binding:"required,min=1"`
+	Price       float64  `json:"price" binding:"required,gt=0"`
+	Status      string   `json:"status" binding:"required,oneof=onsale offsale unavailable"`
 }
 
 // CreateProductWithImageRequest - Request struct khi upload ảnh cùng lúc
 type CreateProductWithImageRequest struct {
-    Name        string  `json:"name" binding:"required,min=2,max=100"`
-    Category    string  `json:"category" binding:"required"`
-    Description string  `json:"description" binding:"required,min=2,max=500"`
-    Quantity    int     `json:"quantity" binding:"required,min=1"`
-    Price       float64 `json:"price" binding:"required,gt=0"`
-    // Image sẽ được handle qua multipart form file
+	Name        string  `json:"name" binding:"required,min=2,max=100"`
+	Category    string  `json:"category" binding:"required"`
+	Description string  `json:"description" binding:"required,min=2,max=500"`
+	Quantity    int     `json:"quantity" binding:"required,min=1"`
+	Price       float64 `json:"price" binding:"required,gt=0"`
+	// Image sẽ được handle qua multipart form file
 }
 
 // UpdateProductRequest - Request struct cho update product
 type UpdateProductRequest struct {
-    Name        *string  `json:"name,omitempty" binding:"omitempty,min=2,max=100"`
-    ImagePath   *[]string  `json:"image_path,omitempty"` // Optional update
-    Category    *string  `json:"category,omitempty"`
-    Description *string  `json:"description,omitempty" binding:"omitempty,min=2,max=500"`
-    Quantity    *int     `json:"quantity,omitempty" binding:"omitempty,min=1"`
-    Price       *float64 `json:"price,omitempty" binding:"omitempty,gt=0"`
-    Status      *string  `json:"status,omitempty" binding:"omitempty,oneof=onsale offsale unavailable"` 
+	Name        *string   `json:"name,omitempty" binding:"omitempty,min=2,max=100"`
+	ImagePath   *[]string `json:"image_path,omitempty"` // Optional update
+	Category    *string   `json:"category,omitempty"`
+	Description *string   `json:"description,omitempty" binding:"omitempty,min=2,max=500"`
+	Quantity    *int      `json:"quantity,omitempty" binding:"omitempty,min=1"`
+	Price       *float64  `json:"price,omitempty" binding:"omitempty,gt=0"`
+	Status      *string   `json:"status,omitempty" binding:"omitempty,oneof=onsale offsale unavailable"`
 }
 
 // ProductResponse - Response struct cho API
 type ProductResponse struct {
-    ID          string    `json:"id"`
-    VendorID    string    `json:"vendor_id"` 
-    Name        string    `json:"name"`
-    ImagePath   []string  `json:"image_path"`
-    Category    string    `json:"category"`
-    Description string    `json:"description"`
-    Quantity    int       `json:"quantity"`
-    Price       float64   `json:"price"`
-    SoldCount   int       `json:"sold_count"`
-    Created_at  time.Time `json:"created_at"`
-    Updated_at  time.Time `json:"updated_at"`
-    Status      string    `json:"status"`
-    Rating      float64   `json:"rating"`
-    RatingCount int       `json:"rating_count"`
+	ID          string    `json:"id"`
+	VendorID    string    `json:"vendor_id"`
+	Name        string    `json:"name"`
+	ImagePath   []string  `json:"image_path"`
+	Category    string    `json:"category"`
+	Description string    `json:"description"`
+	Quantity    int       `json:"quantity"`
+	Price       float64   `json:"price"`
+	SoldCount   int       `json:"sold_count"`
+	Created_at  time.Time `json:"created_at"`
+	Updated_at  time.Time `json:"updated_at"`
+	Status      string    `json:"status"`
+	Rating      float64   `json:"rating"`
+	RatingCount int       `json:"rating_count"`
 }
 
 type StockUpdateItem struct {
-    ProductID string  // Thay đổi từ primitive.ObjectID sang string
-    Quantity  int
+	ProductID string // Thay đổi từ primitive.ObjectID sang string
+	Quantity  int
 }
 
 type ProductStockUpdater interface {
-    UpdateProductStock(ctx context.Context, id string, quantity int) error        // Thay đổi parameter type
-    IncrementSoldCount(ctx context.Context, productID string, quantity int) error
-    DecrementSoldCount(ctx context.Context, productID string, quantity int) error
+	UpdateProductStock(ctx context.Context, id string, quantity int) error // Thay đổi parameter type
+	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
+	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
 }
 
 // PresignedUploadRequest - Request để lấy presigned URL
 type PresignedUploadRequest struct {
-    Filename    string `json:"fileName"`
-    ContentType string `json:"fileType,omitempty"`
+	Filename    string `json:"fileName"`
+	ContentType string `json:"fileType,omitempty"`
 }
 
 // PresignedUploadResponse - Response chứa presigned URL
 type PresignedUploadResponse struct {
-    PresignedURL string `json:"presigned_url"` 
-    S3Key        string `json:"s3_key"`         
-    Filename     string `json:"filename"`       
-    ExpiresAt    int64  `json:"expires_at"`    
-    ExpiresIn    int    `json:"expires_in"`    
+	PresignedURL string `json:"presigned_url"`
+	S3Key        string `json:"s3_key"`
+	Filename     string `json:"filename"`
+	ExpiresAt    int64  `json:"expires_at"`
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 type Category struct {
-    ID        string    `json:"id" dynamodbav:"id"`
-    Name      string    `json:"name" dynamodbav:"name"`
-    CreatedAt time.Time `json:"created_at" dynamodbav:"created_at"`
+	ID        string    `json:"id" dynamodbav:"id"`
+	Code      string    `json:"code" dynamodbav:"code"`
+	Name      string    `json:"name" dynamodbav:"name"`
+	CreatedAt time.Time `json:"created_at" dynamodbav:"created_at"`
 }

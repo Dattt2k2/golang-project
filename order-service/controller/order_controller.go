@@ -35,9 +35,11 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc {
 			Source             string   `json:"source"`
 			PaymentMethod      string   `json:"paymentMethod"`
 			ShippingAddress    string   `json:"shippingAddress"`
+			ShippingInfo       string   `json:"shipping_info"`
 			Items 			[]struct {
 				ProductId string `json:"productId"`
-			}
+				Quantity  int    `json:"quantity"`
+			} `json:"items"`
 		}
 
 		var requestBody OrderCartRequest
@@ -233,6 +235,8 @@ func (ctrl *OrderController) GetOrdersByVendor() gin.HandlerFunc {
 			"total_revenue": totalRevenue,
 			"page":          page,
 			"limit":         limit,
+			"has_next":       (page * limit) < int(total),
+			"has_prev":       page > 1,
 		})
 	}
 }
@@ -554,6 +558,7 @@ func (ctrl *OrderController) GetOrderByID() gin.HandlerFunc {
 			"payment_method":   order.PaymentMethod,
 			"total_price":      order.TotalPrice,
 			"shipping_address": order.ShippingAddress,
+			"shipping_info":    order.ShippingInfo,
 			"created_at":       order.CreatedAt,
 			"updated_at":       order.UpdatedAt,
 		})

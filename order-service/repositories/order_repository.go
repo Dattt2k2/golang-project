@@ -111,7 +111,13 @@ func (r *OrderRepository) FindOrdersByVendorID(ctx context.Context, vendorID str
 
 	revenueQuery := r.db.WithContext(ctx).Model(&models.Order{})
 	revenueQuery = revenueQuery.Where("items @> ?", `[{"vendor_id": "`+vendorID+`"}]`)
-	revenueQuery = revenueQuery.Where("status = ?", "SHIPPED")
+
+	// Filter theo status nếu có, mặc định là SHIPPED
+	if status != "" {
+		revenueQuery = revenueQuery.Where("status = ?", status)
+	} else {
+		revenueQuery = revenueQuery.Where("status = ?", "SHIPPED")
+	}
 
 	if month > 0 && year > 0 {
 		startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
@@ -362,59 +368,59 @@ func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, yea
 }
 
 func (r *OrderRepository) GetRevenueLastNMonths(ctx context.Context, month, year, n int, vendorID *string) ([]models.MonthRevenue, error) {
-    if n <= 0 {
-        return nil, fmt.Errorf("n must be > 0")
-    }
+	if n <= 0 {
+		return nil, fmt.Errorf("n must be > 0")
+	}
 
-    now := time.Now()
-    if month < 0 || month > 12 {
-        return nil, fmt.Errorf("invalid month: %d", month)
-    }
-    if year < 0 {
-        return nil, fmt.Errorf("invalid year: %d", year)
-    }
+	now := time.Now()
+	if month < 0 || month > 12 {
+		return nil, fmt.Errorf("invalid month: %d", month)
+	}
+	if year < 0 {
+		return nil, fmt.Errorf("invalid year: %d", year)
+	}
 
-    // default to current month/year
-    if month == 0 && year == 0 {
-        month = int(now.Month())
-        year = now.Year()
-    }
-    // if month specified but year omitted -> use current year
-    if month != 0 && year == 0 {
-        year = now.Year()
-    }
+	// default to current month/year
+	if month == 0 && year == 0 {
+		month = int(now.Month())
+		year = now.Year()
+	}
+	// if month specified but year omitted -> use current year
+	if month != 0 && year == 0 {
+		year = now.Year()
+	}
 
-    // start base month: provided month/year
-    base := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	// start base month: provided month/year
+	base := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 
-    results := make([]models.MonthRevenue, 0, n)
+	results := make([]models.MonthRevenue, 0, n)
 
-    // Build months from oldest -> newest (base.AddDate(0, -n+1, 0) ... base)
-    for i := n - 1; i >= 0; i-- {
-        t := base.AddDate(0, -i, 0)
-        start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
-        end := start.AddDate(0, 1, 0)
+	// Build months from oldest -> newest (base.AddDate(0, -n+1, 0) ... base)
+	for i := n - 1; i >= 0; i-- {
+		t := base.AddDate(0, -i, 0)
+		start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0)
 
-        q := r.db.WithContext(ctx).Model(&models.Order{}).
-            Where("status = ?", "SHIPPED").
-            Where("created_at >= ? AND created_at < ?", start, end)
+		q := r.db.WithContext(ctx).Model(&models.Order{}).
+			Where("status = ?", "SHIPPED").
+			Where("created_at >= ? AND created_at < ?", start, end)
 
-        if vendorID != nil && *vendorID != "" {
-            q = q.Where("items @> ?", `[{"vendor_id": "`+*vendorID+`"}]`)
-        }
+		if vendorID != nil && *vendorID != "" {
+			q = q.Where("items @> ?", `[{"vendor_id": "`+*vendorID+`"}]`)
+		}
 
-        var revenue float64
-        if err := q.Select("COALESCE(SUM(total_price), 0)").Scan(&revenue).Error; err != nil {
-            return nil, err
-        }
+		var revenue float64
+		if err := q.Select("COALESCE(SUM(total_price), 0)").Scan(&revenue).Error; err != nil {
+			return nil, err
+		}
 
-        results = append(results, models.MonthRevenue{
-            Year:    start.Year(),
-            Month:   int(start.Month()),
-            Revenue: revenue,
-        })
-    }
-    return results, nil
+		results = append(results, models.MonthRevenue{
+			Year:    start.Year(),
+			Month:   int(start.Month()),
+			Revenue: revenue,
+		})
+	}
+	return results, nil
 }
 
 func (r *OrderRepository) GetShippedOrdersCountAndTotal(ctx context.Context, userID string) (int64, float64, error) {

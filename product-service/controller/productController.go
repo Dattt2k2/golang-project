@@ -13,7 +13,6 @@ import (
 	"product-service/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -93,11 +92,6 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 			return
 		}
 
-		if _, err := uuid.Parse(id); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Product ID"})
-			return
-		}
-
 		var req models.UpdateProductRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			logger.Error("Error binding JSON for EditProduct", zap.Error(err))
@@ -134,7 +128,12 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 			return
 		}
 
-		if err := ctrl.service.EditProduct(ctx, id, update); err != nil {
+		categoryName := ""
+		if req.Category != nil {
+			categoryName = *req.Category
+		}
+
+		if err := ctrl.service.EditProduct(ctx, id, update, categoryName); err != nil {
 			logger.Error("Error updating product", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
 			return
@@ -156,16 +155,13 @@ func (ctrl *ProductController) DeleteProduct() gin.HandlerFunc {
 		userID := c.GetHeader("X-User-ID")
 		if userID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID not found"})
+			logger.Error("User ID not found in DeleteProduct")
 			return
 		}
 		id := c.Param("id")
 		if id == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID not found"})
-			return
-		}
-
-		if _, err := uuid.Parse(id); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Product ID"})
+			logger.Error("Product ID not found in DeleteProduct")
 			return
 		}
 

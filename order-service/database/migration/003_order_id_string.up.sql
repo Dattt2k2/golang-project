@@ -1,0 +1,2 @@
+ALTER TABLE orders ALTER COLUMN order_id DROP DEFAULT;
+ALTER TABLE orders ALTER COLUMN order_id TYPE VARCHAR(255) USING order_id::text;

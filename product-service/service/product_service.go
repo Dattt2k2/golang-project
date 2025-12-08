@@ -2,23 +2,27 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log"
 	"math"
+	"math/big"
 	"time"
 
 	"product-service/helper"
 	"product-service/kafka"
+	logger "product-service/log"
 	"product-service/models"
 	"product-service/repository"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type ProductService interface {
 	AddProduct(ctx context.Context, product models.Product) error
-	EditProduct(ctx context.Context, id string, update map[string]interface{}) error
+	EditProduct(ctx context.Context, id string, update map[string]interface{}, categoryName string) error
 	DeleteProduct(ctx context.Context, id, userID string) error
 	GetProductByID(ctx context.Context, id string) (*models.Product, error)
 	GetProductForgRPC(ctx context.Context, id string) (*models.Product, error)
@@ -35,6 +39,7 @@ type ProductService interface {
 	AddProductCategory(ctx context.Context, category models.Category) error
 	GetProductCategory(ctx context.Context) ([]models.Category, error)
 	DeleteProductCategory(ctx context.Context, categoryID string) error
+	GetCategoryByName(ctx context.Context, name string) (*models.Category, error)
 }
 
 type productServiceImpl struct {
@@ -46,8 +51,36 @@ func NewProductService(repo repository.ProductRepository, s3Service *S3Service) 
 	return &productServiceImpl{repo: repo, S3Service: s3Service}
 }
 
+func (s *productServiceImpl) generateProductID(ctx context.Context, categoryName string) string {
+
+	category, err := s.GetCategoryByName(ctx, categoryName)
+	if err != nil || category == nil {
+		category = &models.Category{
+			Code: "GEN",
+			Name: "General",
+		}
+	}
+
+	catCode := category.Code
+	randomSuffix := s.generateRandomString(5)
+	return fmt.Sprintf("SKU-%s-%s", catCode, randomSuffix)
+}
+
+func (s *productServiceImpl) generateRandomString(length int) string {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return ""
+		}
+		result[i] = charset[num.Int64()]
+	}
+	return string(result)
+}
+
 func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Product) error {
-	product.ID = uuid.New().String()
+	product.ID = s.generateProductID(ctx, product.Category)
 	product.Created_at = time.Now()
 	product.Updated_at = time.Now()
 	err := s.repo.Insert(ctx, product)
@@ -68,8 +101,7 @@ func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Prod
 	return err
 }
 
-func (s *productServiceImpl) EditProduct(ctx context.Context, id string, update map[string]interface{}) error {
-	update["updated_at"] = time.Now()
+func (s *productServiceImpl) EditProduct(ctx context.Context, id string, update map[string]interface{}, categoryName string) error {
 	err := s.repo.Update(ctx, id, update)
 	if err == nil {
 		go func() {
@@ -389,6 +421,30 @@ func (s *productServiceImpl) GetProductByUserID(ctx context.Context, userID stri
 
 func (s *productServiceImpl) GetProductByCategory(ctx context.Context, category string, page, limit int64) ([]models.Product, int64, int, bool, bool, error) {
 	skip := (page - 1) * limit
+
+	if page < 1 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	cacheKey := fmt.Sprintf("products:category=%s:page=%d:limit%d", category, page, limit)
+
+	var cached struct {
+		Products []models.Product `json:"products"`
+		Total    int64            `json:"total"`
+		Pages    int              `json:"pages"`
+		HasNext  bool             `json:"has_next"`
+		HasPrev  bool             `json:"has_prev"`
+	}
+
+	found, err := helper.GetCachedProductData(ctx, cacheKey, &cached)
+	if err == nil && found {
+		logger.Info("Cached Hit for ", zap.String("category", category))
+		return cached.Products, cached.Total, cached.Pages, cached.HasNext, cached.HasPrev, nil
+	}
+
 	products, total, err := s.repo.GetProductByCategory(ctx, category, skip, limit)
 	if err != nil {
 		return nil, 0, 0, false, false, err
@@ -416,6 +472,22 @@ func (s *productServiceImpl) GetProductByCategory(ctx context.Context, category 
 	pages := int((total + limit - 1) / limit)
 	hasNext := page < int64(pages)
 	hasPrev := page > 1
+
+	go func(cat string, p int64, l int64, prods []models.Product, tot int64, pgs int, hn, hp bool) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		cachePayload := map[string]interface{}{
+			"products": prods,
+			"total":    tot,
+			"pages":    pgs,
+			"has_next": hn,
+			"has_prev": hp,
+		}
+		if err := helper.CacheProductData(ctx, cacheKey, cachePayload, 30*time.Minute); err != nil {
+			log.Printf("Failed to cache product data for category %s: %v", cat, err)
+		}
+	}(category, page, limit, products, total, pages, hasNext, hasPrev)
 
 	return products, total, pages, hasNext, hasPrev, nil
 }
@@ -485,4 +557,8 @@ func (s *productServiceImpl) GetProductCategory(ctx context.Context) ([]models.C
 
 func (s *productServiceImpl) DeleteProductCategory(ctx context.Context, categoryID string) error {
 	return s.repo.DeleteProductCategory(ctx, categoryID)
+}
+
+func (s *productServiceImpl) GetCategoryByName(ctx context.Context, name string) (*models.Category, error) {
+	return s.repo.GetCategoryByName(ctx, name)
 }

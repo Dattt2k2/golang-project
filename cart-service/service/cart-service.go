@@ -53,10 +53,6 @@ func (s *cartServiceImpl) AddToCart(ctx context.Context, userID string, productI
 	if _, err := uuid.Parse(userID); err != nil {
 		return errors.New("invalid User ID format")
 	}
-	if _, err := uuid.Parse(productID); err != nil {
-		return errors.New("invalid Product ID format")
-	}
-
 
 	productReq := &pb.ProductRequest{
 		Id: productID,
@@ -114,10 +110,6 @@ func (s *cartServiceImpl) DeleteProductFromCart(ctx context.Context, userID stri
 	if _, err := uuid.Parse(userID); err != nil {
 		return errors.New("Invalid User ID format")
 	}
-
-	if _, err := uuid.Parse(productID); err != nil {
-		return errors.New("Invalid Product ID format")
-	}
 	modifiedCount, err := s.repo.RemoveItem(ctx, userID, productID)
 	if err != nil {
 		return errors.New("Failed to remove item from cart")
@@ -170,10 +162,6 @@ func (s *cartServiceImpl) GetAllCarts(ctx context.Context, page, limit int) ([]m
 func (s *cartServiceImpl) UpdateCartItem(ctx context.Context, userID string, productID string, quantity int) error {
 	if _, err := uuid.Parse(userID); err != nil {
 		return errors.New("invalid User ID format")
-	}
-
-	if _, err := uuid.Parse(productID); err != nil {
-		return errors.New("invalid Product ID format")
 	}
 
 	return s.repo.UpdateCartItem(ctx, userID, productID, quantity)

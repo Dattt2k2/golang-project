@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -135,7 +138,10 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		initialStatus = "CONFIRMED"
 		paymentStatus = "COD_PENDING"
 	}
+
+	orderID := s.generateOrderID()
 	newOrder := models.Order{
+		OrderID:         orderID,
 		UserID:          userID,
 		Items:           datatypes.JSON(itemsJSON),
 		TotalPrice:      totalPrice,
@@ -144,6 +150,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		PaymentMethod:   paymentMethod,
 		PaymentStatus:   paymentStatus,
 		ShippingAddress: shippingAddress,
+		ShippingInfo:    datatypes.JSON([]byte(`{}`)),
 	}
 
 	// Save order to database
@@ -539,6 +546,7 @@ type OrderDirectRequest struct {
 	Source          string             `json:"source"`
 	PaymentMethod   string             `json:"payment_method"`
 	ShippingAddress string             `json:"shipping_address"`
+	ShippingInfo   	datatypes.JSON     `json:"shipping_info"`
 }
 
 type OrderItemRequest struct {
@@ -611,7 +619,10 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		return nil, err
 	}
 
+	orderID := s.generateOrderID()
+
 	newOrder := models.Order{
+		OrderID:         orderID,
 		UserID:          req.UserID,
 		Items:           datatypes.JSON(itemsJSON),
 		TotalPrice:      totalPrice,
@@ -619,6 +630,7 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		PaymentMethod:   req.PaymentMethod,
 		PaymentStatus:   paymentStatus,
 		ShippingAddress: req.ShippingAddress,
+		ShippingInfo:    req.ShippingInfo,
 		Source:          req.Source,
 	}
 
@@ -628,7 +640,7 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		return nil, err
 	}
 
-	if req.PaymentMethod == "stripe" {
+	if req.PaymentMethod == "STRIPE" {
 		err = s.requestPayment(ctx, createdOrder, orderItems)
 		if err != nil {
 			s.orderRepo.UpdateOrderStatus(ctx, createdOrder.OrderID, "PAYMENT_FAILED")
@@ -960,4 +972,28 @@ func (s *OrderService) processPaymentEvent(event PaymentEvent) {
 			log.Printf("❌ [OrderService] Failed to update order status: %v", err)
 		}
 	}
+}
+
+func (s *OrderService) generateOrderID() string {
+	now := time.Now()
+	dateStr := now.Format("20060102")
+	timStr := now.Format("150405")
+
+	randStr := s.generateRandomString(5)
+
+	return fmt.Sprintf("ORD-%s-%s-%s", dateStr, timStr, randStr)
+}
+
+func (s *OrderService) generateRandomString(length int) string {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return ""
+		}
+		result[i] = charset[num.Int64()]
+	}
+
+	return string(result)
 }
