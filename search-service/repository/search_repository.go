@@ -11,12 +11,11 @@ import (
 
 	"search-service/database"
 	"search-service/models"
-
 )
 
 type SearchRepository interface {
 	BasicSearch(query string) ([]models.Product, error)
-	AdvancedSearch(query string, filters map[string]interface{}, from int, size int, sortBy string, sortOrder string) ([]models.Product, int, error)
+	AdvancedSearch(query string, filters map[string]interface{}, sortBy int, sortOrder int, from string, limit string) ([]models.Product, int, error)
 	IndexProduct(product *models.Product) error
 	DeleteProduct(id string) error
 }
@@ -138,6 +137,8 @@ func (r *searchRepository) AdvancedSearch(query string, filters map[string]inter
 		esSortField = "rating"
 	case 4:
 		esSortField = "reviews_count"
+	case 5:
+		esSortField = "sold_count"
 	default:
 		esSortField = "created_at"
 	}
@@ -159,36 +160,36 @@ func (r *searchRepository) AdvancedSearch(query string, filters map[string]inter
 		return nil, 0, err
 	}
 
-	 res, err := database.ES.Search(
-        database.ES.Search.WithContext(context.Background()),
-        database.ES.Search.WithIndex(os.Getenv("ELASTICSEARCH_INDEX")),
-        database.ES.Search.WithBody(&buf),
-    )
-    if err != nil {
-        return nil, 0, err  // Return 0 for total on error
-    }
-    defer res.Body.Close()
+	res, err := database.ES.Search(
+		database.ES.Search.WithContext(context.Background()),
+		database.ES.Search.WithIndex(os.Getenv("ELASTICSEARCH_INDEX")),
+		database.ES.Search.WithBody(&buf),
+	)
+	if err != nil {
+		return nil, 0, err // Return 0 for total on error
+	}
+	defer res.Body.Close()
 
-    // Updated struct to include total
-    var rResult struct {
-        Hits struct {
-            Total struct {
-                Value int `json:"value"`
-            } `json:"total"`
-            Hits []struct {
-                Source models.Product `json:"_source"`
-            } `json:"hits"`
-        } `json:"hits"`
-    }
-    if err := json.NewDecoder(res.Body).Decode(&rResult); err != nil {
-        return nil, 0, err
-    }
+	// Updated struct to include total
+	var rResult struct {
+		Hits struct {
+			Total struct {
+				Value int `json:"value"`
+			} `json:"total"`
+			Hits []struct {
+				Source models.Product `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&rResult); err != nil {
+		return nil, 0, err
+	}
 
-    products := make([]models.Product, 0, len(rResult.Hits.Hits))
-    for _, hit := range rResult.Hits.Hits {
-        products = append(products, hit.Source)
-    }
-    return products, rResult.Hits.Total.Value, nil
+	products := make([]models.Product, 0, len(rResult.Hits.Hits))
+	for _, hit := range rResult.Hits.Hits {
+		products = append(products, hit.Source)
+	}
+	return products, rResult.Hits.Total.Value, nil
 }
 
 func (r *searchRepository) IndexProduct(product *models.Product) error {
@@ -249,6 +250,15 @@ func (r *searchRepository) IndexProduct(product *models.Product) error {
 						"type": "keyword",
 					},
 					"review_count": map[string]interface{}{
+						"type": "integer",
+					},
+					"reviews_count": map[string]interface{}{
+						"type": "integer",
+					},
+					"rating_count": map[string]interface{}{
+						"type": "integer",
+					},
+					"sold_count": map[string]interface{}{
 						"type": "integer",
 					},
 					"rating": map[string]interface{}{
