@@ -40,6 +40,7 @@ type ProductService interface {
 	GetProductCategory(ctx context.Context) ([]models.Category, error)
 	DeleteProductCategory(ctx context.Context, categoryID string) error
 	GetCategoryByName(ctx context.Context, name string) (*models.Category, error)
+	GetCategoryByID(ctx context.Context, id string) (*models.Category, error)
 }
 
 type productServiceImpl struct {
@@ -548,7 +549,7 @@ func (s *productServiceImpl) GetProductStatistics(ctx context.Context, month, ye
 func (s *productServiceImpl) AddProductCategory(ctx context.Context, category models.Category) error {
 	category.ID = uuid.New().String()
 	category.CreatedAt = time.Now()
-	return s.repo.AddProductCategory(ctx, category.Name)
+	return s.repo.AddProductCategory(ctx, category.Name, category.Code)
 }
 
 func (s *productServiceImpl) GetProductCategory(ctx context.Context) ([]models.Category, error) {
@@ -556,9 +557,29 @@ func (s *productServiceImpl) GetProductCategory(ctx context.Context) ([]models.C
 }
 
 func (s *productServiceImpl) DeleteProductCategory(ctx context.Context, categoryID string) error {
-	return s.repo.DeleteProductCategory(ctx, categoryID)
+	category, err := s.repo.GetCategoryByID(ctx, categoryID)
+    if err != nil {
+        return err
+    }
+    if category == nil {
+        return fmt.Errorf("category not found")
+    }
+
+    count, err := s.repo.CountProductsByCategoryName(ctx, category.Name)
+    if err != nil {
+        return err
+    }
+    if count > 0 {
+        return fmt.Errorf("cannot delete category '%s': %d product(s) reference it", category.Name, count)
+    }
+
+    return s.repo.DeleteProductCategory(ctx, categoryID)
 }
 
 func (s *productServiceImpl) GetCategoryByName(ctx context.Context, name string) (*models.Category, error) {
 	return s.repo.GetCategoryByName(ctx, name)
+}
+
+func (s *productServiceImpl) GetCategoryByID(ctx context.Context, id string) (*models.Category, error) {
+	return s.repo.GetCategoryByID(ctx, id)
 }

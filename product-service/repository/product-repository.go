@@ -31,10 +31,12 @@ type ProductRepository interface {
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetProductByCategory(ctx context.Context, category string, skip, limit int64) ([]models.Product, int64, error)
 	GetProductStatistics(ctx context.Context, month, year int) (map[string]int64, error)
-	AddProductCategory(ctx context.Context, category string) error
+	AddProductCategory(ctx context.Context, category string, code string) error
 	GetProductCategory(ctx context.Context) ([]models.Category, error)
 	DeleteProductCategory(ctx context.Context, categoryID string) error
 	GetCategoryByName(ctx context.Context, name string) (*models.Category, error)
+	GetCategoryByID(ctx context.Context, id string) (*models.Category, error)
+	CountProductsByCategoryName(ctx context.Context, categoryName string) (int64, error)
 }
 
 type ProductRepositoryImpl struct {
@@ -81,11 +83,12 @@ func (r *ProductRepositoryImpl) Insert(ctx context.Context, product models.Produ
 	return err
 }
 
-func (r *ProductRepositoryImpl) AddProductCategory(ctx context.Context, category string) error {
+func (r *ProductRepositoryImpl) AddProductCategory(ctx context.Context, category string, code string) error {
 	now := time.Now()
 	categoryItem := map[string]types.AttributeValue{
 		"id":         &types.AttributeValueMemberS{Value: uuid.New().String()},
 		"name":       &types.AttributeValueMemberS{Value: category},
+		"code":       &types.AttributeValueMemberS{Value: code},
 		"created_at": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
 	}
 
@@ -570,6 +573,59 @@ func (r *ProductRepositoryImpl) GetCategoryByName(ctx context.Context, name stri
 	}
 
 	return &category, nil
+}
+
+func (r *ProductRepositoryImpl) GetCategoryByID(ctx context.Context, id string) (*models.Category, error) {
+	logger.Info(fmt.Sprintf("GetCategoryByID called with id: %s", id))
+	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String("Category"),
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: id},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Item == nil {
+		return nil, nil
+	}
+
+	var category models.Category
+	err = attributevalue.UnmarshalMap(result.Item, &category)
+	if err != nil {
+		return nil, err
+	}
+
+	return &category, nil
+}
+
+func (r *ProductRepositoryImpl) CountProductsByCategoryName(ctx context.Context, categoryName string) (int64, error) {
+    // Use category-index to count items with this category
+    input := &dynamodb.QueryInput{
+        TableName:              aws.String(r.tableName),
+        IndexName:              aws.String("category-index"),
+        KeyConditionExpression: aws.String("#category = :cat"),
+        ExpressionAttributeNames: map[string]string{
+            "#category": "category",
+        },
+        ExpressionAttributeValues: map[string]types.AttributeValue{
+            ":cat": &types.AttributeValueMemberS{Value: categoryName},
+        },
+        Select: types.SelectCount,
+    }
+
+    paginator := dynamodb.NewQueryPaginator(r.client, input)
+    var total int64 = 0
+    for paginator.HasMorePages() {
+        page, err := paginator.NextPage(ctx)
+        if err != nil {
+            return 0, err
+        }
+        total += int64(page.Count)
+    }
+
+    return total, nil
 }
 
 func (r *ProductRepositoryImpl) GetProductStatistics(ctx context.Context, month, year int) (map[string]int64, error) {

@@ -416,6 +416,7 @@ func (ctrl *ProductController) AddProductCategory() gin.HandlerFunc {
 
 		var req struct {
 			Name string `json:"name" binding:"required,min=2,max=100"`
+			Code string `json:"code" binding:"omitempty,alphanum,max=20"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
@@ -424,6 +425,7 @@ func (ctrl *ProductController) AddProductCategory() gin.HandlerFunc {
 
 		category := models.Category{
 			Name:      req.Name,
+			Code:      req.Code,
 			CreatedAt: time.Now(),
 		}
 		err := ctrl.service.AddProductCategory(ctx, category)
@@ -470,6 +472,7 @@ func (ctrl *ProductController) DeleteProductCategory() gin.HandlerFunc {
 
 		err := ctrl.service.DeleteProductCategory(ctx, categoryID)
 		if err != nil {
+			logger.Err("error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
