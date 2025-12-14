@@ -25,7 +25,7 @@ type ProductRepository interface {
 	// FindByName(ctx context.Context, name string) ([]models.Product, error)
 	FindAll(ctx context.Context, skip, limit int64) ([]models.Product, int64, error)
 	FindByUserID(ctx context.Context, userID string, skip, limit int64) ([]models.Product, int64, error)
-	UpdateStock(ctx context.Context, id string, quantity int) error
+	UpdateStock(ctx context.Context, productID string, variantID string, quantity int) error
 	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetBestSellingProduct(ctx context.Context, limit int) ([]models.Product, error)
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
@@ -57,14 +57,18 @@ func (r *ProductRepositoryImpl) Insert(ctx context.Context, product models.Produ
 	product.Created_at = now
 	product.Updated_at = now
 
+	// Marshal variants to DynamoDB format
+	variantsAttr, err := attributevalue.MarshalList(product.Variants)
+	if err != nil {
+		return fmt.Errorf("failed to marshal variants: %w", err)
+	}
+
 	item := map[string]types.AttributeValue{
 		"id":          &types.AttributeValueMemberS{Value: product.ID},
 		"name":        &types.AttributeValueMemberS{Value: product.Name},
 		"description": &types.AttributeValueMemberS{Value: product.Description},
-		"price":       &types.AttributeValueMemberN{Value: strconv.FormatFloat(product.Price, 'f', 2, 64)},
-		"quantity":    &types.AttributeValueMemberN{Value: strconv.FormatInt(int64(product.Quantity), 10)},
+		"variants":    &types.AttributeValueMemberL{Value: variantsAttr},
 		"category":    &types.AttributeValueMemberS{Value: product.Category},
-		"image_path":  &types.AttributeValueMemberSS{Value: product.ImagePath},
 		"created_at":  &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
 		"updated_at":  &types.AttributeValueMemberS{Value: now.Format(time.RFC3339)},
 		"user_id":     &types.AttributeValueMemberS{Value: product.UserID},
@@ -72,11 +76,12 @@ func (r *ProductRepositoryImpl) Insert(ctx context.Context, product models.Produ
 		"status":      &types.AttributeValueMemberS{Value: product.Status},
 	}
 
+	// Only add image_path if not empty - DynamoDB doesn't allow empty string sets
 	if len(product.ImagePath) > 0 {
 		item["image_path"] = &types.AttributeValueMemberSS{Value: product.ImagePath}
 	}
 
-	_, err := r.client.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
 		Item:      item,
 	})
@@ -324,35 +329,62 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, skip, limit int64) 
 	return products, total, nil
 }
 
-func (r *ProductRepositoryImpl) UpdateStock(ctx context.Context, id string, quantity int) error {
-	// Trừ stock khi order thành công (quantity dương = giảm stock)
-	logger.Info(fmt.Sprintf("UpdateStock called: productID=%s, quantity=%d, actualValue=%d", id, quantity, -quantity))
+func (r *ProductRepositoryImpl) UpdateStock(ctx context.Context, productID string, variantID string, quantity int) error {
+	// Lấy thông tin product hiện tại
+	logger.Info(fmt.Sprintf("UpdateStock called: productID=%s, variantID=%s, quantity=%d", productID, variantID, quantity))
 
-	result, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+	product, err := r.FindByID(ctx, productID)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to find product: productID=%s, error=%v", productID, err))
+		return err
+	}
+
+	// Tìm và cập nhật variant
+	variantFound := false
+	for i := range product.Variants {
+		if product.Variants[i].ID == variantID {
+			product.Variants[i].Quantity += quantity
+
+			if product.Variants[i].Quantity < 0 {
+				return fmt.Errorf("insufficient stock for variant %s", variantID)
+			}
+
+			variantFound = true
+			logger.Info(fmt.Sprintf("Variant found: variantID=%s, new_quantity=%d", variantID, product.Variants[i].Quantity))
+			break
+		}
+	}
+
+	if !variantFound {
+		return fmt.Errorf("variant not found: variantID=%s", variantID)
+	}
+
+	// Marshal variants mới
+	variantsAttr, err := attributevalue.MarshalList(product.Variants)
+	if err != nil {
+		return fmt.Errorf("failed to marshal variants: %w", err)
+	}
+
+	// Cập nhật vào DynamoDB
+	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: id},
+			"id": &types.AttributeValueMemberS{Value: productID},
 		},
-		UpdateExpression: aws.String("ADD quantity :qty SET updated_at = :time"),
+		UpdateExpression: aws.String("SET variants = :variants, updated_at = :time"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":qty":  &types.AttributeValueMemberN{Value: strconv.Itoa(-quantity)}, // Âm để trừ đi
-			":time": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+			":variants": &types.AttributeValueMemberL{Value: variantsAttr},
+			":time":     &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
 		},
 		ReturnValues: types.ReturnValueAllNew,
 	})
 
 	if err != nil {
-		logger.Error(fmt.Sprintf("Failed to update stock: productID=%s, error=%v", id, err))
+		logger.Error(fmt.Sprintf("Failed to update stock: productID=%s, error=%v", productID, err))
 		return err
 	}
 
-	// Log giá trị mới sau khi update
-	if qtyAttr, ok := result.Attributes["quantity"]; ok {
-		if qtyN, ok := qtyAttr.(*types.AttributeValueMemberN); ok {
-			logger.Info(fmt.Sprintf("Stock updated successfully: productID=%s, new_quantity=%s", id, qtyN.Value))
-		}
-	}
-
+	logger.Info(fmt.Sprintf("Stock updated successfully: productID=%s, variantID=%s", productID, variantID))
 	return nil
 }
 
@@ -601,31 +633,31 @@ func (r *ProductRepositoryImpl) GetCategoryByID(ctx context.Context, id string) 
 }
 
 func (r *ProductRepositoryImpl) CountProductsByCategoryName(ctx context.Context, categoryName string) (int64, error) {
-    // Use category-index to count items with this category
-    input := &dynamodb.QueryInput{
-        TableName:              aws.String(r.tableName),
-        IndexName:              aws.String("category-index"),
-        KeyConditionExpression: aws.String("#category = :cat"),
-        ExpressionAttributeNames: map[string]string{
-            "#category": "category",
-        },
-        ExpressionAttributeValues: map[string]types.AttributeValue{
-            ":cat": &types.AttributeValueMemberS{Value: categoryName},
-        },
-        Select: types.SelectCount,
-    }
+	// Use category-index to count items with this category
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("category-index"),
+		KeyConditionExpression: aws.String("#category = :cat"),
+		ExpressionAttributeNames: map[string]string{
+			"#category": "category",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":cat": &types.AttributeValueMemberS{Value: categoryName},
+		},
+		Select: types.SelectCount,
+	}
 
-    paginator := dynamodb.NewQueryPaginator(r.client, input)
-    var total int64 = 0
-    for paginator.HasMorePages() {
-        page, err := paginator.NextPage(ctx)
-        if err != nil {
-            return 0, err
-        }
-        total += int64(page.Count)
-    }
+	paginator := dynamodb.NewQueryPaginator(r.client, input)
+	var total int64 = 0
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return 0, err
+		}
+		total += int64(page.Count)
+	}
 
-    return total, nil
+	return total, nil
 }
 
 func (r *ProductRepositoryImpl) GetProductStatistics(ctx context.Context, month, year int) (map[string]int64, error) {

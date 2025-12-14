@@ -34,6 +34,9 @@ func OrderRoutes(incomming *gin.Engine) {
 	authorized.GET("orders/statistics", orderController.GetOrderStatistics())
 	authorized.GET("orders/count/:user_id", orderController.GetShippedOrderCount())
 	authorized.GET("orders/revenue", orderController.GetRevenueInRange())
+	authorized.GET("orders/top-selling", orderController.GetTopSellingProducts())
+	authorized.GET("orders/top-customers", orderController.GetTopCustomers())
+	authorized.GET("orders/slow-moving", orderController.GetSlowMovingProducts())
 
 	authorized.POST("orders/:id/confirm-delivery", orderController.ConfirmDelivery())
 	authorized.POST("orders/:id/mark-shipped", orderController.MarkAsShipped())

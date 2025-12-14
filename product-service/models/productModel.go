@@ -111,34 +111,53 @@ import (
 	"time"
 )
 
+// ProductVariant - Biến thể của sản phẩm (size, color, material, price khác nhau)
+type ProductVariant struct {
+	ID        string    `json:"id" dynamodbav:"id"`
+	Size      string    `json:"size" dynamodbav:"size"`
+	Color     string    `json:"color" dynamodbav:"color"`
+	Material  string    `json:"material" dynamodbav:"material"`
+	CostPrice float64   `json:"cost_price" dynamodbav:"cost_price"`
+	Price     float64   `json:"price" dynamodbav:"price"`
+	Quantity  int       `json:"quantity" dynamodbav:"quantity"`
+	CreatedAt time.Time `json:"created_at" dynamodbav:"created_at"`
+}
+
 // Product - Database model for DynamoDB
 type Product struct {
-	ID          string    `json:"id" dynamodbav:"id"` // Thay đổi từ ObjectID sang string
-	Name        string    `json:"name" dynamodbav:"name"`
-	ImagePath   []string  `json:"image_path" dynamodbav:"image_path"`
-	Category    string    `json:"category" dynamodbav:"category"`
-	Description string    `json:"description" dynamodbav:"description"`
-	Quantity    int       `json:"quantity" dynamodbav:"quantity"`
-	Price       float64   `json:"price" dynamodbav:"price"`
-	SoldCount   int       `json:"sold_count" dynamodbav:"sold_count"`
-	Created_at  time.Time `json:"created_at" dynamodbav:"created_at"`
-	Updated_at  time.Time `json:"updated_at" dynamodbav:"updated_at"`
-	UserID      string    `json:"user_id" dynamodbav:"user_id"`
-	Status      string    `json:"status" dynamodbav:"status"`
-	Rating      float64   `json:"rating" dynamodbav:"rating"`
-	RatingCount int       `json:"rating_count" dynamodbav:"rating_count"`
-	ReviewCount int       `json:"review_count" dynamodbav:"review_count"`
+	ID          string           `json:"id" dynamodbav:"id"` // Thay đổi từ ObjectID sang string
+	Name        string           `json:"name" dynamodbav:"name"`
+	ImagePath   []string         `json:"image_path,omitempty" dynamodbav:"image_path,omitempty"`
+	Category    string           `json:"category" dynamodbav:"category"`
+	Description string           `json:"description" dynamodbav:"description"`
+	Variants    []ProductVariant `json:"variants" dynamodbav:"variants"`
+	SoldCount   int              `json:"sold_count" dynamodbav:"sold_count"`
+	Created_at  time.Time        `json:"created_at" dynamodbav:"created_at"`
+	Updated_at  time.Time        `json:"updated_at" dynamodbav:"updated_at"`
+	UserID      string           `json:"user_id" dynamodbav:"user_id"`
+	Status      string           `json:"status" dynamodbav:"status"`
+	Rating      float64          `json:"rating" dynamodbav:"rating"`
+	RatingCount int              `json:"rating_count" dynamodbav:"rating_count"`
+	ReviewCount int              `json:"review_count" dynamodbav:"review_count"`
 }
 
 // CreateProductRequest - Request struct cho tạo product mới
 type CreateProductRequest struct {
-	Name        string   `json:"name" binding:"required,min=2,max=100"`
-	ImagePath   []string `json:"image_path,omitempty"` // Optional - có thể empty hoặc có URL từ presigned upload
-	Category    string   `json:"category" binding:"required"`
-	Description string   `json:"description" binding:"required,min=2"`
-	Quantity    int      `json:"quantity" binding:"required,min=1"`
-	Price       float64  `json:"price" binding:"required,gt=0"`
-	Status      string   `json:"status" binding:"required,oneof=onsale offsale unavailable"`
+	Name        string                 `json:"name" binding:"required,min=2,max=100"`
+	ImagePath   []string               `json:"image_path,omitempty"` // Optional - có thể empty hoặc có URL từ presigned upload
+	Category    string                 `json:"category" binding:"required"`
+	Description string                 `json:"description" binding:"required,min=2"`
+	Status      string                 `json:"status" binding:"required,oneof=onsale offsale unavailable"`
+	Variants    []CreateVariantRequest `json:"variants" binding:"required,min=1"`
+}
+
+type CreateVariantRequest struct {
+	Size      string  `json:"size" binding:"required,max=50"`
+	Color     string  `json:"color" binding:"required,max=50"`
+	Material  string  `json:"material" binding:"omitempty,max=100"`
+	CostPrice float64 `json:"cost_price" binding:"required,gt=0"`
+	Price     float64 `json:"price" binding:"required,gt=0"`
+	Quantity  int     `json:"quantity" binding:"required,gte=0"`
 }
 
 // CreateProductWithImageRequest - Request struct khi upload ảnh cùng lúc
@@ -153,13 +172,22 @@ type CreateProductWithImageRequest struct {
 
 // UpdateProductRequest - Request struct cho update product
 type UpdateProductRequest struct {
-	Name        *string   `json:"name,omitempty" binding:"omitempty,min=2,max=100"`
-	ImagePath   *[]string `json:"image_path,omitempty"` // Optional update
-	Category    *string   `json:"category,omitempty"`
-	Description *string   `json:"description,omitempty" binding:"omitempty,min=2,max=500"`
-	Quantity    *int      `json:"quantity,omitempty" binding:"omitempty,min=1"`
-	Price       *float64  `json:"price,omitempty" binding:"omitempty,gt=0"`
-	Status      *string   `json:"status,omitempty" binding:"omitempty,oneof=onsale offsale unavailable"`
+	Name        *string                `json:"name,omitempty" binding:"omitempty,min=2,max=100"`
+	ImagePath   *[]string              `json:"image_path,omitempty"` // Optional update
+	Category    *string                `json:"category,omitempty"`
+	Description *string                `json:"description,omitempty" binding:"omitempty,min=2,max=500"`
+	Status      *string                `json:"status,omitempty" binding:"omitempty,oneof=onsale offsale unavailable"`
+	Variants    []UpdateVariantRequest `json:"variants,omitempty"`
+}
+
+type UpdateVariantRequest struct {
+	ID        string   `json:"id" binding:"omitempty"`
+	Size      *string  `json:"size" binding:"omitempty,max=50"`
+	Color     *string  `json:"color" binding:"omitempty,max=50"`
+	Material  *string  `json:"material" binding:"omitempty,max=100"`
+	CostPrice *float64 `json:"cost_price" binding:"omitempty,gt=0"`
+	Price     *float64 `json:"price" binding:"omitempty,gt=0"`
+	Quantity  *int     `json:"quantity" binding:"omitempty,gte=0"`
 }
 
 // ProductResponse - Response struct cho API
@@ -182,11 +210,12 @@ type ProductResponse struct {
 
 type StockUpdateItem struct {
 	ProductID string // Thay đổi từ primitive.ObjectID sang string
+	VariantID string // ID của variant cần update
 	Quantity  int
 }
 
 type ProductStockUpdater interface {
-	UpdateProductStock(ctx context.Context, id string, quantity int) error // Thay đổi parameter type
+	UpdateProductStock(ctx context.Context, productID string, variantID string, quantity int) error
 	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
 }

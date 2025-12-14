@@ -23,6 +23,11 @@ func NewOrderRepository(db *gorm.DB) *OrderRepository {
 	}
 }
 
+// GetDB - Expose db cho service layer (để chạy custom queries)
+func (r *OrderRepository) GetDB() *gorm.DB {
+	return r.db
+}
+
 // CreateOrder inserts a new order into the database
 func (r *OrderRepository) CreateOrder(ctx context.Context, order models.Order) (*models.Order, error) {
 	if err := r.db.WithContext(ctx).Create(&order).Error; err != nil {
@@ -125,7 +130,7 @@ func (r *OrderRepository) FindOrdersByVendorID(ctx context.Context, vendorID str
 		revenueQuery = revenueQuery.Where("created_at >= ? AND created_at < ?", startDate, endDate)
 	}
 
-	err = revenueQuery.Session(&gorm.Session{}).Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error
+	err = revenueQuery.Session(&gorm.Session{}).Select("COALESCE(SUM(total_revenue), 0)").Scan(&totalRevenue).Error
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -438,4 +443,91 @@ func (r *OrderRepository) GetShippedOrdersCountAndTotal(ctx context.Context, use
 	}
 
 	return count, totalValue, nil
+}
+
+// GetTopSellingProducts - Lấy sản phẩm bán chạy nhất trong khoảng thời gian
+func (r *OrderRepository) GetTopSellingProducts(ctx context.Context, month, year int, limit int, vendorID *string) ([]models.TopProduct, error) {
+	var startDate, endDate time.Time
+
+	if month > 0 && year > 0 {
+		startDate = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		endDate = startDate.AddDate(0, 1, 0)
+	} else if year > 0 {
+		startDate = time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+		endDate = startDate.AddDate(1, 0, 0)
+	} else {
+		// Mặc định lấy 30 ngày gần nhất
+		endDate = time.Now()
+		startDate = endDate.AddDate(0, 0, -30)
+	}
+
+	query := `
+		SELECT 
+			item->>'product_id' as product_id,
+			item->>'name' as name,
+			SUM((item->>'quantity')::int) as total_quantity,
+			SUM((item->>'quantity')::int * (item->>'price')::float) as total_revenue,
+			COUNT(DISTINCT o.order_id) as total_orders
+		FROM orders o, jsonb_array_elements(o.items) as item
+		WHERE o.status = 'SHIPPED'
+			AND o.created_at >= ?
+			AND o.created_at < ?
+	`
+
+	args := []interface{}{startDate, endDate}
+
+	if vendorID != nil && *vendorID != "" {
+		query += " AND item->>'vendor_id' = ?"
+		args = append(args, *vendorID)
+	}
+
+	query += `
+		GROUP BY item->>'product_id', item->>'name'
+		ORDER BY total_quantity DESC
+		LIMIT ?
+	`
+	args = append(args, limit)
+
+	var results []models.TopProduct
+	err := r.db.WithContext(ctx).Raw(query, args...).Scan(&results).Error
+
+	return results, err
+}
+
+// GetTopCustomers - Lấy khách hàng mua nhiều nhất
+func (r *OrderRepository) GetTopCustomers(ctx context.Context, month, year int, limit int) ([]models.TopCustomer, error) {
+	var startDate, endDate time.Time
+
+	if month > 0 && year > 0 {
+		startDate = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		endDate = startDate.AddDate(0, 1, 0)
+	} else if year > 0 {
+		startDate = time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+		endDate = startDate.AddDate(1, 0, 0)
+	} else {
+		// Mặc định lấy 30 ngày gần nhất
+		endDate = time.Now()
+		startDate = endDate.AddDate(0, 0, -30)
+	}
+
+	query := `
+		SELECT 
+			user_id,
+			COUNT(DISTINCT order_id) as total_orders,
+			SUM(total_price) as total_spent,
+			SUM(total_revenue) as total_revenue,
+			MAX(created_at) as last_order_date
+		FROM orders
+		WHERE status IN ('SHIPPED', 'DELIVERED')
+			AND created_at >= ?
+			AND created_at < ?
+		GROUP BY user_id
+		ORDER BY total_spent DESC
+		LIMIT ?
+	`
+
+	var results []models.TopCustomer
+	err := r.db.WithContext(ctx).Raw(query, startDate, endDate, limit).Scan(&results).Error
+
+	return results, err
 }

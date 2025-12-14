@@ -25,8 +25,12 @@ import (
 
 type OrderItem struct {
 	ProductID string  `json:"product_id"`
+	VariantID string  `json:"variant_id"`
 	Name      string  `json:"name"`
+	Size      string  `json:"size"`
+	Color     string  `json:"color"`
 	Quantity  int     `json:"quantity"`
+	CostPrice float64 `json:"cost_price"`
 	Price     float64 `json:"price"`
 	VendorID  string  `json:"vendor_id"`
 }
@@ -41,7 +45,7 @@ func NewOrderService(orderRepo *repositories.OrderRepository) *OrderService {
 }
 
 func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, source, paymentMethod, shippingAddress string, selectedProductIDs []string) (*models.Order, error) {
-	
+
 	logger.Info("Create order from cart")
 	// Get cart items using gRPC
 	grpcClients := GetGRPCClients()
@@ -86,6 +90,9 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 	var totalPrice float64 = 0
 
 	for _, item := range filteredItems {
+		
+		log.Printf("DEBUG Cart Item: ProductID=%s, VariantId=%s, Quantity=%d", 
+			item.ProductId, item.VariantId, item.Quantity)
 
 		stockReq := &productpb.ProductRequest{
 			Id: item.ProductId,
@@ -101,20 +108,40 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		}
 
 		vendorID := item.VendorId
+		var costPrice float64 = 0
+
 		if vendorID == "" {
 			productReq := &productpb.ProductRequest{Id: item.ProductId}
-			productResp, err := productClient.GetBasicInfo(ctx, productReq)
-			err = nil
+			productResp, err := productClient.GetProductInfo(ctx, productReq)
 			if err == nil && productResp.VendorId != "" {
 				vendorID = productResp.VendorId
+
+				// Lấy cost_price từ variant tương ứng với variantID
+				if len(productResp.Variants) > 0 {
+					// Tìm variant khớp với variantID từ cart
+					for _, v := range productResp.Variants {
+						if item.VariantId != "" && v.Id == item.VariantId {
+							costPrice = float64(v.CostPrice)
+							break
+						}
+					}
+					// Nếu không tìm thấy variant khớp, lấy variant đầu tiên
+					if costPrice == 0 {
+						costPrice = float64(productResp.Variants[0].CostPrice)
+					}
+				}
 			}
 		}
 
 		orderItem := OrderItem{
 			VendorID:  vendorID,
 			ProductID: item.ProductId,
+			VariantID: item.VariantId,
 			Name:      item.Name,
+			Size:      item.Size,
+			Color:     item.Color,
 			Quantity:  int(item.Quantity),
+			CostPrice: costPrice,
 			Price:     float64(item.Price),
 		}
 
@@ -123,9 +150,27 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		totalPrice = calculateTotalPrice(orderItems)
 	}
 
+	// Debug: Log orderItems trước khi marshal
+	for i, item := range orderItems {
+		log.Printf("DEBUG OrderItem %d before marshal: ProductID=%s, VariantID=%s, Quantity=%d", 
+			i, item.ProductID, item.VariantID, item.Quantity)
+	}
+
 	itemsJSON, err := json.Marshal(orderItems)
 	if err != nil {
 		return nil, err
+	}
+	
+	log.Printf("DEBUG itemsJSON: %s", string(itemsJSON))
+
+	// Tính total cost và revenue
+	var totalCost float64 = 0
+	var totalRevenue float64 = 0
+	for _, item := range orderItems {
+		itemCost := item.CostPrice * float64(item.Quantity)
+		itemRevenue := (item.Price - item.CostPrice) * float64(item.Quantity)
+		totalCost += itemCost
+		totalRevenue += itemRevenue
 	}
 
 	initialStatus := "PENDING"
@@ -145,6 +190,8 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		UserID:          userID,
 		Items:           datatypes.JSON(itemsJSON),
 		TotalPrice:      totalPrice,
+		TotalCost:       totalCost,
+		TotalRevenue:    totalRevenue,
 		Status:          initialStatus,
 		Source:          source,
 		PaymentMethod:   paymentMethod,
@@ -160,7 +207,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 	}
 
 	if err := kafka.ProduceOrderDeleteItemEvent(ctx, userID, selectedProductIDs); err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	if paymentMethod == "STRIPE" {
@@ -215,7 +262,6 @@ func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID 
 		if !isVendor {
 			return NewServiceError("Only vendor can confirm order")
 		}
-		
 
 	case "DELIVERING":
 		// Only vendor can set delivering status
@@ -546,12 +592,15 @@ type OrderDirectRequest struct {
 	Source          string             `json:"source"`
 	PaymentMethod   string             `json:"payment_method"`
 	ShippingAddress string             `json:"shipping_address"`
-	ShippingInfo   	datatypes.JSON     `json:"shipping_info"`
+	ShippingInfo    datatypes.JSON     `json:"shipping_info"`
 }
 
 type OrderItemRequest struct {
 	ProductID string  `json:"product_id"`
+	VariantID string  `json:"variant_id"`
 	Name      string  `json:"name"`
+	Size      string  `json:"size"`
+	Color     string  `json:"color"`
 	Quantity  int     `json:"quantity"`
 	Price     float64 `json:"price"`
 }
@@ -592,7 +641,10 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		orderItem := OrderItem{
 			VendorID:  vendorID,
 			ProductID: item.ProductID,
+			VariantID: item.VariantID,
 			Name:      item.Name,
+			Size:      item.Size,
+			Color:     item.Color,
 			Quantity:  item.Quantity,
 			Price:     item.Price,
 		}
@@ -857,35 +909,35 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*model
 }
 
 func (s *OrderService) GetOrderStatistics(ctx context.Context, month int, year int) (map[string]interface{}, error) {
-    totalOrders, revenue, prevOrders, prevRevenue, _, topProducts, err := s.orderRepo.GetOrderStatistics(ctx, month, year)
-    if err != nil {
-        return nil, err
-    }
+	totalOrders, revenue, prevOrders, prevRevenue, _, topProducts, err := s.orderRepo.GetOrderStatistics(ctx, month, year)
+	if err != nil {
+		return nil, err
+	}
 
-    computeGrowth := func(current float64, previous float64) float64 {
-        if previous == 0 {
-            if current == 0 {
-                return 0
-            }
-            return 100
-        }
-        return math.Round(((current-previous)/previous)*100*100) / 100
-    }
-    revenueGrowth := computeGrowth(revenue, prevRevenue)
-    orderGrowth := computeGrowth(float64(totalOrders), float64(prevOrders))
+	computeGrowth := func(current float64, previous float64) float64 {
+		if previous == 0 {
+			if current == 0 {
+				return 0
+			}
+			return 100
+		}
+		return math.Round(((current-previous)/previous)*100*100) / 100
+	}
+	revenueGrowth := computeGrowth(revenue, prevRevenue)
+	orderGrowth := computeGrowth(float64(totalOrders), float64(prevOrders))
 
-    response := map[string]interface{}{
-        "total_orders":     totalOrders,
-        "total_revenue":    revenue,
-        "order_growth":     orderGrowth,
-        "revenue_growth":   revenueGrowth,
-        "previous_orders":  prevOrders,
-        "previous_revenue": prevRevenue,
-        "month":            month,
-        "year":             year,
-        "top_products":     topProducts,
-    }
-    return response, nil
+	response := map[string]interface{}{
+		"total_orders":     totalOrders,
+		"total_revenue":    revenue,
+		"order_growth":     orderGrowth,
+		"revenue_growth":   revenueGrowth,
+		"previous_orders":  prevOrders,
+		"previous_revenue": prevRevenue,
+		"month":            month,
+		"year":             year,
+		"top_products":     topProducts,
+	}
+	return response, nil
 }
 
 func (s *OrderService) GetShippedOrdersCountAndTotalPrice(ctx context.Context, userID string) (int64, float64, error) {
@@ -965,7 +1017,6 @@ func (s *OrderService) processPaymentEvent(event PaymentEvent) {
 			log.Printf("✅ [OrderService] Successfully handled payment success for order: %s", event.OrderID)
 		}
 
-
 	case "checkout_failed":
 		log.Printf("❌ [OrderService] Payment failed for order: %s", event.OrderID)
 		if err := s.orderRepo.UpdateOrderStatus(ctx, event.OrderID, "PAYMENT_FAILED"); err != nil {
@@ -996,4 +1047,73 @@ func (s *OrderService) generateRandomString(length int) string {
 	}
 
 	return string(result)
+}
+
+// GetTopSellingProducts - Lấy danh sách sản phẩm bán chạy nhất
+func (s *OrderService) GetTopSellingProducts(ctx context.Context, month, year, limit int, vendorID *string) ([]models.TopProduct, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	return s.orderRepo.GetTopSellingProducts(ctx, month, year, limit, vendorID)
+}
+
+// GetTopCustomers - Lấy danh sách khách hàng mua nhiều nhất
+func (s *OrderService) GetTopCustomers(ctx context.Context, month, year, limit int) ([]models.TopCustomer, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	return s.orderRepo.GetTopCustomers(ctx, month, year, limit)
+}
+
+// GetSlowMovingProducts - Phát hiện sản phẩm bán chậm (cảnh báo)
+func (s *OrderService) GetSlowMovingProducts(ctx context.Context, daysThreshold int) ([]models.SlowMovingProduct, error) {
+	if daysThreshold <= 0 {
+		daysThreshold = 30 // Mặc định 30 ngày không bán được
+	}
+
+	// Query lấy last sold date của từng sản phẩm
+	query := `
+		WITH product_sales AS (
+			SELECT 
+				item->>'product_id' as product_id,
+				item->>'name' as name,
+				MAX(o.created_at) as last_sold_date
+			FROM orders o, jsonb_array_elements(o.items) as item
+			WHERE o.status IN ('SHIPPED', 'DELIVERED')
+			GROUP BY item->>'product_id', item->>'name'
+		)
+		SELECT 
+			product_id,
+			name,
+			last_sold_date,
+			EXTRACT(DAY FROM (NOW() - last_sold_date))::int as days_since_last_sale
+		FROM product_sales
+		WHERE last_sold_date IS NOT NULL
+			AND EXTRACT(DAY FROM (NOW() - last_sold_date)) >= ?
+		ORDER BY days_since_last_sale DESC
+	`
+
+	var results []models.SlowMovingProduct
+	err := s.orderRepo.GetDB().WithContext(ctx).Raw(query, daysThreshold).Scan(&results).Error
+
+	// Lấy thêm thông tin stock từ product-service qua gRPC
+	grpcClients := GetGRPCClients()
+	productClient := grpcClients.ProductClient
+	if productClient != nil {
+		for i := range results {
+			prodReq := &productpb.ProductRequest{Id: results[i].ProductID}
+			prodResp, err := productClient.GetProductInfo(ctx, prodReq)
+			if err == nil && len(prodResp.Variants) > 0 {
+				totalStock := 0
+				for _, v := range prodResp.Variants {
+					totalStock += int(v.Quantity)
+				}
+				results[i].TotalStock = totalStock
+			}
+		}
+	}
+
+	return results, err
 }

@@ -32,7 +32,6 @@ services:
     container_name: traefik
     command:
       - "--api.insecure=true"
-      - "--providers.docker=true"
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--providers.file.watch=true"
       - "--entrypoints.web.address=:80"
@@ -46,7 +45,6 @@ services:
       - "443:443"
       - "8085:8080"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./traefik-config:/etc/traefik/dynamic:ro"
       - "./jwt-validator:/plugins-local/src/github.com/Dattt2k2/golang-project/jwt-validator:ro"
     networks:

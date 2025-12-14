@@ -87,11 +87,11 @@ import (
 	"log"
 
 	"cart-service/service"
+
 	pb "github.com/Dattt2k2/golang-project/module/gRPC-cart/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-) 
-
+)
 
 type CartServer struct {
 	pb.UnimplementedCartServiceServer
@@ -101,13 +101,12 @@ type CartServer struct {
 func NewCartServer(cartService service.CartService) *CartServer {
 	return &CartServer{
 		cartService: cartService,
-
 	}
 }
 
-func (s *CartServer) GetCartItems (ctx context.Context, req *pb.CartRequest) (*pb.CartResponse, error) {
-	userID := req.UserId 
-	
+func (s *CartServer) GetCartItems(ctx context.Context, req *pb.CartRequest) (*pb.CartResponse, error) {
+	userID := req.UserId
+
 	if userID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "User ID is required")
 	}
@@ -126,12 +125,15 @@ func (s *CartServer) GetCartItems (ctx context.Context, req *pb.CartRequest) (*p
 			Price:     float32(item.Price),
 			Name:      item.Name,
 			VendorId:  item.VendorID,
+			VariantId: item.VariantID,
+			Size:      item.Size,
+			Color:     item.Color,
 		}
 		items = append(items, cartItem)
 	}
 
 	response := &pb.CartResponse{
-		Items: items, 
+		Items: items,
 	}
 
 	log.Printf("Cart response: %v", response)

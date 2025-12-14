@@ -447,8 +447,10 @@ package controller
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	logger "cart-service/log"
 	"cart-service/models"
@@ -494,12 +496,26 @@ func (ctrl *CartController) AddToCart() gin.HandlerFunc {
 			return
 		}
 
-		productID := c.Param("id")
-		if productID == "" {
-			logger.Err("Product id not found", nil)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
+		variantID := c.Param("variant_id")
+		log.Printf("DEBUG: variant_id from URL: %s", variantID)
+
+		if variantID == "" {
+			logger.Err("Variant id not found", nil)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Variant id not found"})
 			return
 		}
+
+// Parse product_id từ variant_id (format: {ProductID}-{SIZE}-{COLOR})
+		// Lấy tất cả trừ 2 phần cuối (size và color)
+		parts := strings.Split(variantID, "-")
+		log.Printf("DEBUG: parts: %v, len: %d", parts, len(parts))
+		
+		if len(parts) < 3 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid variant_id format"})
+			return
+		}
+		productID := strings.Join(parts[:len(parts)-2], "-") // Tất cả trừ 2 phần cuối
+		log.Printf("DEBUG: productID: %s", productID)
 
 		var requestBody struct {
 			Quantity int `json:"quantity" binding:"required"`
@@ -518,7 +534,7 @@ func (ctrl *CartController) AddToCart() gin.HandlerFunc {
 			return
 		}
 
-		err := ctrl.cartService.AddToCart(c, uid, productID, requestBody.Quantity)
+		err := ctrl.cartService.AddToCart(c, uid, productID, variantID, requestBody.Quantity)
 		if err != nil {
 			logger.Err("Failed to add product to cart", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -684,15 +700,23 @@ func (ctrl *CartController) UpdateCartItem() gin.HandlerFunc {
 			return
 		}
 
-		productID := c.Param("id")
-		if productID == "" {
-			logger.Err("Product id not found", nil)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Product id not found"})
+		variantID := c.Param("variant_id")
+		if variantID == "" {
+			logger.Err("Variant id not found", nil)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Variant id not found"})
 			return
 		}
 
+		// Parse product_id từ variant_id
+		parts := strings.Split(variantID, "-")
+		if len(parts) < 3 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid variant_id format"})
+			return
+		}
+		productID := strings.Join(parts[:len(parts)-2], "-")
+
 		request := struct {
-			Quantity int `json:"quantity"`
+			Quantity int `json:"quantity" binding:"required"`
 		}{}
 
 		if err := c.ShouldBindJSON(&request); err != nil {
@@ -701,7 +725,7 @@ func (ctrl *CartController) UpdateCartItem() gin.HandlerFunc {
 			return
 		}
 
-		err := ctrl.cartService.UpdateCartItem(c, uid, productID, request.Quantity)
+		err := ctrl.cartService.UpdateCartItem(c, uid, productID, variantID, request.Quantity)
 		if err != nil {
 			logger.Err("Error updating cart item", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart item"})

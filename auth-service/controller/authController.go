@@ -53,7 +53,17 @@ func (ctrl *AuthController) SignUp() gin.HandlerFunc {
 			return
 		}
 
-		response, err := ctrl.authService.Register(ctx, *user.Email, *user.Password, *user.Phone, user.UserType, *user.FirstName)
+		// Handle optional fields
+		phone := ""
+		if user.Phone != nil {
+			phone = *user.Phone
+		}
+		firstName := ""
+		if user.FirstName != nil {
+			firstName = *user.FirstName
+		}
+
+		response, err := ctrl.authService.Register(ctx, *user.Email, *user.Password, phone, user.UserType, firstName)
 		if err != nil {
 			logger.Err("Error registering user", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

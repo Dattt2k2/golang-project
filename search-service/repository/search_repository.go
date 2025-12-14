@@ -109,7 +109,46 @@ func (r *searchRepository) AdvancedSearch(query string, filters map[string]inter
 	}
 	if len(priceFilter) > 0 {
 		filtersArr = append(filtersArr, map[string]interface{}{
-			"range": map[string]interface{}{"price": priceFilter},
+			"nested": map[string]interface{}{
+				"path": "variants",
+				"query": map[string]interface{}{
+					"range": map[string]interface{}{"variants.price": priceFilter},
+				},
+			},
+		})
+	}
+
+	// Variant filters: size, color, material
+	variantFilters := []interface{}{}
+	if size, ok := filters["size"]; ok {
+		if s, ok := size.(string); ok && s != "" {
+			variantFilters = append(variantFilters, map[string]interface{}{
+				"term": map[string]interface{}{"variants.size": s},
+			})
+		}
+	}
+	if color, ok := filters["color"]; ok {
+		if c, ok := color.(string); ok && c != "" {
+			variantFilters = append(variantFilters, map[string]interface{}{
+				"term": map[string]interface{}{"variants.color": c},
+			})
+		}
+	}
+	if material, ok := filters["material"]; ok {
+		if m, ok := material.(string); ok && m != "" {
+			variantFilters = append(variantFilters, map[string]interface{}{
+				"term": map[string]interface{}{"variants.material": m},
+			})
+		}
+	}
+	if len(variantFilters) > 0 {
+		filtersArr = append(filtersArr, map[string]interface{}{
+			"nested": map[string]interface{}{
+				"path": "variants",
+				"query": map[string]interface{}{
+					"bool": map[string]interface{}{"must": variantFilters},
+				},
+			},
 		})
 	}
 
@@ -126,33 +165,42 @@ func (r *searchRepository) AdvancedSearch(query string, filters map[string]inter
 		boolQuery["filter"] = filtersArr
 	}
 
-	// map sortBy int to ES field
-	esSortField := "created_at"
-	switch sortBy {
-	case 1:
-		esSortField = "name.keyword"
-	case 2:
-		esSortField = "price"
-	case 3:
-		esSortField = "rating"
-	case 4:
-		esSortField = "reviews_count"
-	case 5:
-		esSortField = "sold_count"
-	default:
-		esSortField = "created_at"
-	}
-
 	// map sortOrder int to string
 	order := "desc"
 	if sortOrder == 1 {
 		order = "asc"
 	}
 
+	// map sortBy int to ES field
+	var sortClause interface{}
+	switch sortBy {
+	case 1:
+		sortClause = map[string]interface{}{"name.keyword": map[string]interface{}{"order": order}}
+	case 2:
+		// Sort by min price of variants
+		sortClause = map[string]interface{}{
+			"variants.price": map[string]interface{}{
+				"order": order,
+				"mode":  "min",
+				"nested": map[string]interface{}{
+					"path": "variants",
+				},
+			},
+		}
+	case 3:
+		sortClause = map[string]interface{}{"rating": map[string]interface{}{"order": order}}
+	case 4:
+		sortClause = map[string]interface{}{"reviews_count": map[string]interface{}{"order": order}}
+	case 5:
+		sortClause = map[string]interface{}{"sold_count": map[string]interface{}{"order": order}}
+	default:
+		sortClause = map[string]interface{}{"created_at": map[string]interface{}{"order": order}}
+	}
+
 	esQuery := map[string]interface{}{
 		"from":  fromInt,
 		"size":  sizeInt,
-		"sort":  []interface{}{map[string]interface{}{esSortField: map[string]interface{}{"order": order}}},
+		"sort":  []interface{}{sortClause},
 		"query": map[string]interface{}{"bool": boolQuery},
 	}
 
@@ -237,8 +285,34 @@ func (r *searchRepository) IndexProduct(product *models.Product) error {
 					"category": map[string]interface{}{
 						"type": "keyword",
 					},
-					"price": map[string]interface{}{
-						"type": "float",
+					"variants": map[string]interface{}{
+						"type": "nested",
+						"properties": map[string]interface{}{
+							"id": map[string]interface{}{
+								"type": "keyword",
+							},
+							"size": map[string]interface{}{
+								"type": "keyword",
+							},
+							"color": map[string]interface{}{
+								"type": "keyword",
+							},
+							"material": map[string]interface{}{
+								"type": "keyword",
+							},
+							"cost_price": map[string]interface{}{
+								"type": "float",
+							},
+							"price": map[string]interface{}{
+								"type": "float",
+							},
+							"quantity": map[string]interface{}{
+								"type": "integer",
+							},
+							"created_at": map[string]interface{}{
+								"type": "date",
+							},
+						},
 					},
 					"created_at": map[string]interface{}{
 						"type": "date",

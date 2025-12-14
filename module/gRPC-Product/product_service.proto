@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package product;
 
-option go_package = "module/gRPC-Product/service";
+option go_package = "./service";
 
 // Service definitions
 service ProductService {
@@ -25,14 +25,25 @@ message BasicProductResponse {
     string vendor_id = 4;
 }
 
+message ProductVariant {
+    string id = 1;
+    string size = 2;
+    string color = 3;
+    string material = 4;
+    float cost_price = 5;
+    float price = 6;
+    int32 quantity = 7;
+}
+
 message ProductResponse {
     string id = 1;
     string name = 2;
-    float price = 3;
-    string description = 4;
-    int32 quantity = 5;
-    string image_url = 6; 
-    string vendor_id = 7;
+    string description = 3;
+    string image_url = 4; 
+    string vendor_id = 5;
+    string category = 6;
+    string status = 7;
+    repeated ProductVariant variants = 8;
 }
 
 
@@ -54,7 +65,8 @@ message UpdateStockRequest {
 
 message StockItem {
     string product_id = 1;
-    int32 quantity = 2;
+    string variant_id = 2;
+    int32 quantity = 3;
 }
 
 message UpdateStockResponse {

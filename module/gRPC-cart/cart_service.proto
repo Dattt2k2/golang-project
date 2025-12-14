@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package cart;
 
-option go_package = "./module/gRPC-cart/service";
+option go_package = "./service";
 
 service CartService {
     rpc GetCartItems (CartRequest) returns (CartResponse);
@@ -22,5 +22,8 @@ message CartItem {
     float price = 3;
     string name = 4;
     string vendor_id = 5;
+    string variant_id = 6;
+    string size = 7;
+    string color = 8;
 }
 

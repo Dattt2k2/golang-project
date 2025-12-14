@@ -42,6 +42,7 @@ type OrderReturnedEvent struct {
 
 type OrderItemInfo struct {
 	ProductID string  `json:"product_id"`
+	VariantID string  `json:"variant_id"`
 	Quantity  int     `json:"quantity"`
 	Price     float64 `json:"price"`
 }
@@ -116,6 +117,12 @@ func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
 	var items []OrderItemInfo
 	if err := json.Unmarshal(order.Items, &items); err != nil {
 		return err
+	}
+
+	// Debug: Log items để kiểm tra variant_id
+	for i, item := range items {
+		fmt.Printf("DEBUG Item %d: ProductID=%s, VariantID=%s, Quantity=%d\n", 
+			i, item.ProductID, item.VariantID, item.Quantity)
 	}
 
 	orderEvent := OrderSuccessEvent{

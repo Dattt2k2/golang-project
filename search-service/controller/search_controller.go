@@ -111,6 +111,19 @@ func (ctrl *SearchController) AdvancedSearch() gin.HandlerFunc {
 			filters["price_max"] = maxPrice
 		}
 
+		size := c.Query("size")
+		if size != "" {
+			filters["size"] = size
+		}
+		color := c.Query("color")
+		if color != "" {
+			filters["color"] = color
+		}
+		material := c.Query("material")
+		if material != "" {
+			filters["material"] = material
+		}
+
 		fromStr := strconv.Itoa(from)
 		limitStr := strconv.Itoa(limit)
 

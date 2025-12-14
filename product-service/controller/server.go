@@ -111,10 +111,16 @@ func (s *ProductServer) AddProduct(ctx context.Context, req *pb.ProductRequest) 
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
 
+	// Lấy giá từ variant đầu tiên (nếu có)
+	var price float32
+	if len(product.Variants) > 0 {
+		price = float32(product.Variants[0].Price)
+	}
+
 	return &pb.BasicProductResponse{
 		Id:    product.ID,
 		Name:  product.Name,
-		Price: float32(product.Price),
+		Price: price,
 	}, nil
 }
 
@@ -131,13 +137,29 @@ func (s *ProductServer) GetProductInfo(ctx context.Context, req *pb.ProductReque
 		imageUrls = strings.Join(product.ImagePath, ",")
 	}
 
+	// Chuyển đổi tất cả variants sang protobuf format
+	pbVariants := make([]*pb.ProductVariant, len(product.Variants))
+	for i, v := range product.Variants {
+		pbVariants[i] = &pb.ProductVariant{
+			Id:        v.ID,
+			Size:      v.Size,
+			Color:     v.Color,
+			Material:  v.Material,
+			CostPrice: float32(v.CostPrice),
+			Price:     float32(v.Price),
+			Quantity:  int32(v.Quantity),
+		}
+	}
+
 	return &pb.ProductResponse{
 		Id:          product.ID,
 		Name:        product.Name,
-		Price:       float32(product.Price),
 		Description: product.Description,
 		ImageUrl:    imageUrls,
-		Quantity:    int32(product.Quantity),
+		VendorId:    product.UserID,
+		Category:    product.Category,
+		Status:      product.Status,
+		Variants:    pbVariants,
 	}, nil
 }
 
@@ -148,10 +170,17 @@ func (s *ProductServer) GetBasicInfo(ctx context.Context, req *pb.ProductRequest
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
 	log.Printf("product id: %v", id)
+
+	// Lấy giá từ variant đầu tiên (nếu có)
+	var price float32
+	if len(product.Variants) > 0 {
+		price = float32(product.Variants[0].Price)
+	}
+
 	return &pb.BasicProductResponse{
 		Id:       product.ID,
 		Name:     product.Name,
-		Price:    float32(product.Price),
+		Price:    price,
 		VendorId: product.UserID,
 	}, nil
 }
@@ -163,17 +192,23 @@ func (s *ProductServer) CheckStock(ctx context.Context, req *pb.ProductRequest) 
 		return nil, status.Errorf(codes.NotFound, "Product not found: %v", err)
 	}
 
-	if product.Quantity > 0 {
+	// Tính tổng số lượng từ tất cả variants
+	var totalQuantity int32
+	for _, v := range product.Variants {
+		totalQuantity += int32(v.Quantity)
+	}
+
+	if totalQuantity > 0 {
 		return &pb.StockResponse{
 			InStock:           true,
-			AvailableQuantity: int32(product.Quantity),
+			AvailableQuantity: totalQuantity,
 			Message:           "Product is in stock",
 		}, nil
 	}
 
 	return &pb.StockResponse{
 		InStock:           false,
-		AvailableQuantity: int32(product.Quantity),
+		AvailableQuantity: totalQuantity,
 		Message:           "Product is out of stock",
 	}, nil
 }
@@ -192,14 +227,50 @@ func (s *ProductServer) GetAllProducts(ctx context.Context, req *pb.Empty) (*pb.
 		if len(p.ImagePath) > 0 {
 			imageUrls = strings.Join(p.ImagePath, ",")
 		}
+
+		// Lấy giá từ variant đầu tiên (nếu có)
+		var price float32
+		if len(p.Variants) > 0 {
+			price = float32(p.Variants[0].Price)
+		}
+
 		pbProducts = append(pbProducts, &pb.Product{
 			Id:          p.ID,
 			Name:        p.Name,
-			Price:       float32(p.Price),
+			Price:       price,
 			Description: p.Description,
 			ImageUrl:    imageUrls,
 			Category:    p.Category,
 		})
 	}
 	return &pb.ProductList{Products: pbProducts}, nil
+}
+
+func (s *ProductServer) UpdateStock(ctx context.Context, req *pb.UpdateStockRequest) (*pb.UpdateStockResponse, error) {
+	var updateStatus []*pb.StockUpdateStatus
+	allSuccess := true
+
+	for _, item := range req.Items {
+		err := s.service.UpdateProductStock(ctx, item.ProductId, item.VariantId, int(item.Quantity))
+
+		status := &pb.StockUpdateStatus{
+			ProductId: item.ProductId,
+			Updated:   err == nil,
+		}
+
+		if err != nil {
+			allSuccess = false
+			status.Message = err.Error()
+		} else {
+			status.Message = "Stock updated successfully"
+		}
+
+		updateStatus = append(updateStatus, status)
+	}
+
+	return &pb.UpdateStockResponse{
+		UpdateStatus: updateStatus,
+		Success:      allSuccess,
+		Message:      "Stock update completed",
+	}, nil
 }

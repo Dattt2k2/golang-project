@@ -34,43 +34,63 @@ import (
 
 type Order struct {
 	gorm.Model
-	OrderID            string         `gorm:"uniqueIndex;not null"`
-	UserID             string         `gorm:"not null"`
-	Items              datatypes.JSON `gorm:"type:jsonb;not null"`
-	Status             string         `gorm:"not null;default:'pending'"`
-	Source             string         `gorm:"not null;default:'web'"`
-	TotalPrice         float64        `gorm:"not null"`
-	PaymentMethod      string         `gorm:"not null;default:'cod'"`
-	PaymentStatus      string         `gorm:"not null;default:'unpaid'"`
-	PaymentIntentID    *string        `gorm:"column:payment_intent_id" json:"payment_intent_id,omitempty"`
-	ShippingStatus     string         `gorm:"not null;default:'pending'"`
-	ShippingAddress    string         `gorm:"not null"`
-	ShippingInfo       datatypes.JSON `gorm:"type:jsonb;default:'{}'"`
+	OrderID         string         `gorm:"uniqueIndex;not null"`
+	UserID          string         `gorm:"not null"`
+	Items           datatypes.JSON `gorm:"type:jsonb;not null"`
+	Status          string         `gorm:"not null;default:'pending'"`
+	Source          string         `gorm:"not null;default:'web'"`
+	TotalPrice      float64        `gorm:"not null"`
+	TotalCost       float64        `gorm:"not null;default:0"`
+	TotalRevenue    float64        `gorm:"not null;default:0"`
+	PaymentMethod   string         `gorm:"not null;default:'cod'"`
+	PaymentStatus   string         `gorm:"not null;default:'unpaid'"`
+	PaymentIntentID *string        `gorm:"column:payment_intent_id" json:"payment_intent_id,omitempty"`
+	ShippingStatus  string         `gorm:"not null;default:'pending'"`
+	ShippingAddress string         `gorm:"not null"`
+	ShippingInfo    datatypes.JSON `gorm:"type:jsonb;default:'{}'"`
 	// VendorID           *string        `gorm:"column:vendor_id" json:"vendor_id,omitempty"`
-	PlatformFee        float64        `gorm:"not null;default:0"`
-	VendorAmount       float64        `gorm:"not null;default:0"`
-	DeliveryDate       *time.Time     `json:"delivery_date"`
-	PaymentReleaseDate *time.Time     `json:"payment_release_date"`
+	PlatformFee        float64    `gorm:"not null;default:0"`
+	VendorAmount       float64    `gorm:"not null;default:0"`
+	DeliveryDate       *time.Time `json:"delivery_date"`
+	PaymentReleaseDate *time.Time `json:"payment_release_date"`
 }
 
 type OrderItem struct {
 	ProductID string  `json:"product_id"`
+	VariantID string  `json:"variant_id"`
 	Name      string  `json:"name"`
 	Quantity  int     `json:"quantity"`
+	CostPrice float64 `json:"cost_price"`
 	Price     float64 `json:"price"`
 	VendorID  string  `json:"vendor_id"`
 }
 
 type TopProduct struct {
-    ProductID     string  `json:"product_id"`
-    Name          string  `json:"name"`
-    TotalQuantity int64   `json:"total_quantity"`
-    TotalRevenue  float64 `json:"total_revenue"`
-    TotalOrders   int64   `json:"total_orders"` 
+	ProductID     string  `json:"product_id"`
+	Name          string  `json:"name"`
+	TotalQuantity int64   `json:"total_quantity"`
+	TotalRevenue  float64 `json:"total_revenue"`
+	TotalOrders   int64   `json:"total_orders"`
 }
 
 type MonthRevenue struct {
-	Year int     `json:"year"`
-	Month int  `json:"month"`
+	Year    int     `json:"year"`
+	Month   int     `json:"month"`
 	Revenue float64 `json:"revenue"`
+}
+
+type TopCustomer struct {
+	UserID        string    `json:"user_id"`
+	TotalOrders   int64     `json:"total_orders"`
+	TotalSpent    float64   `json:"total_spent"`
+	TotalRevenue  float64   `json:"total_revenue"`
+	LastOrderDate time.Time `json:"last_order_date"`
+}
+
+type SlowMovingProduct struct {
+	ProductID         string     `json:"product_id"`
+	Name              string     `json:"name"`
+	LastSoldDate      *time.Time `json:"last_sold_date"`
+	DaysSinceLastSale int        `json:"days_since_last_sale"`
+	TotalStock        int        `json:"total_stock"`
 }

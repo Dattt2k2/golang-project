@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"strings"
 	"time"
 
 	"product-service/helper"
@@ -28,7 +29,7 @@ type ProductService interface {
 	GetProductForgRPC(ctx context.Context, id string) (*models.Product, error)
 	// GetProductByName(ctx context.Context, name string) ([]models.Product, error)
 	GetAllProducts(ctx context.Context, page, limit int64) ([]models.Product, int64, int, bool, bool, bool, error)
-	UpdateProductStock(ctx context.Context, id string, quantity int) error
+	UpdateProductStock(ctx context.Context, productID string, variantID string, quantity int) error
 	IncrementSoldCount(ctx context.Context, productID string, quantity int) error
 	GetBestSellingProducts(ctx context.Context, limit int) ([]models.Product, error)
 	DecrementSoldCount(ctx context.Context, productID string, quantity int) error
@@ -80,8 +81,69 @@ func (s *productServiceImpl) generateRandomString(length int) string {
 	return string(result)
 }
 
+// generateVariantID tạo variant ID từ productID + size + color
+func (s *productServiceImpl) generateVariantID(productID, size, color string) string {
+	// Bỏ dấu và chuẩn hóa
+	normalizedSize := strings.ToUpper(strings.TrimSpace(removeDiacritics(size)))
+	normalizedColor := strings.ToUpper(strings.TrimSpace(removeDiacritics(color)))
+
+	// Thay khoảng trắng bằng dấu gạch ngang
+	normalizedSize = strings.ReplaceAll(normalizedSize, " ", "-")
+	normalizedColor = strings.ReplaceAll(normalizedColor, " ", "-")
+
+	return fmt.Sprintf("%s-%s-%s", productID, normalizedSize, normalizedColor)
+}
+
+// removeDiacritics bỏ dấu tiếng Việt
+func removeDiacritics(s string) string {
+	var result strings.Builder
+	for _, r := range s {
+		switch r {
+		case 'à', 'á', 'ạ', 'ả', 'ã', 'â', 'ầ', 'ấ', 'ậ', 'ẩ', 'ẫ', 'ă', 'ằ', 'ắ', 'ặ', 'ẳ', 'ẵ':
+			result.WriteRune('a')
+		case 'À', 'Á', 'Ạ', 'Ả', 'Ã', 'Â', 'Ầ', 'Ấ', 'Ậ', 'Ẩ', 'Ẫ', 'Ă', 'Ằ', 'Ắ', 'Ặ', 'Ẳ', 'Ẵ':
+			result.WriteRune('A')
+		case 'è', 'é', 'ẹ', 'ẻ', 'ẽ', 'ê', 'ề', 'ế', 'ệ', 'ể', 'ễ':
+			result.WriteRune('e')
+		case 'È', 'É', 'Ẹ', 'Ẻ', 'Ẽ', 'Ê', 'Ề', 'Ế', 'Ệ', 'Ể', 'Ễ':
+			result.WriteRune('E')
+		case 'ì', 'í', 'ị', 'ỉ', 'ĩ':
+			result.WriteRune('i')
+		case 'Ì', 'Í', 'Ị', 'Ỉ', 'Ĩ':
+			result.WriteRune('I')
+		case 'ò', 'ó', 'ọ', 'ỏ', 'õ', 'ô', 'ồ', 'ố', 'ộ', 'ổ', 'ỗ', 'ơ', 'ờ', 'ớ', 'ợ', 'ở', 'ỡ':
+			result.WriteRune('o')
+		case 'Ò', 'Ó', 'Ọ', 'Ỏ', 'Õ', 'Ô', 'Ồ', 'Ố', 'Ộ', 'Ổ', 'Ỗ', 'Ơ', 'Ờ', 'Ớ', 'Ợ', 'Ở', 'Ỡ':
+			result.WriteRune('O')
+		case 'ù', 'ú', 'ụ', 'ủ', 'ũ', 'ư', 'ừ', 'ứ', 'ự', 'ử', 'ữ':
+			result.WriteRune('u')
+		case 'Ù', 'Ú', 'Ụ', 'Ủ', 'Ũ', 'Ư', 'Ừ', 'Ứ', 'Ự', 'Ử', 'Ữ':
+			result.WriteRune('U')
+		case 'ỳ', 'ý', 'ỵ', 'ỷ', 'ỹ':
+			result.WriteRune('y')
+		case 'Ỳ', 'Ý', 'Ỵ', 'Ỷ', 'Ỹ':
+			result.WriteRune('Y')
+		case 'đ':
+			result.WriteRune('d')
+		case 'Đ':
+			result.WriteRune('D')
+		default:
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
+}
+
 func (s *productServiceImpl) AddProduct(ctx context.Context, product models.Product) error {
+	// Generate ProductID từ category
 	product.ID = s.generateProductID(ctx, product.Category)
+
+	// Generate VariantID cho từng variant
+	for i := range product.Variants {
+		product.Variants[i].ID = s.generateVariantID(product.ID, product.Variants[i].Size, product.Variants[i].Color)
+		product.Variants[i].CreatedAt = time.Now()
+	}
+
 	product.Created_at = time.Now()
 	product.Updated_at = time.Now()
 	err := s.repo.Insert(ctx, product)
@@ -272,13 +334,13 @@ func (s *productServiceImpl) GetAllProducts(ctx context.Context, page, limit int
 	return products, total, pages, hasNext, hasPrev, false, nil
 }
 
-func (s *productServiceImpl) UpdateProductStock(ctx context.Context, id string, quantity int) error {
-	err := s.repo.UpdateStock(ctx, id, quantity)
+func (s *productServiceImpl) UpdateProductStock(ctx context.Context, productID string, variantID string, quantity int) error {
+	err := s.repo.UpdateStock(ctx, productID, variantID, quantity)
 	if err == nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			productKey := fmt.Sprintf("products:%s", id)
+			productKey := fmt.Sprintf("products:%s", productID)
 			if err := helper.InvalidateProductCache(ctx, productKey); err != nil {
 				log.Printf("Error invalidating product cache: %v", err)
 			}
@@ -525,11 +587,16 @@ func (s *productServiceImpl) GetProductStatistics(ctx context.Context, month, ye
 		if p.ID == "" {
 			continue
 		}
+		// Lấy giá từ variant đầu tiên (nếu có)
+		var price float64
+		if len(p.Variants) > 0 {
+			price = p.Variants[0].Price
+		}
 		topSold = append(topSold, map[string]interface{}{
 			"product_id": p.ID,
 			"name":       p.Name,
 			"sold_count": p.SoldCount,
-			"price":      p.Price,
+			"price":      price,
 		})
 	}
 
@@ -558,22 +625,22 @@ func (s *productServiceImpl) GetProductCategory(ctx context.Context) ([]models.C
 
 func (s *productServiceImpl) DeleteProductCategory(ctx context.Context, categoryID string) error {
 	category, err := s.repo.GetCategoryByID(ctx, categoryID)
-    if err != nil {
-        return err
-    }
-    if category == nil {
-        return fmt.Errorf("category not found")
-    }
+	if err != nil {
+		return err
+	}
+	if category == nil {
+		return fmt.Errorf("category not found")
+	}
 
-    count, err := s.repo.CountProductsByCategoryName(ctx, category.Name)
-    if err != nil {
-        return err
-    }
-    if count > 0 {
-        return fmt.Errorf("cannot delete category '%s': %d product(s) reference it", category.Name, count)
-    }
+	count, err := s.repo.CountProductsByCategoryName(ctx, category.Name)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("cannot delete category '%s': %d product(s) reference it", category.Name, count)
+	}
 
-    return s.repo.DeleteProductCategory(ctx, categoryID)
+	return s.repo.DeleteProductCategory(ctx, categoryID)
 }
 
 func (s *productServiceImpl) GetCategoryByName(ctx context.Context, name string) (*models.Category, error) {

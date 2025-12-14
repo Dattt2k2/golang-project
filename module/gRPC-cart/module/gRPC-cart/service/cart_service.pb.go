@@ -230,7 +230,7 @@ const file_cart_service_proto_rawDesc = "" +
 	"\x04size\x18\a \x01(\tR\x04size\x12\x14\n" +
 	"\x05color\x18\b \x01(\tR\x05color2D\n" +
 	"\vCartService\x125\n" +
-	"\fGetCartItems\x12\x11.cart.CartRequest\x1a\x12.cart.CartResponseB\vZ\t./serviceb\x06proto3"
+	"\fGetCartItems\x12\x11.cart.CartRequest\x1a\x12.cart.CartResponseB\x1cZ\x1a./module/gRPC-cart/serviceb\x06proto3"
 
 var (
 	file_cart_service_proto_rawDescOnce sync.Once

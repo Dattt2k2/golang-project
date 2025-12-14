@@ -22,7 +22,7 @@ type CartRepository interface {
 	ClearCart(ctx context.Context, userID string) error
 	GetAllCarts(ctx context.Context, page, limit int) ([]models.Cart, int64, error)
 	GetCartItems(ctx context.Context, userID string) ([]models.CartItem, error)
-	UpdateCartItem(ctx context.Context, userID string, productID string, quantity int) error
+	UpdateCartItem(ctx context.Context, userID string, productID string, variantID string, quantity int) error
 	DeleteCartItems(ctx context.Context, userID string, productIDs []string) error
 }
 
@@ -38,18 +38,19 @@ func NewCartRepository(client *dynamodb.Client, tableName string) CartRepository
 func (r *cartRepositoryImpl) AddItem(ctx context.Context, userID string, item models.CartItem) error {
 	itemAV, err := attributevalue.MarshalMap(item)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	cart, err := r.FindByUserID(ctx, userID)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	if cart != nil {
 		for _, cartItem := range cart.Items {
-			if cartItem.ProductID == item.ProductID {
-				return errors.New("item already exists in cart")
+			// Check cả productID và variantID để cho phép thêm cùng product nhưng khác variant
+			if cartItem.ProductID == item.ProductID && cartItem.VariantID == item.VariantID {
+				return errors.New("item with this variant already exists in cart")
 			}
 		}
 	}
@@ -65,13 +66,13 @@ func (r *cartRepositoryImpl) AddItem(ctx context.Context, userID string, item mo
 			"#items": "items",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":new_item":    &types.AttributeValueMemberL{Value: []types.AttributeValue{&types.AttributeValueMemberM{Value: itemAV}}},
+			":new_item":   &types.AttributeValueMemberL{Value: []types.AttributeValue{&types.AttributeValueMemberM{Value: itemAV}}},
 			":empty_list": &types.AttributeValueMemberL{Value: []types.AttributeValue{}},
-			":updated_at":  &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
-			":created_at":  &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+			":updated_at": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+			":created_at": &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
 		},
 	})
-	return err 
+	return err
 }
 
 func (r *cartRepositoryImpl) FindByUserID(ctx context.Context, userID string) (*models.Cart, error) {
@@ -92,7 +93,7 @@ func (r *cartRepositoryImpl) FindByUserID(ctx context.Context, userID string) (*
 	var cart models.Cart
 	err = attributevalue.UnmarshalMap(result.Item, &cart)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	return &cart, nil
@@ -112,11 +113,11 @@ func (r *cartRepositoryImpl) FindByUserID(ctx context.Context, userID string) (*
 func (r *cartRepositoryImpl) RemoveItem(ctx context.Context, userID string, productID string) (int64, error) {
 	cart, err := r.FindByUserID(ctx, userID)
 	if err != nil {
-		return 0, err 
+		return 0, err
 	}
 
 	newItems := make([]models.CartItem, 0)
-	removed := false 
+	removed := false
 
 	for _, item := range cart.Items {
 		if item.ProductID == productID {
@@ -127,7 +128,7 @@ func (r *cartRepositoryImpl) RemoveItem(ctx context.Context, userID string, prod
 	}
 
 	if !removed {
-		return 0, nil 
+		return 0, nil
 	}
 
 	cart.Items = newItems
@@ -143,7 +144,7 @@ func (r *cartRepositoryImpl) RemoveItem(ctx context.Context, userID string, prod
 		Item:      cartItem,
 	})
 	if err != nil {
-		return 0, err 
+		return 0, err
 	}
 	return 1, nil
 }
@@ -151,7 +152,7 @@ func (r *cartRepositoryImpl) RemoveItem(ctx context.Context, userID string, prod
 func (r *cartRepositoryImpl) ClearCart(ctx context.Context, userID string) error {
 	cart, err := r.FindByUserID(ctx, userID)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	cart.Items = []models.CartItem{}
@@ -159,7 +160,7 @@ func (r *cartRepositoryImpl) ClearCart(ctx context.Context, userID string) error
 
 	cartItem, err := attributevalue.MarshalMap(cart)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
@@ -171,68 +172,68 @@ func (r *cartRepositoryImpl) ClearCart(ctx context.Context, userID string) error
 
 func (r *cartRepositoryImpl) GetAllCarts(ctx context.Context, page, limit int) ([]models.Cart, int64, error) {
 	countResult, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-        TableName: aws.String(r.tableName),
-        Select:    types.SelectCount,
-    })
-    if err != nil {
-        return nil, 0, err
-    }
-    total := countResult.Count
+		TableName: aws.String(r.tableName),
+		Select:    types.SelectCount,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	total := countResult.Count
 
-    scanInput := &dynamodb.ScanInput{
-        TableName: aws.String(r.tableName),
-        Limit:     aws.Int32(int32(limit)),
-    }
+	scanInput := &dynamodb.ScanInput{
+		TableName: aws.String(r.tableName),
+		Limit:     aws.Int32(int32(limit)),
+	}
 
-    var carts []models.Cart
-    var scannedCount int64 = 0
-    skip := int64((page - 1) * limit)
+	var carts []models.Cart
+	var scannedCount int64 = 0
+	skip := int64((page - 1) * limit)
 
-    paginator := dynamodb.NewScanPaginator(r.client, scanInput)
-    for paginator.HasMorePages() {
-        result, err := paginator.NextPage(ctx)
-        if err != nil {
-            return nil, 0, err
-        }
+	paginator := dynamodb.NewScanPaginator(r.client, scanInput)
+	for paginator.HasMorePages() {
+		result, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, 0, err
+		}
 
-        for _, item := range result.Items {
-            if scannedCount < skip {
-                scannedCount++
-                continue
-            }
+		for _, item := range result.Items {
+			if scannedCount < skip {
+				scannedCount++
+				continue
+			}
 
-            if int64(len(carts)) >= int64(limit) {
-                break
-            }
+			if int64(len(carts)) >= int64(limit) {
+				break
+			}
 
-            var cart models.Cart
-            err = attributevalue.UnmarshalMap(item, &cart)
-            if err != nil {
-                continue
-            }
+			var cart models.Cart
+			err = attributevalue.UnmarshalMap(item, &cart)
+			if err != nil {
+				continue
+			}
 
-            carts = append(carts, cart)
-            scannedCount++
-        }
+			carts = append(carts, cart)
+			scannedCount++
+		}
 
-        if int64(len(carts)) >= int64(limit) {
-            break
-        }
-    }
+		if int64(len(carts)) >= int64(limit) {
+			break
+		}
+	}
 
-    return carts, int64(total), nil
+	return carts, int64(total), nil
 }
 
 func (r *cartRepositoryImpl) GetCartItems(ctx context.Context, userID string) ([]models.CartItem, error) {
 	cart, err := r.FindByUserID(ctx, userID)
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-    return cart.Items, nil
+	return cart.Items, nil
 }
 
-func (r *cartRepositoryImpl) UpdateCartItem(ctx context.Context, userID string, productID string, quantity int) error {
+func (r *cartRepositoryImpl) UpdateCartItem(ctx context.Context, userID string, productID string, variantID string, quantity int) error {
 	if quantity == 0 {
 		_, err := r.RemoveItem(ctx, userID, productID)
 		return err
@@ -240,7 +241,7 @@ func (r *cartRepositoryImpl) UpdateCartItem(ctx context.Context, userID string, 
 
 	cart, err := r.FindByUserID(ctx, userID)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	if cart == nil {
@@ -248,7 +249,8 @@ func (r *cartRepositoryImpl) UpdateCartItem(ctx context.Context, userID string, 
 	}
 	found := false
 	for i := range cart.Items {
-		if cart.Items[i].ProductID == productID {
+		// Check cả productID và variantID để tìm đúng item
+		if cart.Items[i].ProductID == productID && cart.Items[i].VariantID == variantID {
 			cart.Items[i].Quantity = quantity
 			cart.Updated_at = time.Now()
 			found = true
@@ -257,12 +259,12 @@ func (r *cartRepositoryImpl) UpdateCartItem(ctx context.Context, userID string, 
 	}
 
 	if !found {
-		return errors.New("product not found in cart")
+		return errors.New("product variant not found in cart")
 	}
 
 	cartItem, err := attributevalue.MarshalMap(cart)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
@@ -275,11 +277,11 @@ func (r *cartRepositoryImpl) UpdateCartItem(ctx context.Context, userID string, 
 func (r *cartRepositoryImpl) DeleteCartItems(ctx context.Context, userID string, productIDs []string) error {
 	cart, err := r.FindByUserID(ctx, userID)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	if cart == nil {
-		return nil 
+		return nil
 	}
 
 	newItems := make([]models.CartItem, 0)
@@ -299,7 +301,7 @@ func (r *cartRepositoryImpl) DeleteCartItems(ctx context.Context, userID string,
 
 	cartItem, err := attributevalue.MarshalMap(cart)
 	if err != nil {
-		return err 
+		return err
 	}
 
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{

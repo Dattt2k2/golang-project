@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
-
 	"strconv"
+	"strings"
 	"time"
 
 	logger "product-service/log"
@@ -21,11 +23,124 @@ type ProductController struct {
 	s3Service *service.S3Service
 }
 
+// removeDiacritics loại bỏ dấu tiếng Việt
+func removeDiacritics(s string) string {
+	// Map từng ký tự
+	var result strings.Builder
+	for _, r := range s {
+		switch r {
+		case 'à', 'á', 'ạ', 'ả', 'ã', 'â', 'ầ', 'ấ', 'ậ', 'ẩ', 'ẫ', 'ă', 'ằ', 'ắ', 'ặ', 'ẳ', 'ẵ':
+			result.WriteRune('a')
+		case 'À', 'Á', 'Ạ', 'Ả', 'Ã', 'Â', 'Ầ', 'Ấ', 'Ậ', 'Ẩ', 'Ẫ', 'Ă', 'Ằ', 'Ắ', 'Ặ', 'Ẳ', 'Ẵ':
+			result.WriteRune('A')
+		case 'è', 'é', 'ẹ', 'ẻ', 'ẽ', 'ê', 'ề', 'ế', 'ệ', 'ể', 'ễ':
+			result.WriteRune('e')
+		case 'È', 'É', 'Ẹ', 'Ẻ', 'Ẽ', 'Ê', 'Ề', 'Ế', 'Ệ', 'Ể', 'Ễ':
+			result.WriteRune('E')
+		case 'ì', 'í', 'ị', 'ỉ', 'ĩ':
+			result.WriteRune('i')
+		case 'Ì', 'Í', 'Ị', 'Ỉ', 'Ĩ':
+			result.WriteRune('I')
+		case 'ò', 'ó', 'ọ', 'ỏ', 'õ', 'ô', 'ồ', 'ố', 'ộ', 'ổ', 'ỗ', 'ơ', 'ờ', 'ớ', 'ợ', 'ở', 'ỡ':
+			result.WriteRune('o')
+		case 'Ò', 'Ó', 'Ọ', 'Ỏ', 'Õ', 'Ô', 'Ồ', 'Ố', 'Ộ', 'Ổ', 'Ỗ', 'Ơ', 'Ờ', 'Ớ', 'Ợ', 'Ở', 'Ỡ':
+			result.WriteRune('O')
+		case 'ù', 'ú', 'ụ', 'ủ', 'ũ', 'ư', 'ừ', 'ứ', 'ự', 'ử', 'ữ':
+			result.WriteRune('u')
+		case 'Ù', 'Ú', 'Ụ', 'Ủ', 'Ũ', 'Ư', 'Ừ', 'Ứ', 'Ự', 'Ử', 'Ữ':
+			result.WriteRune('U')
+		case 'ỳ', 'ý', 'ỵ', 'ỷ', 'ỹ':
+			result.WriteRune('y')
+		case 'Ỳ', 'Ý', 'Ỵ', 'Ỷ', 'Ỹ':
+			result.WriteRune('Y')
+		case 'đ':
+			result.WriteRune('d')
+		case 'Đ':
+			result.WriteRune('D')
+		default:
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
+}
+
 func NewProductController(service service.ProductService, s3Service service.S3Service) *ProductController {
 	return &ProductController{
 		service:   service,
 		s3Service: &s3Service,
 	}
+}
+
+// generateVariantID - Tạo ID duy nhất cho variant dựa trên productID, size và color
+func (ctrl *ProductController) generateVariantID(productID, size, color string) string {
+	// Bỏ dấu và chuẩn hóa size và color
+	normalizedSize := strings.ToUpper(strings.TrimSpace(removeDiacritics(size)))
+	normalizedColor := strings.ToUpper(strings.TrimSpace(removeDiacritics(color)))
+
+	// Thay thế khoảng trắng bằng dấu gạch ngang
+	normalizedColor = strings.ReplaceAll(normalizedColor, " ", "-")
+	normalizedSize = strings.ReplaceAll(normalizedSize, " ", "-")
+
+	// Format: PRODUCT-ID-SIZE-COLOR
+	return fmt.Sprintf("%s-%s-%s", productID, normalizedSize, normalizedColor)
+}
+
+// getCategoryCode trả về mã category chuẩn
+func getCategoryCode(categoryName string) string {
+	// Mapping tên category sang code
+	categoryMap := map[string]string{
+		"Áo thun":        "SHIRT",
+		"Áo polo":        "POLO",
+		"Quần jeans":     "JEANS",
+		"Quần short":     "SHORT",
+		"Giày thể thao":  "SHOES",
+		"Giày da":        "SHOES-L",
+		"Túi xách":       "BAG",
+		"Balo":           "BACKPACK",
+		"Điện thoại":     "PHONE",
+		"Laptop":         "LAPTOP",
+		"Phụ kiện":       "ACCESS",
+		"Đồng hồ":        "WATCH",
+		"Mỹ phẩm":        "COSMETIC",
+		"Thời trang nam": "F-MEN",
+		"Thời trang nữ":  "F-WOM",
+		"Đồ gia dụng":    "HOME",
+	}
+
+	// Tìm code từ map
+	if code, ok := categoryMap[categoryName]; ok {
+		return code
+	}
+
+	// Nếu không có trong map, chuẩn hóa tên category
+	normalized := removeDiacritics(categoryName)
+	return strings.ToUpper(strings.ReplaceAll(normalized, " ", "-"))
+}
+
+// generateProductID tạo ID duy nhất cho product dựa trên category
+func (ctrl *ProductController) generateProductID(ctx context.Context, category string) string {
+	// Lấy category code
+	categoryCode := getCategoryCode(category)
+
+	// Tạo 5 ký tự ngẫu nhiên
+	chars := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 5)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	randomPart := string(b)
+
+	return fmt.Sprintf("SKU-%s-%s", categoryCode, randomPart)
+}
+
+// randomString - Tạo chuỗi ngẫu nhiên
+func randomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[time.Now().UnixNano()%int64(len(charset))]
+	}
+	return string(b)
 }
 
 func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
@@ -47,23 +162,34 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
 			return
 		}
-		name := req.Name
-		description := req.Description
-		quantity := req.Quantity
-		price := req.Price
-		category := req.Category
+
+		// Handle empty ImagePath - DynamoDB doesn't allow empty string sets
 		imagePath := req.ImagePath
-		status := req.Status
+		if len(imagePath) == 0 {
+			imagePath = nil
+		}
+
+		// Tạo variants từ request (chưa có ID, service sẽ generate)
+		variants := make([]models.ProductVariant, len(req.Variants))
+		for i, v := range req.Variants {
+			variants[i] = models.ProductVariant{
+				Size:      v.Size,
+				Color:     v.Color,
+				Material:  v.Material,
+				CostPrice: v.CostPrice,
+				Price:     v.Price,
+				Quantity:  v.Quantity,
+			}
+		}
 
 		product := models.Product{
-			Name:        name,
-			Category:    category,
-			Description: description,
-			Price:       price,
-			Quantity:    quantity,
+			Name:        req.Name,
+			Category:    req.Category,
+			Description: req.Description,
 			ImagePath:   imagePath,
 			UserID:      userID,
-			Status:      status,
+			Status:      req.Status,
+			Variants:    variants,
 		}
 
 		if err := ctrl.service.AddProduct(ctx, product); err != nil {
@@ -112,14 +238,87 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 		if req.Description != nil {
 			update["description"] = *req.Description
 		}
-		if req.Quantity != nil {
-			update["quantity"] = *req.Quantity
-		}
-		if req.Price != nil {
-			update["price"] = *req.Price
-		}
 		if req.Status != nil {
 			update["status"] = *req.Status
+		}
+
+		// Cập nhật variants
+		if len(req.Variants) > 0 {
+			// Lấy product hiện tại để merge variants
+			currentProduct, err := ctrl.service.GetProductByID(ctx, id)
+			if err != nil {
+				logger.Error("Error fetching current product for variant update", zap.Error(err))
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch product"})
+				return
+			}
+
+			// Tạo map để tra cứu variants hiện tại
+			variantMap := make(map[string]models.ProductVariant)
+			for _, v := range currentProduct.Variants {
+				variantMap[v.ID] = v
+			}
+
+			// Update hoặc thêm mới variants
+			for _, v := range req.Variants {
+				if v.ID != "" {
+					// Update variant hiện có
+					if existing, ok := variantMap[v.ID]; ok {
+						if v.Size != nil {
+							existing.Size = *v.Size
+						}
+						if v.Color != nil {
+							existing.Color = *v.Color
+						}
+						if v.Material != nil {
+							existing.Material = *v.Material
+						}
+						if v.Price != nil {
+							existing.Price = *v.Price
+						}
+						if v.Quantity != nil {
+							existing.Quantity = *v.Quantity
+						}
+						variantMap[v.ID] = existing
+					}
+				} else {
+					// Thêm variant mới - cần size và color để generate ID
+					if v.Size == nil || v.Color == nil {
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Size and color are required for new variants"})
+						return
+					}
+
+					newVariant := models.ProductVariant{
+						ID:        ctrl.generateVariantID(id, *v.Size, *v.Color),
+						CreatedAt: time.Now(),
+					}
+					if v.Size != nil {
+						newVariant.Size = *v.Size
+					}
+					if v.Color != nil {
+						newVariant.Color = *v.Color
+					}
+					if v.Material != nil {
+						newVariant.Material = *v.Material
+					}
+					if v.CostPrice != nil {
+						newVariant.CostPrice = *v.CostPrice
+					}
+					if v.Price != nil {
+						newVariant.Price = *v.Price
+					}
+					if v.Quantity != nil {
+						newVariant.Quantity = *v.Quantity
+					}
+					variantMap[newVariant.ID] = newVariant
+				}
+			}
+
+			// Chuyển map thành array
+			variants := make([]models.ProductVariant, 0, len(variantMap))
+			for _, v := range variantMap {
+				variants = append(variants, v)
+			}
+			update["variants"] = variants
 		}
 
 		if len(update) == 0 {
@@ -140,6 +339,63 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Product updated successfully"})
+	}
+}
+
+func (ctrl *ProductController) DeleteProductVariant() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		productID := c.Param("id")
+		variantID := c.Param("variant_id")
+
+		if productID == "" || variantID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID and Variant ID are required"})
+			return
+		}
+
+		// Lấy product hiện tại
+		product, err := ctrl.service.GetProductByID(ctx, productID)
+		if err != nil {
+			logger.Error("Error fetching product", zap.Error(err))
+			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+			return
+		}
+
+		// Lọc bỏ variant cần xóa
+		newVariants := make([]models.ProductVariant, 0)
+		found := false
+		for _, v := range product.Variants {
+			if v.ID != variantID {
+				newVariants = append(newVariants, v)
+			} else {
+				found = true
+			}
+		}
+
+		if !found {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Variant not found"})
+			return
+		}
+
+		if len(newVariants) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete last variant. Product must have at least one variant"})
+			return
+		}
+
+		// Update product với variants mới
+		update := map[string]interface{}{
+			"variants": newVariants,
+		}
+
+		if err := ctrl.service.EditProduct(ctx, productID, update, ""); err != nil {
+			logger.Error("Error deleting variant", zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete variant"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Variant deleted successfully"})
 	}
 }
 
@@ -245,6 +501,7 @@ func (ctrl *ProductController) GetAllProducts() gin.HandlerFunc {
 
 type StockUpdateItem struct {
 	ProductID string `json:"product_id"`
+	VariantID string `json:"variant_id"` // ID của variant cần update
 	Quantity  int    `json:"quantity"`
 }
 
@@ -258,8 +515,8 @@ func (ctrl *ProductController) UpdateProductStock(ctx context.Context, items []S
 			quantity = -item.Quantity
 		}
 
-		// Call UpdateProductStock with proper parameters (product ID and quantity)
-		err := ctrl.service.UpdateProductStock(ctx, item.ProductID, quantity)
+		// Call UpdateProductStock với product ID, variant ID và quantity
+		err := ctrl.service.UpdateProductStock(ctx, item.ProductID, item.VariantID, quantity)
 		if err != nil {
 			return err
 		}
@@ -492,30 +749,30 @@ func (ctrl *ProductController) GetProductStatistics() gin.HandlerFunc {
 			return
 		}
 
-		 monthStr := c.Query("month")
-        yearStr := c.Query("year")
-        var month, year int
-        var err error
+		monthStr := c.Query("month")
+		yearStr := c.Query("year")
+		var month, year int
+		var err error
 
-        if monthStr != "" {
-            month, err = strconv.Atoi(monthStr)
-            if err != nil || month < 1 || month > 12 {
-                c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid month; must be between 1 and 12"})
-                return
-            }
-        }
+		if monthStr != "" {
+			month, err = strconv.Atoi(monthStr)
+			if err != nil || month < 1 || month > 12 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid month; must be between 1 and 12"})
+				return
+			}
+		}
 
-        if yearStr != "" {
-            year, err = strconv.Atoi(yearStr)
-            if err != nil || year < 1970 {
-                c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid year"})
-                return
-            }
-        }
+		if yearStr != "" {
+			year, err = strconv.Atoi(yearStr)
+			if err != nil || year < 1970 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid year"})
+				return
+			}
+		}
 
-        if month > 0 && year == 0 {
-            year = time.Now().Year()
-        }
+		if month > 0 && year == 0 {
+			year = time.Now().Year()
+		}
 
 		stats, err := ctrl.service.GetProductStatistics(ctx, month, year)
 		if err != nil {

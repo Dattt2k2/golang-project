@@ -26,23 +26,26 @@
 package models
 
 import (
-    "time"
+	"time"
 )
 
 type CartItem struct {
-    VendorID    string  `json:"vendor_id" dynamodbav:"vendor_id" validate:"required"`
-    ProductID   string  `json:"product_id" dynamodbav:"product_id" validate:"required"`
-    Quantity    int     `json:"quantity" dynamodbav:"quantity" validate:"required,min=1"`
-    Price       float64 `json:"price" dynamodbav:"price" validate:"required"`
-    Name        string  `json:"name" dynamodbav:"name" validate:"required"`
-    ImageUrl    string  `json:"image_url" dynamodbav:"image_url" validate:"required"`
-    Description string  `json:"description" dynamodbav:"description" validate:"required"`
+	VendorID    string  `json:"vendor_id" dynamodbav:"vendor_id" validate:"required"`
+	ProductID   string  `json:"product_id" dynamodbav:"product_id" validate:"required"`
+	VariantID   string  `json:"variant_id" dynamodbav:"variant_id" validate:"required"` // ID của variant được chọn
+	Quantity    int     `json:"quantity" dynamodbav:"quantity" validate:"required,min=1"`
+	Price       float64 `json:"price" dynamodbav:"price" validate:"required"`
+	Name        string  `json:"name" dynamodbav:"name" validate:"required"`
+	ImageUrl    string  `json:"image_url" dynamodbav:"image_url" validate:"required"`
+	Description string  `json:"description" dynamodbav:"description" validate:"required"`
+	Size        string  `json:"size" dynamodbav:"size"`   // Kích thước của variant
+	Color       string  `json:"color" dynamodbav:"color"` // Màu sắc của variant
 }
 
 type Cart struct {
-    ID         string     `json:"id" dynamodbav:"cart_id"`
-    UserID     string     `json:"user_id" dynamodbav:"user_id"`
-    Items      []CartItem `json:"items" dynamodbav:"items"`
-    Created_at time.Time  `json:"created_at" dynamodbav:"created_at"`
-    Updated_at time.Time  `json:"updated_at" dynamodbav:"updated_at"`
+	ID         string     `json:"id" dynamodbav:"cart_id"`
+	UserID     string     `json:"user_id" dynamodbav:"user_id"`
+	Items      []CartItem `json:"items" dynamodbav:"items"`
+	Created_at time.Time  `json:"created_at" dynamodbav:"created_at"`
+	Updated_at time.Time  `json:"updated_at" dynamodbav:"updated_at"`
 }

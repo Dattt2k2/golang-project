@@ -25,6 +25,7 @@ type OrderSuccessEvent struct {
 
 type OrderItemInfo struct {
 	ProductID string  `json:"product_id"`
+	VariantID string  `json:"variant_id"`
 	Quantity  int     `json:"quantity"`
 	Price     float64 `json:"price"`
 }
@@ -72,17 +73,18 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 			for i, item := range event.Items {
 				stockItems[i] = models.StockUpdateItem{
 					ProductID: item.ProductID,
+					VariantID: item.VariantID,
 					Quantity:  item.Quantity,
 				}
 			}
 
 			// Decrease stock (trừ số lượng tồn kho)
 			for _, item := range stockItems {
-				log.Printf("Decreasing stock for product %s by %d", item.ProductID, item.Quantity)
-				if err := updater.UpdateProductStock(context.Background(), item.ProductID, item.Quantity); err != nil {
+				log.Printf("Decreasing stock for product %s, variant %s by %d", item.ProductID, item.VariantID, item.Quantity)
+				if err := updater.UpdateProductStock(context.Background(), item.ProductID, item.VariantID, item.Quantity); err != nil {
 					log.Printf("Error updating product stock: %v", err)
 				} else {
-					log.Printf("Stock decreased for product %s", item.ProductID)
+					log.Printf("Stock decreased for product %s, variant %s", item.ProductID, item.VariantID)
 				}
 			}
 
@@ -143,16 +145,17 @@ func ConsumerOrderReturned(brokers []string, updater models.ProductStockUpdater)
 			for i, item := range event.Items {
 				stockItems[i] = models.StockUpdateItem{
 					ProductID: item.ProductID,
+					VariantID: item.VariantID,
 					Quantity:  item.Quantity,
 				}
 			}
 			for _, item := range stockItems {
-				log.Printf("⬆Increasing stock for product %s by %d (order returned)", item.ProductID, item.Quantity)
+				log.Printf("⬆Increasing stock for product %s, variant %s by %d (order returned)", item.ProductID, item.VariantID, item.Quantity)
 				// For returns, we need to INCREASE stock, so pass negative quantity to UpdateProductStock
-				if err := updater.UpdateProductStock(context.Background(), item.ProductID, -item.Quantity); err != nil {
+				if err := updater.UpdateProductStock(context.Background(), item.ProductID, item.VariantID, -item.Quantity); err != nil {
 					log.Printf("Error increasing product stock: %v", err)
 				} else {
-					log.Printf("Stock increased for product %s", item.ProductID)
+					log.Printf("Stock increased for product %s, variant %s", item.ProductID, item.VariantID)
 				}
 			}
 

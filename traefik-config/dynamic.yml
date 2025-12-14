@@ -1,4 +1,157 @@
 http:
+  routers:
+    # Auth Service - Public routes
+    auth:
+      rule: "Host(`api.example.com`) && PathPrefix(`/auth`)"
+      entryPoints:
+        - web
+      service: auth-service
+      
+    # Auth Service - Protected route
+    auth-changepass:
+      rule: "Host(`api.example.com`) && PathPrefix(`/auth/change-password`)"
+      entryPoints:
+        - web
+      middlewares:
+        - jwt-validation
+      service: auth-service
+
+    # User Service - Protected routes
+    user-me:
+      rule: "Host(`api.example.com`) && PathPrefix(`/me`)"
+      entryPoints:
+        - web
+      middlewares:
+        - jwt-validation
+      service: user-service
+      
+    user-admin:
+      rule: "Host(`api.example.com`) && PathPrefix(`/admin`)"
+      entryPoints:
+        - web
+      middlewares:
+        - jwt-validation
+      service: user-service
+
+    # Product Service - Public routes (higher priority)
+    product-public:
+      rule: "Host(`api.example.com`) && PathPrefix(`/products/get`)"
+      entryPoints:
+        - web
+      priority: 100
+      service: product-service
+      
+    # Product Service - Protected routes
+    product-service:
+      rule: "Host(`api.example.com`) && PathPrefix(`/products`)"
+      entryPoints:
+        - web
+      middlewares:
+        - jwt-validation
+      service: product-service
+
+    # Cart Service - Protected routes
+    cart-service:
+      rule: "Host(`api.example.com`) && PathPrefix(`/cart`)"
+      entryPoints:
+        - web
+      middlewares:
+        - jwt-validation
+      service: cart-service
+
+    # Order Service - Protected routes
+    order-service:
+      rule: "Host(`api.example.com`) && PathPrefix(`/order`)"
+      entryPoints:
+        - web
+      middlewares:
+        - jwt-validation
+      service: order-service
+
+    # Search Service - Public routes
+    search-service:
+      rule: "Host(`api.example.com`) && PathPrefix(`/search`)"
+      entryPoints:
+        - web
+      service: search-service
+
+    # Payment Service - Protected routes
+    payment-service:
+      rule: "Host(`api.example.com`) && PathPrefix(`/payment`)"
+      entryPoints:
+        - web
+      middlewares:
+        - jwt-validation
+      service: payment-service
+      
+    # Payment Webhook - No JWT validation
+    payment-webhook:
+      rule: "Host(`api.example.com`) && PathPrefix(`/payment/webhook`)"
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - stripe-webhook-passthrough
+      service: payment-service
+
+    # Review Service - Mixed routes
+    review-public:
+      rule: "Host(`api.example.com`) && PathPrefix(`/products/reviews`)"
+      entryPoints:
+        - web
+      priority: 100
+      service: review-service
+      
+    review-protected:
+      rule: "Host(`api.example.com`) && PathPrefix(`/products/create-reviews`)"
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - jwt-validation
+      service: review-service
+
+  services:
+    auth-service:
+      loadBalancer:
+        servers:
+          - url: "http://golang-project-auth-service-1:8081"
+        
+    user-service:
+      loadBalancer:
+        servers:
+          - url: "http://golang-project-user-service-1:8095"
+          
+    product-service:
+      loadBalancer:
+        servers:
+          - url: "http://golang-project-product-service-1:8082"
+          
+    cart-service:
+      loadBalancer:
+        servers:
+          - url: "http://golang-project-cart-service-1:8083"
+          
+    order-service:
+      loadBalancer:
+        servers:
+          - url: "http://golang-project-order-service-1:8084"
+          
+    search-service:
+      loadBalancer:
+        servers:
+          - url: "http://golang-project-search-service-1:8086"
+          
+    payment-service:
+      loadBalancer:
+        servers:
+          - url: "http://golang-project-payment-service-1:8088"
+          
+    review-service:
+      loadBalancer:
+        servers:
+          - url: "http://review-service:8089"
+
   middlewares:
     jwt-validation:
       plugin:
@@ -8,7 +161,6 @@ http:
           claims:
             - claim: "user_type"
               header: "X-User-Type"
-
 
     cors-headers:
       headers:

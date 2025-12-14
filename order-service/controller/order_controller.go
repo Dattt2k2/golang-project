@@ -32,11 +32,11 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc {
 		uid := c.GetHeader("X-User-ID")
 
 		type OrderCartRequest struct {
-			Source             string   `json:"source"`
-			PaymentMethod      string   `json:"paymentMethod"`
-			ShippingAddress    string   `json:"shippingAddress"`
-			ShippingInfo       string   `json:"shipping_info"`
-			Items 			[]struct {
+			Source          string `json:"source"`
+			PaymentMethod   string `json:"paymentMethod"`
+			ShippingAddress string `json:"shippingAddress"`
+			ShippingInfo    string `json:"shipping_info"`
+			Items           []struct {
 				ProductId string `json:"productId"`
 				Quantity  int    `json:"quantity"`
 			} `json:"items"`
@@ -88,6 +88,8 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc {
 			"message":          "Order placed successfully",
 			"order_id":         order.ID,
 			"total_price":      order.TotalPrice,
+			"total_cost":       order.TotalCost,
+			"total_revenue":    order.TotalRevenue,
 			"payment_method":   order.PaymentMethod,
 			"shipping_address": order.ShippingAddress,
 			"status":           order.Status,
@@ -235,8 +237,8 @@ func (ctrl *OrderController) GetOrdersByVendor() gin.HandlerFunc {
 			"total_revenue": totalRevenue,
 			"page":          page,
 			"limit":         limit,
-			"has_next":       (page * limit) < int(total),
-			"has_prev":       page > 1,
+			"has_next":      (page * limit) < int(total),
+			"has_prev":      page > 1,
 		})
 	}
 }
@@ -323,7 +325,6 @@ func (ctrl *OrderController) VendorUpdateOrderStatus() gin.HandlerFunc {
 			return
 		}
 
-
 		err := ctrl.orderService.AdminUpdateOrderStatus(ctx, orderID, vendorID, req.Status)
 		if err != nil {
 			logger.Err("Failed to update order status", err, logger.Str("order_id", orderID), logger.Str("vendor_id", vendorID))
@@ -361,7 +362,6 @@ func (ctrl *OrderController) UpdateOrderStatus() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
-
 
 		// Call the universal update method
 		err := ctrl.orderService.UpdateOrderStatusWithPayout(ctx, orderID, userID, req.Status)
@@ -678,8 +678,8 @@ func (ctrl *OrderController) GetShippedOrderCount() gin.HandlerFunc {
 		}
 
 		userID := c.Param("user_id")
-		
-		count, totalPrice , err := ctrl.orderService.GetShippedOrdersCountAndTotalPrice(ctx, userID)
+
+		count, totalPrice, err := ctrl.orderService.GetShippedOrdersCountAndTotalPrice(ctx, userID)
 		if err != nil {
 			logger.Err("Failed to get shipped order count", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get shipped order count"})
@@ -688,7 +688,7 @@ func (ctrl *OrderController) GetShippedOrderCount() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"shipped_order_count": count,
-			"total_price": totalPrice,
+			"total_price":         totalPrice,
 		})
 	}
 }
@@ -723,6 +723,89 @@ func (ctrl *OrderController) GetRevenueInRange() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"revenues": revenues,
+		})
+	}
+}
+
+// GetTopSellingProducts - Lấy sản phẩm bán chạy nhất
+func (ctrl *OrderController) GetTopSellingProducts() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		month, _ := strconv.Atoi(c.DefaultQuery("month", "0"))
+		year, _ := strconv.Atoi(c.DefaultQuery("year", "0"))
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		userType := c.GetHeader("X-User-Type")
+		var vendorID *string
+
+		if userType == "VENDOR" {
+			uid := c.GetHeader("X-User-ID")
+			vendorID = &uid
+		}
+
+		products, err := ctrl.orderService.GetTopSellingProducts(ctx, month, year, limit, vendorID)
+		if err != nil {
+			logger.Err("Failed to get top selling products", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get top selling products"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"products": products,
+			"month":    month,
+			"year":     year,
+			"limit":    limit,
+		})
+	}
+}
+
+// GetTopCustomers - Lấy khách hàng mua nhiều nhất
+func (ctrl *OrderController) GetTopCustomers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		month, _ := strconv.Atoi(c.DefaultQuery("month", "0"))
+		year, _ := strconv.Atoi(c.DefaultQuery("year", "0"))
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		customers, err := ctrl.orderService.GetTopCustomers(ctx, month, year, limit)
+		if err != nil {
+			logger.Err("Failed to get top customers", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get top customers"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"customers": customers,
+			"month":     month,
+			"year":      year,
+			"limit":     limit,
+		})
+	}
+}
+
+// GetSlowMovingProducts - Cảnh báo sản phẩm bán chậm
+func (ctrl *OrderController) GetSlowMovingProducts() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		daysThreshold, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		products, err := ctrl.orderService.GetSlowMovingProducts(ctx, daysThreshold)
+		if err != nil {
+			logger.Err("Failed to get slow moving products", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get slow moving products"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"products":       products,
+			"threshold_days": daysThreshold,
+			"count":          len(products),
 		})
 	}
 }
