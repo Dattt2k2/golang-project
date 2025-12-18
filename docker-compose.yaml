@@ -124,6 +124,7 @@ services:
       dockerfile: ./product-service/Dockerfile.dev
     ports:
       - "8082:8082"
+      - "8102:8102"
     env_file:
       - ./product-service/.env
     volumes:

@@ -343,14 +343,15 @@ func (r *ProductRepositoryImpl) UpdateStock(ctx context.Context, productID strin
 	variantFound := false
 	for i := range product.Variants {
 		if product.Variants[i].ID == variantID {
-			product.Variants[i].Quantity += quantity
+			// Trừ stock khi order thành công (quantity dương nghĩa là trừ đi)
+			product.Variants[i].Quantity -= quantity
 
 			if product.Variants[i].Quantity < 0 {
 				return fmt.Errorf("insufficient stock for variant %s", variantID)
 			}
 
 			variantFound = true
-			logger.Info(fmt.Sprintf("Variant found: variantID=%s, new_quantity=%d", variantID, product.Variants[i].Quantity))
+			logger.Info(fmt.Sprintf("Variant found: variantID=%s, new_quantity=%d (reduced by %d)", variantID, product.Variants[i].Quantity, quantity))
 			break
 		}
 	}

@@ -318,7 +318,7 @@ func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, yea
 	if !start.IsZero() {
 		revQ = revQ.Where("created_at >= ? AND created_at < ?", start, end)
 	}
-	if err := revQ.Select("COALESCE(SUM(total_price), 0)").Scan(&totalRevenue).Error; err != nil {
+	if err := revQ.Select("COALESCE(SUM(total_revenue), 0)").Scan(&totalRevenue).Error; err != nil {
 		return 0, 0, 0, 0, 0, nil, err
 	}
 
@@ -335,7 +335,7 @@ func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, yea
 	if !prevStart.IsZero() {
 		prevRevQ = prevRevQ.Where("created_at >= ? AND created_at < ?", prevStart, prevEnd)
 	}
-	if err := prevRevQ.Select("COALESCE(SUM(total_price), 0)").Scan(&prevRevenue).Error; err != nil {
+	if err := prevRevQ.Select("COALESCE(SUM(total_revenue), 0)").Scan(&prevRevenue).Error; err != nil {
 		return 0, 0, 0, 0, 0, nil, err
 	}
 
@@ -350,7 +350,8 @@ func (r *OrderRepository) GetOrderStatistics(ctx context.Context, month int, yea
             it->>'product_id' AS product_id,
             it->>'name' AS name,
             SUM((it->>'quantity')::bigint) AS total_quantity,
-            COALESCE(SUM(((it->>'price')::numeric) * ((it->>'quantity')::bigint)), 0) AS total_revenue,
+            COALESCE(SUM(((it->>'price')::numeric) * ((it->>'quantity')::bigint)), 0) AS total_sales,
+            COALESCE(SUM((((it->>'price')::numeric) - COALESCE((it->>'cost_price')::numeric, 0)) * ((it->>'quantity')::bigint)), 0) AS total_revenue,
             COUNT(DISTINCT o.id) AS total_orders
         FROM orders o, jsonb_array_elements(o.items) AS it
         WHERE o.status = 'SHIPPED'
@@ -415,7 +416,7 @@ func (r *OrderRepository) GetRevenueLastNMonths(ctx context.Context, month, year
 		}
 
 		var revenue float64
-		if err := q.Select("COALESCE(SUM(total_price), 0)").Scan(&revenue).Error; err != nil {
+		if err := q.Select("COALESCE(SUM(total_revenue), 0)").Scan(&revenue).Error; err != nil {
 			return nil, err
 		}
 
@@ -466,7 +467,8 @@ func (r *OrderRepository) GetTopSellingProducts(ctx context.Context, month, year
 			item->>'product_id' as product_id,
 			item->>'name' as name,
 			SUM((item->>'quantity')::int) as total_quantity,
-			SUM((item->>'quantity')::int * (item->>'price')::float) as total_revenue,
+			SUM((item->>'quantity')::int * (item->>'price')::float) as total_sales,
+			SUM((item->>'quantity')::int * ((item->>'price')::float - COALESCE((item->>'cost_price')::float, 0))) as total_revenue,
 			COUNT(DISTINCT o.order_id) as total_orders
 		FROM orders o, jsonb_array_elements(o.items) as item
 		WHERE o.status = 'SHIPPED'

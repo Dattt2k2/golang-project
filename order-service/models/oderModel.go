@@ -69,6 +69,7 @@ type TopProduct struct {
 	ProductID     string  `json:"product_id"`
 	Name          string  `json:"name"`
 	TotalQuantity int64   `json:"total_quantity"`
+	TotalSales    float64 `json:"total_sales"`
 	TotalRevenue  float64 `json:"total_revenue"`
 	TotalOrders   int64   `json:"total_orders"`
 }

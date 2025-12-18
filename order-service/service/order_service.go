@@ -90,8 +90,8 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 	var totalPrice float64 = 0
 
 	for _, item := range filteredItems {
-		
-		log.Printf("DEBUG Cart Item: ProductID=%s, VariantId=%s, Quantity=%d", 
+
+		log.Printf("DEBUG Cart Item: ProductID=%s, VariantId=%s, Quantity=%d",
 			item.ProductId, item.VariantId, item.Quantity)
 
 		stockReq := &productpb.ProductRequest{
@@ -110,27 +110,40 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		vendorID := item.VendorId
 		var costPrice float64 = 0
 
-		if vendorID == "" {
-			productReq := &productpb.ProductRequest{Id: item.ProductId}
-			productResp, err := productClient.GetProductInfo(ctx, productReq)
-			if err == nil && productResp.VendorId != "" {
+		// Luôn lấy thông tin product để có cost_price
+		productReq := &productpb.ProductRequest{Id: item.ProductId}
+		productResp, err := productClient.GetProductInfo(ctx, productReq)
+		if err == nil {
+			// Lấy vendorID nếu chưa có
+			if vendorID == "" && productResp.VendorId != "" {
 				vendorID = productResp.VendorId
+			}
 
-				// Lấy cost_price từ variant tương ứng với variantID
-				if len(productResp.Variants) > 0 {
-					// Tìm variant khớp với variantID từ cart
-					for _, v := range productResp.Variants {
-						if item.VariantId != "" && v.Id == item.VariantId {
-							costPrice = float64(v.CostPrice)
-							break
-						}
-					}
-					// Nếu không tìm thấy variant khớp, lấy variant đầu tiên
-					if costPrice == 0 {
-						costPrice = float64(productResp.Variants[0].CostPrice)
+			// Lấy cost_price từ variant tương ứng với variantID
+			if len(productResp.Variants) > 0 {
+				// Tìm variant khớp với variantID từ cart
+				for _, v := range productResp.Variants {
+					if item.VariantId != "" && v.Id == item.VariantId {
+						costPrice = float64(v.CostPrice)
+						log.Printf("✅ Found cost_price for ProductID=%s, VariantID=%s: %.2f",
+							item.ProductId, item.VariantId, costPrice)
+						break
 					}
 				}
+				// Nếu không tìm thấy variant khớp, lấy variant đầu tiên
+				if costPrice == 0 && len(productResp.Variants) > 0 {
+					costPrice = float64(productResp.Variants[0].CostPrice)
+					log.Printf("⚠️ Using first variant cost_price for ProductID=%s: %.2f",
+						item.ProductId, costPrice)
+				}
 			}
+		} else {
+			log.Printf("❌ Failed to get product info for ProductID=%s: %v", item.ProductId, err)
+		}
+
+		if costPrice == 0 {
+			log.Printf("⚠️ WARNING: cost_price is 0 for ProductID=%s, VariantID=%s",
+				item.ProductId, item.VariantId)
 		}
 
 		orderItem := OrderItem{
@@ -152,7 +165,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 
 	// Debug: Log orderItems trước khi marshal
 	for i, item := range orderItems {
-		log.Printf("DEBUG OrderItem %d before marshal: ProductID=%s, VariantID=%s, Quantity=%d", 
+		log.Printf("DEBUG OrderItem %d before marshal: ProductID=%s, VariantID=%s, Quantity=%d",
 			i, item.ProductID, item.VariantID, item.Quantity)
 	}
 
@@ -160,7 +173,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 	if err != nil {
 		return nil, err
 	}
-	
+
 	log.Printf("DEBUG itemsJSON: %s", string(itemsJSON))
 
 	// Tính total cost và revenue
@@ -171,7 +184,13 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		itemRevenue := (item.Price - item.CostPrice) * float64(item.Quantity)
 		totalCost += itemCost
 		totalRevenue += itemRevenue
+
+		log.Printf("DEBUG Item: ProductID=%s, Price=%.2f, CostPrice=%.2f, Qty=%d, ItemRevenue=%.2f",
+			item.ProductID, item.Price, item.CostPrice, item.Quantity, itemRevenue)
 	}
+
+	log.Printf("DEBUG Order Summary: TotalPrice=%.2f, TotalCost=%.2f, TotalRevenue=%.2f",
+		totalPrice, totalCost, totalRevenue)
 
 	initialStatus := "PENDING"
 	paymentStatus := "PENDING"
@@ -305,6 +324,16 @@ func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID 
 	if err := s.orderRepo.UpdateOrderFields(ctx, orderID, updates); err != nil {
 		return err
 	}
+
+	// Stock đã được trừ thông qua Kafka event order_success khi order được tạo
+	// Không cần trừ lại khi SHIPPED
+
+	// if status == "SHIPPED" {
+	// 	if err := s.reduceProductStock(ctx, order); err != nil {
+	// 		logger.Err("Failed to reduce stock for shipped order", err, logger.Str("order_id", orderID))
+	// 		// Don't fail the status update, just log the error
+	// 	}
+	// }
 
 	// if status == "SHIPPED" {
 	// 	// logger.Info("🚀 Auto-triggering payout - User confirmed received order", logger.Str("order_id", orderID))
@@ -616,6 +645,8 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 	// Convert items
 	var orderItems []OrderItem
 	var totalPrice float64 = 0
+	var totalCost float64 = 0
+	var totalRevenue float64 = 0
 
 	for _, item := range req.Items {
 
@@ -633,11 +664,41 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		}
 
 		vendorID := ""
+		var costPrice float64 = 0
+
+		// Lấy thông tin product để có vendor_id và cost_price
 		productReq := &productpb.ProductRequest{Id: item.ProductID}
-		productResp, err := productClient.GetBasicInfo(ctx, productReq)
-		if err == nil && productResp.VendorId != "" {
-			vendorID = productResp.VendorId
+		productResp, err := productClient.GetProductInfo(ctx, productReq)
+		if err == nil {
+			if productResp.VendorId != "" {
+				vendorID = productResp.VendorId
+			}
+
+			// Lấy cost_price từ variant
+			if len(productResp.Variants) > 0 {
+				for _, v := range productResp.Variants {
+					if item.VariantID != "" && v.Id == item.VariantID {
+						costPrice = float64(v.CostPrice)
+						log.Printf("✅ [Direct Order] Found cost_price for ProductID=%s, VariantID=%s: %.2f",
+							item.ProductID, item.VariantID, costPrice)
+						break
+					}
+				}
+				if costPrice == 0 && len(productResp.Variants) > 0 {
+					costPrice = float64(productResp.Variants[0].CostPrice)
+					log.Printf("⚠️ [Direct Order] Using first variant cost_price for ProductID=%s: %.2f",
+						item.ProductID, costPrice)
+				}
+			}
+		} else {
+			log.Printf("❌ [Direct Order] Failed to get product info for ProductID=%s: %v", item.ProductID, err)
 		}
+
+		if costPrice == 0 {
+			log.Printf("⚠️ [Direct Order] WARNING: cost_price is 0 for ProductID=%s, VariantID=%s",
+				item.ProductID, item.VariantID)
+		}
+
 		orderItem := OrderItem{
 			VendorID:  vendorID,
 			ProductID: item.ProductID,
@@ -646,13 +707,25 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 			Size:      item.Size,
 			Color:     item.Color,
 			Quantity:  item.Quantity,
+			CostPrice: costPrice,
 			Price:     item.Price,
 		}
 
 		orderItems = append(orderItems, orderItem)
-		// totalPrice += float64(item.Quantity) * item.Price
 		totalPrice = calculateTotalPrice(orderItems)
+
+		// Tính cost và revenue
+		itemCost := costPrice * float64(item.Quantity)
+		itemRevenue := (item.Price - costPrice) * float64(item.Quantity)
+		totalCost += itemCost
+		totalRevenue += itemRevenue
+
+		log.Printf("DEBUG [Direct Order] Item: ProductID=%s, Price=%.2f, CostPrice=%.2f, Qty=%d, ItemRevenue=%.2f",
+			item.ProductID, item.Price, costPrice, item.Quantity, itemRevenue)
 	}
+
+	log.Printf("DEBUG [Direct Order] Summary: TotalPrice=%.2f, TotalCost=%.2f, TotalRevenue=%.2f",
+		totalPrice, totalCost, totalRevenue)
 
 	// Set payment details and status
 	initialStatus := "PENDING"
@@ -678,6 +751,8 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		UserID:          req.UserID,
 		Items:           datatypes.JSON(itemsJSON),
 		TotalPrice:      totalPrice,
+		TotalCost:       totalCost,
+		TotalRevenue:    totalRevenue,
 		Status:          initialStatus,
 		PaymentMethod:   req.PaymentMethod,
 		PaymentStatus:   paymentStatus,
@@ -1116,4 +1191,44 @@ func (s *OrderService) GetSlowMovingProducts(ctx context.Context, daysThreshold 
 	}
 
 	return results, err
+}
+
+// reduceProductStock reduces stock for all items in the order via gRPC
+func (s *OrderService) reduceProductStock(ctx context.Context, order *models.Order) error {
+	var orderItems []OrderItem
+	if err := json.Unmarshal(order.Items, &orderItems); err != nil {
+		return fmt.Errorf("failed to unmarshal order items: %w", err)
+	}
+
+	productClient := grpcClients.GetProductClient()
+	if productClient == nil {
+		return fmt.Errorf("product gRPC client is not available")
+	}
+
+	// Build stock items to reduce
+	var stockItems []*productpb.StockItem
+	for _, item := range orderItems {
+		stockItems = append(stockItems, &productpb.StockItem{
+			ProductId: item.ProductID,
+			VariantId: item.VariantID,
+			Quantity:  int32(item.Quantity),
+		})
+	}
+
+	// Call gRPC to update stock
+	updateReq := &productpb.UpdateStockRequest{
+		Items: stockItems,
+	}
+
+	resp, err := productClient.UpdateStock(ctx, updateReq)
+	if err != nil {
+		return fmt.Errorf("gRPC UpdateStock failed: %w", err)
+	}
+
+	if !resp.Success {
+		return fmt.Errorf("stock update failed: %s", resp.Message)
+	}
+
+	logger.Info("✅ Successfully reduced stock for order", logger.Str("order_id", order.OrderID))
+	return nil
 }

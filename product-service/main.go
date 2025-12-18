@@ -182,12 +182,9 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down product service...")
-	log.Println("Product service stopped")
 }
 
 func sendInitialProductEvents(svc service.ProductService) {
-	log.Println("🔄 Starting to send initial product events to search-service...")
 
 	products, err := svc.GetAllProductForIndex(context.Background())
 	if err != nil {
@@ -200,11 +197,8 @@ func sendInitialProductEvents(svc service.ProductService) {
 	for _, product := range products {
 		err := kafka.ProduceProductEvent(context.Background(), "INITIAL_SYNC", &product, product.ID)
 		if err != nil {
-			log.Printf("❌ Error sending product event for product ID %s: %v", product.ID, err)
 		} else {
-			log.Printf("✅ Sent product event for product ID: %s", product.ID)
 		}
 	}
 
-	log.Println("✅ Finished sending initial product events to search-service")
 }
