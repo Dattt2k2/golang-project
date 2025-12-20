@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	logger "product-service/log"
 	"product-service/models"
 
 	"github.com/segmentio/kafka-go"
@@ -48,68 +49,55 @@ func ConsumeOrderSuccess(brokers []string, updater models.ProductStockUpdater) {
 	})
 
 	go func() {
-		log.Printf("Kafka reader created for topic: %s", OrderSuccessTopic)
 		for {
-			log.Printf("Waiting for message on topic: %s", OrderSuccessTopic)
 			message, err := reader.ReadMessage(context.Background())
 			if err != nil {
-				log.Printf("Error reading message from Kafka (topic: %s): %v", OrderSuccessTopic, err)
 				time.Sleep(5 * time.Second) // Wait before retrying
 				continue
 			}
 
-			log.Printf("Received message from Kafka: key=%s, topic=%s, partition=%d, offset=%d",
-				string(message.Key), message.Topic, message.Partition, message.Offset)
-
 			var event OrderSuccessEvent
 			if err := json.Unmarshal(message.Value, &event); err != nil {
-				log.Printf(" Error unmarshalling message: %v", err)
 				continue
 			}
 
-			log.Printf("Received order_success event: OrderID=%s, Items=%d", event.OrderID, len(event.Items))
-
 			stockItems := make([]models.StockUpdateItem, len(event.Items))
 			for i, item := range event.Items {
+				log.Printf("  Item[%d]: ProductID=%s, VariantID=%s, Quantity=%d", i, item.ProductID, item.VariantID, item.Quantity)
+
+				variantID := item.VariantID
+				// Fallback: nếu VariantID rỗng (cart items cũ), lấy variant đầu tiên
+				if variantID == "" {
+					if productGetter, ok := updater.(interface {
+						GetProductForgRPC(ctx context.Context, id string) (*models.Product, error)
+					}); ok {
+						if product, err := productGetter.GetProductForgRPC(context.Background(), item.ProductID); err == nil && len(product.Variants) > 0 {
+							variantID = product.Variants[0].ID
+							log.Printf("⚠️ VariantID was empty, using first variant: %s for product %s", variantID, item.ProductID)
+						}
+					}
+				}
+
 				stockItems[i] = models.StockUpdateItem{
 					ProductID: item.ProductID,
-					VariantID: item.VariantID,
+					VariantID: variantID,
 					Quantity:  item.Quantity,
-				}
-			}
-
-			// Decrease stock (trừ số lượng tồn kho)
-			for _, item := range stockItems {
-				log.Printf("Decreasing stock for product %s, variant %s by %d", item.ProductID, item.VariantID, item.Quantity)
-				if err := updater.UpdateProductStock(context.Background(), item.ProductID, item.VariantID, item.Quantity); err != nil {
-					log.Printf("Error updating product stock: %v", err)
-				} else {
-					log.Printf("Stock decreased for product %s, variant %s", item.ProductID, item.VariantID)
 				}
 			}
 
 			// Increase sold count (cộng số lượng đã bán)
 			for _, item := range stockItems {
-				log.Printf("⬆Increasing sold count for product %s by %d", item.ProductID, item.Quantity)
 				if err := updater.IncrementSoldCount(context.Background(), item.ProductID, item.Quantity); err != nil {
-					log.Printf("Error incrementing sold count: %v", err)
-				} else {
-					log.Printf("Sold count increased for product %s", item.ProductID)
+					logger.Err("Failed to increment sold count", err)
 				}
-			}
 
-			log.Printf("Finished processing order_success: OrderID=%s", event.OrderID)
-
-			// Commit the message
-			if err := reader.CommitMessages(context.Background(), message); err != nil {
-				log.Printf("Error committing message: %v", err)
-			} else {
-				log.Printf("Message committed for OrderID=%s", event.OrderID)
+				// Decrease stock (trừ stock)
+				if err := updater.UpdateProductStock(context.Background(), item.ProductID, item.VariantID, item.Quantity); err != nil {
+					logger.Err("Failed to update product stock", err)
+				}
 			}
 		}
 	}()
-
-	log.Printf("Kafka consumer started for topic: %s", OrderSuccessTopic)
 }
 
 func ConsumerOrderReturned(brokers []string, updater models.ProductStockUpdater) {
@@ -143,9 +131,22 @@ func ConsumerOrderReturned(brokers []string, updater models.ProductStockUpdater)
 
 			stockItems := make([]models.StockUpdateItem, len(event.Items))
 			for i, item := range event.Items {
+				variantID := item.VariantID
+				// Fallback: nếu VariantID rỗng, lấy variant đầu tiên
+				if variantID == "" {
+					if productGetter, ok := updater.(interface {
+						GetProductForgRPC(ctx context.Context, id string) (*models.Product, error)
+					}); ok {
+						if product, err := productGetter.GetProductForgRPC(context.Background(), item.ProductID); err == nil && len(product.Variants) > 0 {
+							variantID = product.Variants[0].ID
+							log.Printf("⚠️ [Returned] VariantID was empty, using first variant: %s for product %s", variantID, item.ProductID)
+						}
+					}
+				}
+
 				stockItems[i] = models.StockUpdateItem{
 					ProductID: item.ProductID,
-					VariantID: item.VariantID,
+					VariantID: variantID,
 					Quantity:  item.Quantity,
 				}
 			}
