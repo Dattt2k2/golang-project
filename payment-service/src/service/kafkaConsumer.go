@@ -174,7 +174,6 @@ func (pc *PaymentConsumer) consumeVendorPayments(brokers []string) {
 	})
 	defer reader.Close()
 
-	logger.Info("Started vendor payments consumer")
 
 	for {
 		message, err := reader.ReadMessage(context.Background())
@@ -188,13 +187,6 @@ func (pc *PaymentConsumer) consumeVendorPayments(brokers []string) {
 			logger.Error("Error unmarshalling vendor payment: " + err.Error())
 			continue
 		}
-
-		logger.Info(fmt.Sprintf("Received vendor payment event for order %s, vendor %s, amount %.2f",
-			vendorPayment.OrderID, vendorPayment.VendorID, vendorPayment.Amount))
-
-		// The actual transfer was already done during payment capture
-		// This event is just for tracking/logging purposes
-		// We could update vendor balance or send notifications here
 	}
 }
 
@@ -203,9 +195,6 @@ func (pc *PaymentConsumer) handlePaymentRequestWithConnect(req PaymentRequestEve
 	if req.PaymentMethod != "stripe" {
 		return
 	}
-
-	logger.Info(fmt.Sprintf("📥 Processing payment request - Order: %s, Amount: %.2f, VendorID: %s",
-		req.OrderID, req.Amount, req.VendorID))
 
 	ctx := context.Background()
 	amountInCents := int64(req.Amount * 100)
@@ -222,16 +211,12 @@ func (pc *PaymentConsumer) handlePaymentRequestWithConnect(req PaymentRequestEve
 			logger.Error(fmt.Sprintf("⚠️  Failed to lookup vendor %s: %v. Creating standard payment.", req.VendorID, lookupErr))
 		} else if vendor.StripeAccountID != "" {
 			vendorStripeAccountID = vendor.StripeAccountID
-			logger.Info(fmt.Sprintf("✅ Found Stripe account for vendor %s: %s", req.VendorID, vendorStripeAccountID))
 		} else {
 			logger.Error(fmt.Sprintf("⚠️  Vendor %s has no Stripe account. Creating standard payment.", req.VendorID))
 		}
 	}
 
 	if vendorStripeAccountID != "" {
-		// Multi-vendor payment với Stripe Connect
-		logger.Info(fmt.Sprintf("💳 Creating Stripe Connect payment - Vendor: %s, Amount: %d cents, Fee: %d cents",
-			vendorStripeAccountID, amountInCents, platformFeeInCents))
 
 		paymentIntent, err = pc.paymentService.CreatePaymentIntentWithConnect(
 			ctx,
@@ -243,9 +228,6 @@ func (pc *PaymentConsumer) handlePaymentRequestWithConnect(req PaymentRequestEve
 			req.VendorBreakdown,
 		)
 	} else {
-		// Standard payment
-		logger.Info(fmt.Sprintf("💳 Creating standard payment (no Connect) - Order: %s, Amount: %d cents",
-			req.OrderID, amountInCents))
 
 		paymentIntent, err = pc.paymentService.CreatePaymentIntent(
 			ctx,
@@ -294,27 +276,22 @@ func (pc *PaymentConsumer) handleCaptureEvent(data interface{}) {
 	paymentID := captureData["payment_id"].(string)
 	amount := captureData["amount"].(float64)
 
-	logger.Info(fmt.Sprintf("🔄 Processing payment capture request for order: %s, payment: %s", orderID, paymentID))
 
 	// Capture the payment (release funds from escrow)
 	capturedPayment, err := pc.paymentService.CapturePaymentIntent(context.Background(), paymentID, orderID)
 	if err != nil {
-		logger.Error("❌ Failed to capture payment for order " + orderID + ": " + err.Error())
+		logger.Error(" Failed to capture payment for order " + orderID + ": " + err.Error())
 		pc.notifyPaymentStatus(orderID, paymentID, amount, "capture_failed", 0, 0, err.Error())
 		return
 	}
 
-	logger.Info(fmt.Sprintf("✅ Payment captured successfully for order: %s, amount: %.2f VND", orderID, amount))
 
 	// Notify successful capture
 	pc.notifyPaymentStatus(orderID, paymentID, amount, "captured", 0, 0, "")
 
 	// Process vendor transfers if this is a Connect payment
 	if capturedPayment.TransferData != nil && capturedPayment.TransferData.Destination != nil {
-		logger.Info(fmt.Sprintf("💰 Processing vendor transfer for order: %s", orderID))
 		go pc.processVendorTransfers(orderID, capturedPayment)
-	} else {
-		logger.Info(fmt.Sprintf("ℹ️  No vendor transfer needed for order: %s (not a Connect payment)", orderID))
 	}
 }
 
@@ -339,7 +316,6 @@ func (pc *PaymentConsumer) handleCancelEvent(data interface{}) {
 
 	// If payment succeeded, refund instead of cancel
 	if paymentIntent.Status == "succeeded" {
-		logger.Info("Payment already succeeded for order " + orderID + ", creating refund instead of cancel")
 
 		refundParams := &stripe.RefundParams{
 			PaymentIntent: stripe.String(paymentID),

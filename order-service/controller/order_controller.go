@@ -33,12 +33,14 @@ func (ctrl *OrderController) OrderFromCart() gin.HandlerFunc {
 
 		type OrderCartRequest struct {
 			Source          string `json:"source"`
-			PaymentMethod   string `json:"paymentMethod"`
-			ShippingAddress string `json:"shippingAddress"`
+			PaymentMethod   string `json:"payment_method"`
+			ShippingAddress string `json:"shipping_address"`
 			ShippingInfo    string `json:"shipping_info"`
 			Items           []struct {
-				ProductId string `json:"productId"`
+				ProductId string `json:"product_id"`
 				Quantity  int    `json:"quantity"`
+				Price     int    `json:"price"`
+				Name      string `json:"name"`
 			} `json:"items"`
 		}
 

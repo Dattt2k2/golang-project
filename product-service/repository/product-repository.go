@@ -35,6 +35,7 @@ type ProductRepository interface {
 	GetProductCategory(ctx context.Context) ([]models.Category, error)
 	DeleteProductCategory(ctx context.Context, categoryID string) error
 	GetCategoryByName(ctx context.Context, name string) (*models.Category, error)
+	GetCategoryByCode(ctx context.Context, code string) (*models.Category, error)
 	GetCategoryByID(ctx context.Context, id string) (*models.Category, error)
 	CountProductsByCategoryName(ctx context.Context, categoryName string) (int64, error)
 }
@@ -331,7 +332,6 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, skip, limit int64) 
 
 func (r *ProductRepositoryImpl) UpdateStock(ctx context.Context, productID string, variantID string, quantity int) error {
 	// Lấy thông tin product hiện tại
-	logger.Info(fmt.Sprintf("UpdateStock called: productID=%s, variantID=%s, quantity=%d", productID, variantID, quantity))
 
 	product, err := r.FindByID(ctx, productID)
 	if err != nil {
@@ -351,7 +351,6 @@ func (r *ProductRepositoryImpl) UpdateStock(ctx context.Context, productID strin
 			}
 
 			variantFound = true
-			logger.Info(fmt.Sprintf("Variant found: variantID=%s, new_quantity=%d (reduced by %d)", variantID, product.Variants[i].Quantity, quantity))
 			break
 		}
 	}
@@ -385,14 +384,12 @@ func (r *ProductRepositoryImpl) UpdateStock(ctx context.Context, productID strin
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("Stock updated successfully: productID=%s, variantID=%s", productID, variantID))
 	return nil
 }
 
 func (r *ProductRepositoryImpl) IncrementSoldCount(ctx context.Context, productID string, quantity int) error {
-	logger.Info(fmt.Sprintf("IncrementSoldCount called: productID=%s, quantity=%d", productID, quantity))
 
-	result, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"id": &types.AttributeValueMemberS{Value: productID},
@@ -410,18 +407,10 @@ func (r *ProductRepositoryImpl) IncrementSoldCount(ctx context.Context, productI
 		return err
 	}
 
-	// Log giá trị mới sau khi update
-	if soldAttr, ok := result.Attributes["sold_count"]; ok {
-		if soldN, ok := soldAttr.(*types.AttributeValueMemberN); ok {
-			logger.Info(fmt.Sprintf("Sold count incremented successfully: productID=%s, new_sold_count=%s", productID, soldN.Value))
-		}
-	}
-
 	return nil
 }
 
 func (r *ProductRepositoryImpl) DecrementSoldCount(ctx context.Context, productID string, quantity int) error {
-	logger.Info(fmt.Sprintf("DecrementSoldCount called: productID=%s, quantity=%d", productID, quantity))
 
 	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
@@ -440,7 +429,6 @@ func (r *ProductRepositoryImpl) DecrementSoldCount(ctx context.Context, productI
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("Sold count decremented successfully: productID=%s", productID))
 	return nil
 }
 
@@ -567,19 +555,25 @@ func (r *ProductRepositoryImpl) GetProductByCategory(ctx context.Context, catego
 		}
 	}
 
-	if limit > int64(len(products)) {
-		limit = int64(len(products))
-	}
-
 	if len(products) == 0 {
 		return []models.Product{}, total, nil
 	}
 
-	return products, total, nil
+	// Apply pagination
+	start := skip
+	if start > int64(len(products)) {
+		return []models.Product{}, total, nil
+	}
+
+	end := start + limit
+	if end > int64(len(products)) {
+		end = int64(len(products))
+	}
+
+	return products[start:end], total, nil
 }
 
 func (r *ProductRepositoryImpl) GetCategoryByName(ctx context.Context, name string) (*models.Category, error) {
-	logger.Info(fmt.Sprintf("GetCategoryByName called with name: %s", name))
 	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
 		TableName:        aws.String("Category"),
 		FilterExpression: aws.String("#name = :nameVal"),
@@ -608,8 +602,56 @@ func (r *ProductRepositoryImpl) GetCategoryByName(ctx context.Context, name stri
 	return &category, nil
 }
 
+func (r *ProductRepositoryImpl) GetCategoryByCode(ctx context.Context, code string) (*models.Category, error) {
+	logger.Logger.Infof("[GetCategoryByCode] Scanning for code: '%s'", code)
+
+	var lastEvaluatedKey map[string]types.AttributeValue
+
+	for {
+		input := &dynamodb.ScanInput{
+			TableName:        aws.String("Category"),
+			FilterExpression: aws.String("code = :codeVal"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":codeVal": &types.AttributeValueMemberS{Value: code},
+			},
+			Limit: aws.Int32(25),
+		}
+
+		if lastEvaluatedKey != nil {
+			input.ExclusiveStartKey = lastEvaluatedKey
+		}
+
+		result, err := r.client.Scan(ctx, input)
+		if err != nil {
+			logger.Logger.Errorf("[GetCategoryByCode] Error scanning: %v", err)
+			return nil, err
+		}
+
+		logger.Logger.Infof("[GetCategoryByCode] Scanned page, found %d items", len(result.Items))
+
+		if len(result.Items) > 0 {
+			var category models.Category
+			err = attributevalue.UnmarshalMap(result.Items[0], &category)
+			if err != nil {
+				logger.Logger.Errorf("[GetCategoryByCode] Error unmarshaling: %v", err)
+				return nil, err
+			}
+			logger.Logger.Infof("[GetCategoryByCode] Found category: code='%s', name='%s'", category.Code, category.Name)
+			return &category, nil
+		}
+
+		if result.LastEvaluatedKey == nil {
+			logger.Logger.Infof("[GetCategoryByCode] No more pages, category not found: '%s'", code)
+			break
+		}
+
+		lastEvaluatedKey = result.LastEvaluatedKey
+	}
+
+	return nil, nil
+}
+
 func (r *ProductRepositoryImpl) GetCategoryByID(ctx context.Context, id string) (*models.Category, error) {
-	logger.Info(fmt.Sprintf("GetCategoryByID called with id: %s", id))
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String("Category"),
 		Key: map[string]types.AttributeValue{

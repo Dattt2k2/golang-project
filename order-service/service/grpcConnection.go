@@ -43,7 +43,7 @@ func (g *GRPCClients) initConnections() {
 	defer g.mu.Unlock()
 
 	// Cart service connection
-	cartConn, err := g.createConnection("cart-service:8090", "Cart-service")
+	cartConn, err := g.createConnection("cart-service:8103", "Cart-service")
 	if err != nil {
 		logger.Err("Failed to connect to Cart-service", err)
 		return

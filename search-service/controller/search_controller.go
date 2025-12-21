@@ -8,7 +8,6 @@ import (
 	logger "search-service/log"
 	"search-service/service"
 
-	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
 )
@@ -55,7 +54,6 @@ func (ctrl *SearchController) AdvancedSearch() gin.HandlerFunc {
 			q = c.DefaultQuery("search", "")
 		}
 		// debug log
-		logger.Info("AdvancedSearch called", zap.String("q", q), zap.String("page", c.Query("page")), zap.String("limit", c.Query("limit")))
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 		if page < 1 {

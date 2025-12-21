@@ -46,7 +46,6 @@ func NewOrderService(orderRepo *repositories.OrderRepository) *OrderService {
 
 func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, source, paymentMethod, shippingAddress string, selectedProductIDs []string) (*models.Order, error) {
 
-	logger.Info("Create order from cart")
 	// Get cart items using gRPC
 	grpcClients := GetGRPCClients()
 
@@ -199,8 +198,8 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, userID string, s
 		initialStatus = "CONFIRMED"
 		paymentStatus = "PROCESSING"
 	} else if paymentMethod == "COD" {
-		initialStatus = "CONFIRMED"
-		paymentStatus = "COD_PENDING"
+		initialStatus = "PROCESSING"
+		paymentStatus = "PENDING_VERIFICATION"
 	}
 
 	orderID := s.generateOrderID()
@@ -336,7 +335,6 @@ func (s *OrderService) UpdateOrderStatusWithPayout(ctx context.Context, orderID 
 	// }
 
 	// if status == "SHIPPED" {
-	// 	// logger.Info("🚀 Auto-triggering payout - User confirmed received order", logger.Str("order_id", orderID))
 	// 	// go func() {
 	// 	// 	s.ReleasePaymentToVendor(context.Background(), orderID)
 	// 	// }()
@@ -719,13 +717,7 @@ func (s *OrderService) CreateOrderDirect(ctx context.Context, req OrderDirectReq
 		itemRevenue := (item.Price - costPrice) * float64(item.Quantity)
 		totalCost += itemCost
 		totalRevenue += itemRevenue
-
-		log.Printf("DEBUG [Direct Order] Item: ProductID=%s, Price=%.2f, CostPrice=%.2f, Qty=%d, ItemRevenue=%.2f",
-			item.ProductID, item.Price, costPrice, item.Quantity, itemRevenue)
 	}
-
-	log.Printf("DEBUG [Direct Order] Summary: TotalPrice=%.2f, TotalCost=%.2f, TotalRevenue=%.2f",
-		totalPrice, totalCost, totalRevenue)
 
 	// Set payment details and status
 	initialStatus := "PENDING"
@@ -1229,6 +1221,5 @@ func (s *OrderService) reduceProductStock(ctx context.Context, order *models.Ord
 		return fmt.Errorf("stock update failed: %s", resp.Message)
 	}
 
-	logger.Info("✅ Successfully reduced stock for order", logger.Str("order_id", order.OrderID))
 	return nil
 }

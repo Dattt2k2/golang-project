@@ -29,7 +29,6 @@ func NewKafkaReader(broker, topic, groupID string) *kafka.Reader {
 }
 
 func ConsumeUserDeleted(reader *kafka.Reader, handleFunc func(payload UserDeletedPayload)) {
-	logger.Info("Started consuming user.deleted topic")
 	for {
 		msg, err := reader.ReadMessage(context.Background())
 		if err != nil {
@@ -37,14 +36,12 @@ func ConsumeUserDeleted(reader *kafka.Reader, handleFunc func(payload UserDelete
 			time.Sleep(time.Second)
 			continue
 		}
-		logger.Info("Received raw message: " + string(msg.Value))
 
 		var payload UserDeletedPayload
 		if err := json.Unmarshal(msg.Value, &payload); err != nil {
 			logger.Err("Unmarshal failed", err)
 			continue
 		}
-		logger.Info("Processed user.deleted payload id=" + payload.UserID + " email=" + payload.Email)
 
 		// xử lý
 		handleFunc(payload)
@@ -57,7 +54,6 @@ func ConsumeUserDeleted(reader *kafka.Reader, handleFunc func(payload UserDelete
 }
 
 func ConsumeUserDisabled(reader *kafka.Reader, handleFunc func(payload UserDisabledPayload)) {
-	logger.Info("Started consuming user.disabled topic")
 	for {
 		msg, err := reader.ReadMessage(context.Background())
 		if err != nil {
@@ -65,14 +61,12 @@ func ConsumeUserDisabled(reader *kafka.Reader, handleFunc func(payload UserDisab
 			time.Sleep(time.Second)
 			continue
 		}
-		logger.Info("Received raw message: " + string(msg.Value))
 
 		var payload UserDisabledPayload
 		if err := json.Unmarshal(msg.Value, &payload); err != nil {
 			logger.Err("Unmarshal failed", err)
 			continue
 		}
-		logger.Info("Processed user.disabled payload id=" + payload.UserID + " email=" + payload.Email)
 
 		// xử lý
 		handleFunc(payload)

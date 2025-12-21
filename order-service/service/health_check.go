@@ -18,7 +18,6 @@ func InitHealthCheck() *health.Server {
 	healthServer.SetServingStatus("order.OrderService", healthpb.HealthCheckResponse_SERVING)
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
-	logger.Logger.Info("Health check service initialized")
 
 	return healthServer
 }

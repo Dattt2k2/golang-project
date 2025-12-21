@@ -40,11 +40,6 @@ func InitDB() *gorm.DB {
 	sqlDB.SetConnMaxLifetime(time.Hour)        // Maximum lifetime of a connection
 	sqlDB.SetConnMaxIdleTime(10 * time.Minute) // Maximum idle time for a connection
 
-	logger.Logger.Info("Database connection pool configured",
-		zap.Int("max_idle_conns", 25),
-		zap.Int("max_open_conns", 100),
-	)
-
 	DB = db
 	return DB
 }

@@ -31,6 +31,7 @@ type OrderSuccessEvent struct {
 	UserID     string          `json:"user_id"`
 	Items      []OrderItemInfo `json:"items"`
 	TotalPrice float64         `json:"total_price"`
+	Source     string          `json:"source"` // "cart" or "direct"
 }
 
 type OrderReturnedEvent struct {
@@ -77,7 +78,6 @@ func ProduceOrderDeleteItemEvent(ctx context.Context, userID string, productIDs 
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("Sending Kafka message to topic %s for cart delete: %s", OrderDeleteItemTopic, string(messagePayload)))
 
 	message := kafka.Message{
 		Key:   []byte(userID),
@@ -89,7 +89,6 @@ func ProduceOrderDeleteItemEvent(ctx context.Context, userID string, productIDs 
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("✅ Successfully produced cart delete event for UserID=%s", userID))
 	return nil
 }
 
@@ -109,7 +108,6 @@ func InitOrderSuccessProducer(brokers []string) {
 }
 
 func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
-	logger.Info("Start decresing product")
 	if orderSuccessWriter == nil {
 		return fmt.Errorf("Order success producer not initialized")
 	}
@@ -130,6 +128,7 @@ func ProduceOrderSuccessEvent(ctx context.Context, order models.Order) error {
 		UserID:     order.UserID,
 		TotalPrice: order.TotalPrice,
 		Items:      items,
+		Source:     order.Source,
 	}
 
 	messagePayload, err := json.Marshal(orderEvent)
@@ -192,7 +191,6 @@ func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("📨 Sending Kafka message to topic %s for order return: %s", OrderReturnedTopic, string(messagePayLoad)))
 
 	message := kafka.Message{
 		Key:   []byte(strconv.FormatUint(uint64(order.ID), 10)),
@@ -204,6 +202,5 @@ func ProduceOrderReturnedEvent(ctx context.Context, order models.Order) error {
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("✅ Successfully produced order_returned event for OrderID=%s", order.OrderID))
 	return nil
 }

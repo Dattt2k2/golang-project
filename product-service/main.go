@@ -71,6 +71,31 @@ func main() {
 	defer database.RedisClient.Close()
 	log.Printf("Connected to Redis")
 
+	// Xóa toàn bộ cache cũ để tránh presigned URLs bị presign 2 lần
+	ctx := context.Background()
+	deletedKeys := 0
+	cursor := uint64(0)
+	for {
+		keys, nextCursor, err := database.RedisClient.Scan(ctx, cursor, "products:*", 100).Result()
+		if err != nil {
+			log.Printf("Warning: Error scanning cache keys: %v", err)
+			break
+		}
+		if len(keys) > 0 {
+			deleted, err := database.RedisClient.Del(ctx, keys...).Result()
+			if err != nil {
+				log.Printf("Warning: Error deleting cache keys: %v", err)
+			} else {
+				deletedKeys += int(deleted)
+			}
+		}
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	log.Printf("✅ Cleared %d old cache keys to fix presigned URL issue", deletedKeys)
+
 	// Tạo ProductService chung cho cả gRPC và HTTP
 	tableName := os.Getenv("DYNAMODB_TABLE")
 	if tableName == "" {

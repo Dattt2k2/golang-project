@@ -2,9 +2,7 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -71,66 +69,58 @@ func NewProductController(service service.ProductService, s3Service service.S3Se
 	}
 }
 
-// generateVariantID - Tạo ID duy nhất cho variant dựa trên productID, size và color
-func (ctrl *ProductController) generateVariantID(productID, size, color string) string {
-	// Bỏ dấu và chuẩn hóa size và color
-	normalizedSize := strings.ToUpper(strings.TrimSpace(removeDiacritics(size)))
-	normalizedColor := strings.ToUpper(strings.TrimSpace(removeDiacritics(color)))
+// generateVariantID - Tạo ID duy nhất cho variant dựa trên productID, size, color và attribute
+func (ctrl *ProductController) generateVariantID(productID, size, color, attribute string) string {
+	parts := []string{productID}
 
-	// Thay thế khoảng trắng bằng dấu gạch ngang
-	normalizedColor = strings.ReplaceAll(normalizedColor, " ", "-")
-	normalizedSize = strings.ReplaceAll(normalizedSize, " ", "-")
+	// Normalize và thêm size nếu có
+	if size != "" {
+		normalizedSize := strings.ToUpper(strings.TrimSpace(removeDiacritics(size)))
+		normalizedSize = strings.ReplaceAll(normalizedSize, " ", "-")
+		normalizedSize = sanitizeForID(normalizedSize)
+		if normalizedSize != "" {
+			parts = append(parts, normalizedSize)
+		}
+	}
 
-	// Format: PRODUCT-ID-SIZE-COLOR
-	return fmt.Sprintf("%s-%s-%s", productID, normalizedSize, normalizedColor)
+	// Normalize và thêm color nếu có
+	if color != "" {
+		normalizedColor := strings.ToUpper(strings.TrimSpace(removeDiacritics(color)))
+		normalizedColor = strings.ReplaceAll(normalizedColor, " ", "-")
+		normalizedColor = sanitizeForID(normalizedColor)
+		if normalizedColor != "" {
+			parts = append(parts, normalizedColor)
+		}
+	}
+
+	// Normalize và thêm attribute nếu có (giữ số và dấu phẩy/chấm)
+	if attribute != "" {
+		normalizedAttr := strings.ToUpper(strings.TrimSpace(removeDiacritics(attribute)))
+		normalizedAttr = strings.ReplaceAll(normalizedAttr, " ", "-")
+		normalizedAttr = strings.ReplaceAll(normalizedAttr, ",", ".")
+		normalizedAttr = sanitizeForID(normalizedAttr)
+		if normalizedAttr != "" {
+			parts = append(parts, normalizedAttr)
+		}
+	}
+
+	// Nếu không có gì, dùng STD
+	if len(parts) == 1 {
+		parts = append(parts, "STD")
+	}
+
+	return strings.Join(parts, "-")
 }
 
-// getCategoryCode trả về mã category chuẩn
-func getCategoryCode(categoryName string) string {
-	// Mapping tên category sang code
-	categoryMap := map[string]string{
-		"Áo thun":        "SHIRT",
-		"Áo polo":        "POLO",
-		"Quần jeans":     "JEANS",
-		"Quần short":     "SHORT",
-		"Giày thể thao":  "SHOES",
-		"Giày da":        "SHOES-L",
-		"Túi xách":       "BAG",
-		"Balo":           "BACKPACK",
-		"Điện thoại":     "PHONE",
-		"Laptop":         "LAPTOP",
-		"Phụ kiện":       "ACCESS",
-		"Đồng hồ":        "WATCH",
-		"Mỹ phẩm":        "COSMETIC",
-		"Thời trang nam": "F-MEN",
-		"Thời trang nữ":  "F-WOM",
-		"Đồ gia dụng":    "HOME",
+// sanitizeForID loại bỏ ký tự không hợp lệ trong ID, chỉ giữ chữ cái, số, dấu chấm và gạch nối
+func sanitizeForID(s string) string {
+	var result strings.Builder
+	for _, r := range s {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '.' {
+			result.WriteRune(r)
+		}
 	}
-
-	// Tìm code từ map
-	if code, ok := categoryMap[categoryName]; ok {
-		return code
-	}
-
-	// Nếu không có trong map, chuẩn hóa tên category
-	normalized := removeDiacritics(categoryName)
-	return strings.ToUpper(strings.ReplaceAll(normalized, " ", "-"))
-}
-
-// generateProductID tạo ID duy nhất cho product dựa trên category
-func (ctrl *ProductController) generateProductID(ctx context.Context, category string) string {
-	// Lấy category code
-	categoryCode := getCategoryCode(category)
-
-	// Tạo 5 ký tự ngẫu nhiên
-	chars := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 5)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
-	}
-	randomPart := string(b)
-
-	return fmt.Sprintf("SKU-%s-%s", categoryCode, randomPart)
+	return result.String()
 }
 
 // randomString - Tạo chuỗi ngẫu nhiên
@@ -175,6 +165,7 @@ func (ctrl *ProductController) AddProduct() gin.HandlerFunc {
 			variants[i] = models.ProductVariant{
 				Size:      v.Size,
 				Color:     v.Color,
+				Attribute: v.Attribute, // Thêm attribute
 				Material:  v.Material,
 				CostPrice: v.CostPrice,
 				Price:     v.Price,
@@ -244,6 +235,8 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 
 		// Cập nhật variants
 		if len(req.Variants) > 0 {
+			logger.Info("Updating variants", zap.Int("request_variants_count", len(req.Variants)))
+
 			// Lấy product hiện tại để merge variants
 			currentProduct, err := ctrl.service.GetProductByID(ctx, id)
 			if err != nil {
@@ -252,22 +245,29 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 				return
 			}
 
+			logger.Info("Current product", zap.Int("current_variants_count", len(currentProduct.Variants)))
+
 			// Tạo map để tra cứu variants hiện tại
 			variantMap := make(map[string]models.ProductVariant)
 			for _, v := range currentProduct.Variants {
 				variantMap[v.ID] = v
+				logger.Info("Existing variant", zap.String("id", v.ID), zap.String("size", v.Size), zap.String("color", v.Color), zap.String("attribute", v.Attribute))
 			}
 
 			// Update hoặc thêm mới variants
 			for _, v := range req.Variants {
 				if v.ID != "" {
 					// Update variant hiện có
+					logger.Info("Updating existing variant", zap.String("id", v.ID))
 					if existing, ok := variantMap[v.ID]; ok {
 						if v.Size != nil {
 							existing.Size = *v.Size
 						}
 						if v.Color != nil {
 							existing.Color = *v.Color
+						}
+						if v.Attribute != nil {
+							existing.Attribute = *v.Attribute
 						}
 						if v.Material != nil {
 							existing.Material = *v.Material
@@ -281,21 +281,39 @@ func (ctrl *ProductController) EditProduct() gin.HandlerFunc {
 						variantMap[v.ID] = existing
 					}
 				} else {
-					// Thêm variant mới - cần size và color để generate ID
-					if v.Size == nil || v.Color == nil {
-						c.JSON(http.StatusBadRequest, gin.H{"error": "Size and color are required for new variants"})
-						return
+					logger.Info("Adding new variant",
+						zap.Stringp("size", v.Size),
+						zap.Stringp("color", v.Color),
+						zap.Stringp("attribute", v.Attribute))
+
+					// Thêm variant mới - không bắt buộc size/color nếu có attribute
+					sizeVal := ""
+					colorVal := ""
+					attrVal := ""
+
+					if v.Size != nil {
+						sizeVal = *v.Size
+					}
+					if v.Color != nil {
+						colorVal = *v.Color
+					}
+					if v.Attribute != nil {
+						attrVal = *v.Attribute
 					}
 
 					newVariant := models.ProductVariant{
-						ID:        ctrl.generateVariantID(id, *v.Size, *v.Color),
+						ID:        ctrl.generateVariantID(id, sizeVal, colorVal, attrVal),
 						CreatedAt: time.Now(),
 					}
+					logger.Info("Generated new variant ID", zap.String("id", newVariant.ID))
 					if v.Size != nil {
 						newVariant.Size = *v.Size
 					}
 					if v.Color != nil {
 						newVariant.Color = *v.Color
+					}
+					if v.Attribute != nil {
+						newVariant.Attribute = *v.Attribute
 					}
 					if v.Material != nil {
 						newVariant.Material = *v.Material
@@ -573,7 +591,12 @@ func (ctrl *ProductController) GetProductByUserID() gin.HandlerFunc {
 			log.Printf("Invalid limit parameter, using default: %v", err)
 			limit = 10
 		}
-		products, total, pages, hasNext, hasPrev, err := ctrl.service.GetProductByUserID(ctx, userID, page, limit)
+
+		category := c.Query("category")
+		sortBy := c.DefaultQuery("sortBy", "created_at")
+		sortOrder := c.DefaultQuery("sortOrder", "desc")
+
+		products, total, pages, hasNext, hasPrev, err := ctrl.service.GetProductByUserID(ctx, userID, page, limit, category, sortBy, sortOrder)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -648,12 +671,14 @@ func (ctrl *ProductController) GetProductByCategory() gin.HandlerFunc {
 		}
 
 		response := gin.H{
-			"data":     products,
-			"total":    total,
-			"page":     page,
-			"pages":    pages,
-			"has_next": hasNext,
-			"has_prev": hasPrev,
+			"products": products,
+			"pagination": gin.H{
+				"page":     page,
+				"total":    total,
+				"pages":    pages,
+				"has_next": hasNext,
+				"has_prev": hasPrev,
+			},
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -673,7 +698,7 @@ func (ctrl *ProductController) AddProductCategory() gin.HandlerFunc {
 
 		var req struct {
 			Name string `json:"name" binding:"required,min=2,max=100"`
-			Code string `json:"code" binding:"omitempty,alphanum,max=20"`
+			Code string `json:"code" binding:"omitempty,max=20"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})

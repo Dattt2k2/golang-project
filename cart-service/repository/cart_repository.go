@@ -36,6 +36,7 @@ func NewCartRepository(client *dynamodb.Client, tableName string) CartRepository
 }
 
 func (r *cartRepositoryImpl) AddItem(ctx context.Context, userID string, item models.CartItem) error {
+
 	itemAV, err := attributevalue.MarshalMap(item)
 	if err != nil {
 		return err

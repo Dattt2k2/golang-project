@@ -487,6 +487,8 @@ services:
       - postgres_user_data:/var/lib/postgresql/data
     networks:
       - traefik-net
+    ports:
+      - "5433:5432"  # Map to 5433 to avoid conflict with postgres-auth (5432)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 30s
@@ -523,6 +525,8 @@ services:
       - postgres_order_data:/var/lib/postgresql/data
     networks:
       - traefik-net
+    ports:
+      - "5434:5432"  # Map to 5434 to avoid conflict with other postgres instances
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 30s

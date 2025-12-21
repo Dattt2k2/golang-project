@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"math"
+	"os"
 	"time"
 
 	"cart-service/models"
@@ -31,13 +32,15 @@ type cartServiceImpl struct {
 }
 
 func NewCartService(repo repository.CartRepository) (CartService, error) {
-	conn, err := grpc.NewClient("product-service:8089", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	addr := os.Getenv("PRODUCT_GRPC_ADDR")
+	if addr == "" {
+		addr = "product-service:8089"
+	}
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("Failed to connect to product service: %v", err)
 		return nil, err
 	}
 
-	log.Printf("Connected to product service")
 	productClient := pb.NewProductServiceClient(conn)
 
 	return &cartServiceImpl{

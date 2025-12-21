@@ -79,11 +79,6 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 				"duration_ms", duration.Milliseconds(),
 				"error", err.Error(),
 			)
-		} else {
-			logger.Logger.Info("gRPC request completed",
-				"method", info.FullMethod,
-				"duration_ms", duration.Milliseconds(),
-			)
 		}
 
 		return resp, err
@@ -118,11 +113,6 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 				"method", info.FullMethod,
 				"duration_ms", duration.Milliseconds(),
 				"error", err.Error(),
-			)
-		} else {
-			logger.Logger.Info("gRPC stream completed",
-				"method", info.FullMethod,
-				"duration_ms", duration.Milliseconds(),
 			)
 		}
 

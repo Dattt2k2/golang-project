@@ -106,7 +106,7 @@ func main() {
 	cartController, cartServer := routes.SetupCartDependencies(cartSvc)
 
 	// Start Kafka consumer for order success
-	// kafka.ConsumeOrderSuccess(brokers, cartRepo)
+	kafka.ConsumeOrderSuccess(brokers, cartRepo)
 
 	// Khởi tạo router
 	router := gin.Default()

@@ -20,6 +20,7 @@ type OrderSuccessEvent struct {
 	UserID     string          `json:"user_id"`
 	Items      []OrderItemInfo `json:"items"`
 	TotalPrice float64         `json:"total_price"`
+	Source     string          `json:"source"` // "cart" or "direct"
 }
 
 type OrderItemInfo struct {
@@ -84,22 +85,34 @@ func ConsumeOrderSuccess(brokers []string, cartRepo repositories.CartRepository)
 		for {
 			msg, err := reader.ReadMessage(context.Background())
 			if err != nil {
-				log.Printf("[CartService] Error reading message: %v", err)
+				log.Printf("[CartService] Error reading message from order_success: %v", err)
 				continue
 			}
 
-			var event CartDeleteEvent
+			var event OrderSuccessEvent
 			if err := json.Unmarshal(msg.Value, &event); err != nil {
-				log.Printf("[CartService] Failed to unmarshal cart delete event: %v", err)
+				log.Printf("[CartService] Failed to unmarshal order success event: %v", err)
 				continue
 			}
 
-			log.Printf("[CartService] Received cart delete event: %+v", event)
+			log.Printf("[CartService] Received order success event for UserID=%s, OrderID=%s, Source=%s", event.UserID, event.OrderID, event.Source)
 
-			if err := cartRepo.DeleteCartItems(context.Background(), event.UserID, event.ProductIDs); err != nil {
+			// Chỉ xóa cart items nếu order từ cart
+			if event.Source != "cart" {
+				log.Printf("[CartService] Skipping cart deletion because order source is '%s', not 'cart'", event.Source)
+				continue
+			}
+
+			// Extract product IDs from order items
+			productIDs := make([]string, 0, len(event.Items))
+			for _, item := range event.Items {
+				productIDs = append(productIDs, item.ProductID)
+			}
+
+			if err := cartRepo.DeleteCartItems(context.Background(), event.UserID, productIDs); err != nil {
 				log.Printf("[CartService] Failed to delete cart items for user %s: %v", event.UserID, err)
 			} else {
-				log.Printf("[CartService] Successfully deleted cart items for user %s", event.UserID)
+				log.Printf("[CartService] Successfully deleted %d cart items for user %s", len(productIDs), event.UserID)
 			}
 		}
 	}()

@@ -115,6 +115,7 @@ import (
 type ProductVariant struct {
 	ID        string    `json:"id" dynamodbav:"id"`
 	Size      string    `json:"size" dynamodbav:"size"`
+	Attribute string   `json:"attribute" dynamodbav:"attribute"`
 	Color     string    `json:"color" dynamodbav:"color"`
 	Material  string    `json:"material" dynamodbav:"material"`
 	CostPrice float64   `json:"cost_price" dynamodbav:"cost_price"`
@@ -152,8 +153,9 @@ type CreateProductRequest struct {
 }
 
 type CreateVariantRequest struct {
-	Size      string  `json:"size" binding:"required,max=50"`
-	Color     string  `json:"color" binding:"required,max=50"`
+	Size      string  `json:"size" binding:"omitempty,max=50"`  // Optional - cho đồ điện tử không cần size
+	Color     string  `json:"color" binding:"omitempty,max=50"` // Optional - cho sản phẩm không có màu
+	Attribute string  `json:"attribute" binding:"omitempty,max=100"`
 	Material  string  `json:"material" binding:"omitempty,max=100"`
 	CostPrice float64 `json:"cost_price" binding:"required,gt=0"`
 	Price     float64 `json:"price" binding:"required,gt=0"`
@@ -175,7 +177,7 @@ type UpdateProductRequest struct {
 	Name        *string                `json:"name,omitempty" binding:"omitempty,min=2,max=100"`
 	ImagePath   *[]string              `json:"image_path,omitempty"` // Optional update
 	Category    *string                `json:"category,omitempty"`
-	Description *string                `json:"description,omitempty" binding:"omitempty,min=2,max=500"`
+	Description *string                `json:"description,omitempty" binding:"omitempty,min=2"`
 	Status      *string                `json:"status,omitempty" binding:"omitempty,oneof=onsale offsale unavailable"`
 	Variants    []UpdateVariantRequest `json:"variants,omitempty"`
 }
@@ -184,6 +186,7 @@ type UpdateVariantRequest struct {
 	ID        string   `json:"id" binding:"omitempty"`
 	Size      *string  `json:"size" binding:"omitempty,max=50"`
 	Color     *string  `json:"color" binding:"omitempty,max=50"`
+	Attribute *string  `json:"attribute" binding:"omitempty,max=100"`
 	Material  *string  `json:"material" binding:"omitempty,max=100"`
 	CostPrice *float64 `json:"cost_price" binding:"omitempty,gt=0"`
 	Price     *float64 `json:"price" binding:"omitempty,gt=0"`

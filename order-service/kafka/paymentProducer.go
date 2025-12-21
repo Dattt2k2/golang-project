@@ -142,7 +142,6 @@ func ProducePaymentCaptureEvent(ctx context.Context, capture PaymentCaptureEvent
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("✅ Payment capture event sent successfully for order: %s to topic: %s", capture.OrderID, PaymentActionTopic))
 	return nil
 }
 
@@ -176,7 +175,6 @@ func ProducePaymentCancelEvent(ctx context.Context, cancel PaymentCancelEvent) e
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("✅ Payment cancel event sent successfully for order: %s to topic: %s", cancel.OrderID, PaymentActionTopic))
 	return nil
 }
 

@@ -7,7 +7,6 @@ import (
 
 	"auth-service/helpers"
 	"auth-service/kafka"
-	"auth-service/logger"
 	"auth-service/models"
 	"auth-service/repository"
 	"auth-service/websocket"
@@ -127,7 +126,6 @@ func (s *authServiceImpl) Register(ctx context.Context, email, password, phone, 
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("Published user.created event to Kafka")
 	return &models.SignUpResponse{
 		Message:      "User registered successfully",
 		User:         result,
